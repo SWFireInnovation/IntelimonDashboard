@@ -80,32 +80,32 @@ function(input, output, session) {
     )
   })
   
-    # Dynamically render the plot
-    output$col_hist <- renderPlot({
-        print('Plot triggered')
-        print(input$selected_column)
-        req(combined_data(), input$selected_column)
-        
-        df <- combined_data()
-        col <- input$selected_column
-        
-        print(col)
-        
-        # Verify the expected columns exist before plotting
-        if (!(col %in% names(df))) {
-          showNotification("Selected files must contain column.", type = "error")
-          return(NULL)
-        }
+  # Dynamically render the plot
+  output$col_hist <- renderPlot({
+    print('Plot triggered')
+    print(input$selected_column)
+    req(combined_data(), input$selected_column)
+    
+    df <- combined_data()
+    col <- input$selected_column
+    
+    print(col)
+    
+    # Verify the expected columns exist before plotting
+    if (!(col %in% names(df))) {
+      showNotification("Selected files must contain column.", type = "error")
+      return(NULL)
+    }
 
-        # generate bins based on input$bins from ui.R
-        x    <- df[, col]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
+    # generate bins based on input$bins from ui.R
+    x    <- df[, col]
+    bins <- seq(min(x), max(x), length.out = input$bins + 1)
 
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = col,
-             main = glue('Histogram of {col}'))
+    # draw the histogram with the specified number of bins
+    hist(x, breaks = bins, col = 'darkgray', border = 'white',
+         xlab = col,
+         main = glue('Histogram of {col}'))
 
-    })
+  })
 
 }
