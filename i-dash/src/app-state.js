@@ -30,7 +30,9 @@ class AppState {
     this.paths = {
       rpath: path.join(app.getAppPath(), this.config.rPath),
       get libPath() {
-        return path.join(this.rpath, "library");
+        const libpath = path.join(this.rpath, "library");
+        return libpath.replace(/\\/g, "/");
+
       },
       get rscript() {
         return path.join(this.rpath, "bin", "R");

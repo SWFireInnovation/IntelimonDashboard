@@ -18,7 +18,7 @@ if (!nzchar(r_lib_paths)) {
 .libPaths(r_lib_paths) # Temporarily set library paths to R_LIB_PATHS
 
 if (!requireNamespace("shiny", quietly = TRUE)) {
-  stop("The 'shiny' package is not installed in R_LIB_PATHS: ", r_lib_paths)
+  stop("The 'shiny' package is not installed in R_LIB_PATHS: ", .libPaths())
 }
 shiny_dir <- Sys.getenv("RE_SHINY_PATH")
 

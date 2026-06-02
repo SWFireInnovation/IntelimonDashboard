@@ -5,7 +5,9 @@ class ServerUtils {
     return ErrorHandler.handleAsyncError(
       "ServerUtils.checkServerStatus",
       async () => {
-        const controller = new AbortController();
+        const AbortControllerClass =
+          global.AbortController || require('abort-controller');
+        const controller = new AbortControllerClass();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
         try {

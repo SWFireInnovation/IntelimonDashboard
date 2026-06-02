@@ -8,6 +8,11 @@ const ServerUtils = require("./server-utils"); // 추가
 const AppState = require("./app-state");
 const WindowManager = require("./window-manager");
 
+global.fetch = require('node-fetch');
+
+const AbortController = require('abort-controller');
+global.AbortController = AbortController;
+
 // Initialize global state
 const appState = new AppState();
 

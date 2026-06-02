@@ -23,7 +23,9 @@ class ProcessManager {
   static async startShinyProcess(appState) {
     return new Promise((resolve, reject) => {
       let settled = false;
-
+      
+      console.log("R lib path:", appState.paths.libPath);
+      
       const rShinyProcess = spawn(
         appState.paths.rscript,
         [
@@ -43,9 +45,17 @@ class ProcessManager {
             R_LIBS_USER: appState.paths.libPath,
             R_LIBS_SITE: appState.paths.libPath,
           },
-          stdio: "ignore",
+          stdio: ["ignore", "pipe", "pipe"],
         }
       );
+
+      rShinyProcess.stdout.on("data", (data) => {
+        console.log("[R stdout]", data.toString());
+      });
+
+      rShinyProcess.stderr.on("data", (data) => {
+        console.error("[R stderr]", data.toString());
+      });
 
       rShinyProcess.on("error", (err) => {
         if (!settled) {

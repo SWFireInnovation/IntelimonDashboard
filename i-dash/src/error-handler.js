@@ -6,7 +6,7 @@ class ErrorHandler {
       message: error.message,
       stack: error.stack,
       timestamp: new Date().toISOString(),
-      ...metadata,
+      metadata,
     };
 
     console.error(`[${context}] Error:`, errorInfo);
