@@ -1,4 +1,15 @@
 data_loc.yaml
+
+# Electron standalone app build process
+# -----------------------------------------
+/out
+/node_modules
+
+# portable R installation bundled in binary
+/r-nhyris
+
+# R development environment and R-studio/IDE files
+# -------------------------------------------------
 # History files
 .Rhistory
 .Rapp.history
@@ -50,6 +61,7 @@ po/*~
 rsconnect/
 
 # ignore binary documents
+# ---------------------------------------------------------
 # ignore both legacy and modern Microsoft (e.g. .doc/.docx)
 *.pdf
 *.doc*
