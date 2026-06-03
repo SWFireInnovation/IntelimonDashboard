@@ -2,11 +2,11 @@ data_loc.yaml
 
 # Electron standalone app build process
 # -----------------------------------------
-/out
-/node_modules
+out/
+node_modules/
 
 # portable R installation bundled in binary
-/r-nhyris
+r-nhyris/
 
 # R development environment and R-studio/IDE files
 # -------------------------------------------------
