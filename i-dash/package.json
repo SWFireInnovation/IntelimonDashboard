@@ -1,0 +1,32 @@
+{
+  "name": "i-dash",
+  "productName": "i-dash",
+  "version": "0.0.1",
+  "description": "Test IntELiMon dashboard desktop R-shiny app built with Electron",
+  "main": "src/index.js",
+  "author": {
+    "name": "Greg Cohn",
+    "email": "greg.cohn@nau.edu"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SWFireInnovation/IntelimonDashboard"
+  },
+  "dependencies": {
+    "abort-controller": "^3.0.0",
+    "electron-compile": "^6.4.4",
+    "electron-squirrel-startup": "^1.0.1",
+    "node-fetch": "^2.7.0"
+  },
+  "config": {
+    "forge": "forge.config.js"
+  },
+  "scripts": {
+    "start": "electron-forge start"
+  },
+  "devDependencies": {
+    "electron-forge": "5.2.4",
+    "electron-prebuilt-compile": "8.2.0"
+  }
+}
