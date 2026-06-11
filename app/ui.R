@@ -6,10 +6,12 @@
 #
 #    https://shiny.posit.co/
 #
-
-library(shiny)
-library(bslib)
-library(gridlayout)
+box::use(
+  bslib[bs_theme, card_body, card_header, nav_panel, page_navbar],
+  gridlayout[grid_card, grid_card_plot, grid_container],
+  leaflet[leafletOutput],
+  shiny[actionButton, dateRangeInput, radioButtons, selectInput, textInput, uiOutput],
+)
 
 # Define UI for application that draws a histogram
 page_navbar(
@@ -17,7 +19,7 @@ page_navbar(
     title = "IntELiMon Dashboard",
     selected = "Selection Map",
     collapsible = TRUE,
-    theme = bslib::bs_theme(),
+    theme = bs_theme(),
 
     nav_panel(
       title = "Load Data",

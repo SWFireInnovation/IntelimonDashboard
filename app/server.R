@@ -7,13 +7,37 @@
 #    https://shiny.posit.co/
 #
 
-library(shiny)
-library(leaflet)
-library(yaml)
-library(glue)
-# could simplify and remove
-library(purrr)
-library(dplyr)
+box::use(
+  glue[glue],
+  leaflet[
+    addProviderTiles,
+    leaflet,
+    leafletCRS,
+    leafletOptions,
+    providers,
+    providerTileOptions,
+    renderLeaflet,
+    setView,
+  ],
+  purrr[map_df],
+  shiny[
+    hideTab,
+    observeEvent,
+    reactive,
+    reactiveVal,
+    renderPlot,
+    renderPrint,
+    renderUI,
+    req,
+    selectInput,
+    showNotification,
+    showTab,
+    sliderInput,
+    p,
+  ],
+  tools[file_path_sans_ext],
+  yaml[read_yaml],
+)
 
 hide_data_input_tab <- file.exists('../data_loc.yaml')
 

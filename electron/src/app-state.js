@@ -37,7 +37,7 @@ class AppState {
       get rscript() {
         return path.join(this.rpath, "bin", "R");
       },
-      shinyAppPath: path.join(app.getAppPath(), "shiny"),
+      shinyAppPath: path.join(app.getAppPath(), "app"),
     };
   }
 

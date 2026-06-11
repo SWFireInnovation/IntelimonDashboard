@@ -2,11 +2,19 @@ data_loc.yaml
 
 # Electron standalone app build process
 # -----------------------------------------
-out/
+electron/out/
+electron/dist/
 node_modules/
 
 # portable R installation bundled in binary
 r-nhyris/
+
+# PyCharm IDE
+.idea/*
+
+# Rhino shiny development
+# /style and /js compile into this dir
+app/static/dist/
 
 # R development environment and R-studio/IDE files
 # -------------------------------------------------

@@ -1,9 +1,9 @@
 {
-  "name": "i-dash",
-  "productName": "i-dash",
+  "name": "IntELiMon_Dashboard",
+  "productName": "IntELiMon Dashboard",
   "version": "0.0.1",
   "description": "Test IntELiMon dashboard desktop R-shiny app built with Electron",
-  "main": "src/index.js",
+  "main": "src/main.js",
   "author": {
     "name": "Greg Cohn",
     "email": "greg.cohn@nau.edu"
