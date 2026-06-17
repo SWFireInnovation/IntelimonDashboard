@@ -1,6 +1,6 @@
 box::use(
+  bslib[bs_theme, page_navbar],
   shiny[NS, moduleServer],
-  bslib[bs_theme, page_navbar]
 )
 
 box::use(
@@ -13,7 +13,7 @@ box::use(
   view/tab_predictive_models,
   view/tab_raster,
   view/tab_rothRmel,
-  view/tab_selectionMap
+  view/tab_selectionMap,
 )
 
 # Define UI for application that draws a histogram
@@ -21,11 +21,11 @@ box::use(
 ui <- function(id) {
   ns <- NS(id)
   page_navbar(
-      # Application title
-      title = "IntELiMon Dashboard",
-      selected = "Selection Map",
-      collapsible = TRUE,
-      theme = bs_theme(),
+    # Application title
+    title = "IntELiMon Dashboard",
+    selected = "Selection Map",
+    collapsible = TRUE,
+    theme = bs_theme(),
     if (!file.exists("../data_loc.yaml")) {
       tab_load_data$ui(ns("Load Data"))
     },

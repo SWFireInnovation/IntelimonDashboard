@@ -1,10 +1,10 @@
 box::use(
+  bslib[nav_panel],
   shiny,
-  bslib[nav_panel]
 )
 
 box::use(
-  app/logic/load_data_dir[get_data_path]
+  app/logic/load_data_dir[get_data_path],
 )
 
 #' @export
@@ -20,7 +20,7 @@ ui <- function(id) {
 
 #' @export
 server <- function(id) {
-  shiny$moduleServer(id, function(input, output, session){
+  shiny$moduleServer(id, function(input, output, session) {
     # Initialize data_dir reactively based on yaml existence
     data_dir <- shiny$reactiveVal(get_data_path())
 
@@ -28,11 +28,11 @@ server <- function(id) {
     shiny$observeEvent(input$submit_dir, {
       shiny$req(input$ui_data_dir)
 
-          if(dir.exists(input$ui_data_dir)){
-            data_dir(input$ui_data_dir)
-          }else{
-            shiny$showNotification("Directory does not exist.", type = "error")
-          }
+      if (dir.exists(input$ui_data_dir)) {
+        data_dir(input$ui_data_dir)
+      } else {
+        shiny$showNotification("Directory does not exist.", type = "error")
+      }
     })
     # return the reactive so the main server can pass it to other modules
     data_dir

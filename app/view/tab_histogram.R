@@ -1,12 +1,12 @@
 box::use(
-  shiny,
   bslib[nav_panel],
   glue[glue],
-  graphics[hist]
+  graphics[hist],
+  shiny,
 )
 
 box::use(
-  app/logic/load_data_dir[list_plot_files, load_selected_plots]
+  app/logic/load_data_dir[list_plot_files, load_selected_plots],
 )
 
 #' @export
@@ -17,14 +17,14 @@ ui <- function(id) {
     title = "Histogram",
     shiny$sidebarLayout(
       shiny$sidebarPanel(
-          shiny$uiOutput(ns("plot_selector_ui")),
-          shiny$uiOutput(ns("column_selector_ui")),
-          shiny$uiOutput(ns('bins_ui'))
+        shiny$uiOutput(ns("plot_selector_ui")),
+        shiny$uiOutput(ns("column_selector_ui")),
+        shiny$uiOutput(ns("bins_ui"))
       ),
 
       # Show a plot of the generated distribution
       shiny$mainPanel(
-          shiny$plotOutput(ns("col_hist"))
+        shiny$plotOutput(ns("col_hist"))
       )
     )
   )
@@ -32,7 +32,7 @@ ui <- function(id) {
 
 #' @export
 server <- function(id, data_dir) {
-  shiny$moduleServer(id, function(input, output, session){
+  shiny$moduleServer(id, function(input, output, session) {
     # Dynamically render the selection UI based on available files.
     # Reactive expression to fetch raw file names and create clean labels
     file_select <- shiny$reactive({
@@ -52,7 +52,7 @@ server <- function(id, data_dir) {
         inputId = session$ns("selected_plots"),
         label = "Choose Plots to Load:",
         choices = names(plot_files), # Shows clean names to user
-        multiple = TRUE,          # Allows selecting more than one file
+        multiple = TRUE, # Allows selecting more than one file
         selected = names(plot_files)[1:2]
       )
     })
@@ -96,7 +96,7 @@ server <- function(id, data_dir) {
         session$ns("bins"),
         "Number of bins:",
         min = 2,
-        max = max(3, length(x)),   # scale with data size
+        max = max(3, length(x)), # scale with data size
         value = min(3, length(x))
       )
     })
@@ -117,14 +117,15 @@ server <- function(id, data_dir) {
       }
 
       # generate bins based on input$bins from ui.R
-      x    <- df[, col]
+      x <- df[, col]
       bins <- seq(min(x), max(x), length.out = input$bins + 1)
 
       # draw the histogram with the specified number of bins
-      hist(x, breaks = bins, col = 'darkgray', border = 'white',
-           xlab = col,
-           main = glue('Histogram of {col}'))
-
+      hist(x,
+        breaks = bins, col = "darkgray", border = "white",
+        xlab = col,
+        main = glue("Histogram of {col}")
+      )
     })
   })
 }

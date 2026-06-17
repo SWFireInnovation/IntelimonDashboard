@@ -1,8 +1,8 @@
 box::use(
   purrr[map_df],
   tools[file_path_sans_ext],
+  utils[read.csv],
   yaml[read_yaml],
-  utils[read.csv]
 )
 
 #' @export
@@ -25,15 +25,12 @@ list_plot_files <- function(data_dir) {
 
 #' @export
 load_selected_plots <- function(data_dir, selected_plots, plot_files) {
-    # Map user selection back to actual file names and build full paths
-    selected_files <- plot_files[selected_plots]
-    full_paths <- file.path(data_dir, selected_files)
+  # Map user selection back to actual file names and build full paths
+  selected_files <- plot_files[selected_plots]
+  full_paths <- file.path(data_dir, selected_files)
 
-    names(full_paths) <- selected_plots
+  names(full_paths) <- selected_plots
 
-    # Read all selected files and merge them into a single data frame
-    map_df(full_paths, \(x) read.csv(x), .id = "Plot_ID")
-    #full_paths %>%
-    # setNames(selected_plots) %>%
-    # map_df(~read.csv(.x), .id = "Plot_ID")
+  # Read all selected files and merge them into a single data frame
+  map_df(full_paths, \(x) read.csv(x), .id = "Plot_ID")
 }
