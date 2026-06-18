@@ -1,3 +1,6 @@
+# Force all package installations to build from source
+options(pkgType = "source")
+
 if (file.exists("renv")) {
   source("renv/activate.R")
 } else {

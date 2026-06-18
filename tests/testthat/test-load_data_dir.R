@@ -64,7 +64,7 @@ describe("load_selected_plots", {
     result <- load_data_dir$load_selected_plots(
       data_dir       = test_data,
       selected_plots = "scan_A",
-      plot_files     = PLOT_FILES
+      plot_files     = plot_files
     )
 
     expect_equal(unique(result$Plot_ID), "scan_A")

@@ -1,4 +1,5 @@
 # This file allows packrat (used by rsconnect during deployment) to pick up dependencies.
+library(box.linters)
 library(bslib)
 library(dplyr)
 library(glue)

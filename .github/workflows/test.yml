@@ -34,6 +34,8 @@ jobs:
 
       - name: Setup R dependencies
         uses: r-lib/actions/setup-renv@v2
+        env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node
         uses: actions/setup-node@v3
