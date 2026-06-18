@@ -19,23 +19,55 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # load OS (unbuntu) from cache
+      - name: Get apt cache dir
+        id: apt-cache
+        # assign /var/cache/apt/archives dynamically in case GitHub changes is
+        run: echo "dir=$(apt-config dump Dir::Cache::archives | grep -oP '(?<=").*(?=")')" >> $GITHUB_OUTPUT
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          # load the apt-cache directory assigned in the step above
+          path: ${{ steps.apt-cache.outputs.dir }}
+          # current configuration will create a new cache every time test.yml changes.
+          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/test.yml') }}
+
       - name: Setup system dependencies
+        # terra requires gdal and sql libraries
         run: |
           packages=(
-            # List each package on a separate line.
+            libgdal-dev
+            libgeos-dev
+            libproj-dev
+            libsqlite3-dev
           )
           sudo apt-get update
           sudo apt-get install --yes "${packages[@]}"
+
+      # load R from cache, or simply restore for small changes to renv.lock.
+      - name: Cache R
+        uses: actions/cache@v4
+        with:
+          path: /opt/R
+          key: R-${{ runner.os }}-${{ hashFiles('renv.lock') }}
 
       - name: Setup R
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: renv
 
+      # load renv from cache, or simply restore for small changes to renv.lock.
+      - name: Cache renv packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/renv/cache
+          # any change to renv.lock will replace the cache
+          key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
+          restore-keys: renv-${{ runner.os }}-
+
       - name: Setup R dependencies
         uses: r-lib/actions/setup-renv@v2
-        env:
-          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node
         uses: actions/setup-node@v3
