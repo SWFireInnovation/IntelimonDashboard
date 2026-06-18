@@ -3,7 +3,6 @@ linters:
     defaults = box.linters::rhino_default_linters,
     line_length_linter = line_length_linter(110),
     # functions of modules imported with box give false positives
-    object_usage_linter = NULL,
     box_usage_linter = NULL,
     box_mod_fun_exists_linter = NULL
   )
