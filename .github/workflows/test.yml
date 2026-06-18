@@ -29,16 +29,26 @@ jobs:
           key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/test.yml') }}
 
       - name: Setup system dependencies
+        if: steps.cache-apt-restore.outputs.cache-hit != 'true'
         # terra requires gdal and sql libraries
         run: |
+          # 1. Force the runner to bypass the broken Azure mirror
+          sudo sed -i 's| http://azure.archive.ubuntu.com/ubuntu |http://ubuntu.com|g' /etc/apt/sources.list
+          
+          # 2. Add aggressive timeout limits so it never hangs for an hour again
+          sudo apt-get \
+            -o Acquire::ForceIPv4=true \
+            -o Acquire::http::Timeout="10" \
+            -o Acquire::ftp::Timeout="10" \
+            update
+    
           packages=(
             libgdal-dev
             libgeos-dev
             libproj-dev
             libsqlite3-dev
           )
-          sudo apt-get update
-          sudo apt-get install --yes "${packages[@]}"
+          sudo apt-get install --yes --no-install-recommends "${packages[@]}"
 
       # ----R installation environment----------------------------------------------
       - name: Restore R cache
@@ -49,6 +59,7 @@ jobs:
           key: R-${{ runner.os }}-${{ hashFiles('renv.lock') }}
 
       - name: Setup R
+        if: steps.cache-r-restore.outputs.cache-hit != 'true'
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: renv
@@ -72,6 +83,7 @@ jobs:
           restore-keys: renv-${{ runner.os }}-
 
       - name: Setup R dependencies
+        if: steps.cache-renv-restore.outputs.cache-hit != 'true'
         uses: r-lib/actions/setup-renv@v2
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
