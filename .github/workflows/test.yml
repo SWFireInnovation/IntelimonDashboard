@@ -35,7 +35,7 @@ jobs:
           # 1. Force the runner to bypass the broken Azure mirror
           sudo sed -i 's| http://azure.archive.ubuntu.com/ubuntu |http://ubuntu.com|g' /etc/apt/sources.list
           
-          # 2. Add aggressive timeout limits so it never hangs for an hour again
+          # 2. Add aggressive timeout limits so it never hangs for an hour again (and avoids Microsoft's ipv6 errors)
           sudo apt-get \
             -o Acquire::ForceIPv4=true \
             -o Acquire::http::Timeout="10" \
@@ -77,7 +77,7 @@ jobs:
         id: cache-renv-restore
         uses: actions/cache/restore@v5
         with:
-          path: ~/.local/share/renv/cache
+          path: /home/runner/work/_temp/renv
           # any change to renv.lock will replace the cache
           key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
           restore-keys: renv-${{ runner.os }}-
@@ -93,16 +93,24 @@ jobs:
         if: always() && steps.cache-renv-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: ~/.local/share/renv/cache
+          path: /home/runner/work/_temp/renv
           # any change to renv.lock will replace the cache
           key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
 
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 24
 
       # save entire OS env, including any installations made by R (like gdal)
+      # remove files that require sudo for access before caching
+      - name: Prepare apt cache for saving
+        if: always() && steps.cache-apt-restore.outputs.cache-hit != 'true'
+        run: |
+          sudo chmod -R a+r /var/cache/apt/archives
+          sudo rm -f /var/cache/apt/archives/lock
+          sudo rm -rf /var/cache/apt/archives/partial
+
       - name: Save apt cache
         id: cache-apt-save
         if: always() && steps.cache-apt-restore.outputs.cache-hit != 'true'
