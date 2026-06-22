@@ -85,9 +85,28 @@ jobs:
           key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
           restore-keys: renv-${{ runner.os }}-
 
+      - name: Install renv
+        if: steps.cache-renv-restore.outputs.cache-hit != 'true'
+        shell: Rscript {0}
+        env:
+          R_LIBS_USER: /home/runner/work/_temp/Library
+        run: |
+          # Ensure the directory explicitly exists in the runner workspace
+          if (!dir.exists(Sys.getenv("R_LIBS_USER"))) {
+            dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE)
+          }
+          install.packages(
+            "renv",
+            lib = Sys.getenv("R_LIBS_USER"),
+            repos = "https://packagemanager.posit.co/cran/2025-07-01"
+          )
+
       - name: Setup R dependencies
         if: steps.cache-renv-restore.outputs.cache-hit != 'true'
         uses: r-lib/actions/setup-renv@v2
+        # make sure it doesn't try to create its own cache
+        with:
+          bypass-cache: true
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
           R_LIBS_USER: /home/runner/work/_temp/Library
