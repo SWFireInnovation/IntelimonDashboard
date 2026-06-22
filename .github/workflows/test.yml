@@ -33,7 +33,7 @@ jobs:
         # terra requires gdal and sql libraries
         run: |
           # 1. Force the runner to bypass the broken Azure mirror
-          sudo sed -i 's| http://azure.archive.ubuntu.com/ubuntu |http://ubuntu.com|g' /etc/apt/sources.list
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://ubuntu.com|g' /etc/apt/sources.list
           
           # 2. Add aggressive timeout limits so it never hangs for an hour again (and avoids Microsoft's ipv6 errors)
           sudo apt-get \
@@ -58,6 +58,9 @@ jobs:
           path: /opt/R
           key: R-${{ runner.os }}-${{ hashFiles('renv.lock') }}
 
+      - name: Assign CRAN mirror
+        run: echo "CRAN_MIRROR="https://packagemanager.posit.co/cran/2025-07-01" >> $GITHUB_ENV
+
       - name: Setup R
         if: steps.cache-r-restore.outputs.cache-hit != 'true'
         uses: r-lib/actions/setup-r@v2
@@ -65,7 +68,7 @@ jobs:
           r-version: renv
         env:
           # force it to bypass azure.archive.unbuntu.com or packages.microsoft.com which usually fail
-          RSPM: "https://cloud.r-project.org"
+          RSPM: ${{ env.CRAN_MIRROR }}
 
       # always save if the cache is new (not reloaded)
       - name: Save R cache
@@ -89,14 +92,16 @@ jobs:
         if: steps.cache-renv-restore.outputs.cache-hit != 'true'
         shell: Rscript {0}
         env:
+          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
           R_LIBS_USER: /home/runner/work/_temp/Library
+          RENV_PATHS_ROOT: /home/runner/work/_temp/renv
           # Require the runner to pull down pre-compiled Linux binaries exclusively
           RENV_CONFIG_REPOS_TYPE: "source"
           # push it to a url where it can find binaries
-          RENV_CONFIG_REPOS_OVERRIDE: "https://cloud.r-project.org"
+          RENV_CONFIG_REPOS_OVERRIDE: ${{ env.CRAN_MIRROR }}
         run: |
           # 1. Define the specific target Linux mirror for the GitHub Runner execution env
-          linux_mirror <- c(CRAN = "https://cloud.r-project.org")
+          linux_mirror <- c(CRAN = Sys.getenv("CRAN_MIRROR"))
           options(repos = linux_mirror)
           options(renv.config.install.staged = FALSE)
           options(pkgType = "source")
