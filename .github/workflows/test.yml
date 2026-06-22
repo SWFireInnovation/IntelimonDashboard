@@ -115,7 +115,7 @@ jobs:
           
           # manually setup all R dependencies from renv.lock
           library(renv, lib.loc = Sys.getenv("R_LIBS_USER"))
-          renv::restore(prompt = FALSE, repos= linux_mirror, type = "binary")
+          renv::restore(prompt = FALSE, repos= linux_mirror)
 
       - name: Save renv cache
         id: cache-renv-save
