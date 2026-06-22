@@ -98,6 +98,8 @@ jobs:
           # 1. Define the specific target Linux mirror for the GitHub Runner execution env
           linux_mirror <- c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/latest")
           options(repos = linux_mirror)
+          options(renv.config.install.staged = FALSE)
+          options(pkgType = "binary")
           
           # Ensure the directory explicitly exists in the runner workspace
           if (!dir.exists(Sys.getenv("R_LIBS_USER"))) {
@@ -113,7 +115,7 @@ jobs:
           
           # manually setup all R dependencies from renv.lock
           library(renv, lib.loc = Sys.getenv("R_LIBS_USER"))
-          renv::restore(prompt = FALSE, repos= linux_mirror)
+          renv::restore(prompt = FALSE, repos= linux_mirror, type = "binary")
 
       - name: Save renv cache
         id: cache-renv-save
