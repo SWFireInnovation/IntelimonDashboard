@@ -33,7 +33,7 @@ jobs:
         # terra requires gdal and sql libraries
         run: |
           # 1. Force the runner to bypass the broken Azure mirror
-          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://ubuntu.com|g' /etc/apt/sources.list
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
           
           # 2. Add aggressive timeout limits so it never hangs for an hour again (and avoids Microsoft's ipv6 errors)
           sudo apt-get \
@@ -59,7 +59,7 @@ jobs:
           key: R-${{ runner.os }}-${{ hashFiles('renv.lock') }}
 
       - name: Assign CRAN mirror
-        run: echo "CRAN_MIRROR="https://packagemanager.posit.co/cran/2025-07-01" >> $GITHUB_ENV
+        run: echo "CRAN_MIRROR=https://packagemanager.posit.co/cran/2025-07-01" >> $GITHUB_ENV
 
       - name: Setup R
         if: steps.cache-r-restore.outputs.cache-hit != 'true'
