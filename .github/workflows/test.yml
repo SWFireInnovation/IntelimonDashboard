@@ -92,6 +92,8 @@ jobs:
           R_LIBS_USER: /home/runner/work/_temp/Library
           # Require the runner to pull down pre-compiled Linux binaries exclusively
           RENV_CONFIG_REPOS_TYPE: "binary"
+          # push it to a url where it can find binaries
+          RENV_CONFIG_REPOS_OVERRIDE: "https://posit.co"
         run: |
           # Ensure the directory explicitly exists in the runner workspace
           if (!dir.exists(Sys.getenv("R_LIBS_USER"))) {
