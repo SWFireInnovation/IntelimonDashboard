@@ -90,6 +90,7 @@ jobs:
         uses: r-lib/actions/setup-renv@v2
         env:
           GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+          R_LIBS_USER: /home/runner/work/_temp/Library
           # force it to skip the azure/microsoft downloads, which are unreliable.
           RENV_CONFIG_REPOS_OVERRIDE: "https://packagemanager.posit.co/cran/__linux__/jammy/2025-07-01"
 
