@@ -65,7 +65,7 @@ jobs:
           r-version: renv
         env:
           # force it to bypass azure.archive.unbuntu.com or packages.microsoft.com which usually fail
-          RSPM: "https://packagemanager.posit.co/cran/__linux__/jammy/latest"
+          RSPM: "https://cloud.r-project.org"
 
       # always save if the cache is new (not reloaded)
       - name: Save R cache
@@ -91,15 +91,15 @@ jobs:
         env:
           R_LIBS_USER: /home/runner/work/_temp/Library
           # Require the runner to pull down pre-compiled Linux binaries exclusively
-          RENV_CONFIG_REPOS_TYPE: "binary"
+          RENV_CONFIG_REPOS_TYPE: "source"
           # push it to a url where it can find binaries
-          RENV_CONFIG_REPOS_OVERRIDE: "https://packagemanager.posit.co/cran/__linux__/jammy/latest"
+          RENV_CONFIG_REPOS_OVERRIDE: "https://cloud.r-project.org"
         run: |
           # 1. Define the specific target Linux mirror for the GitHub Runner execution env
-          linux_mirror <- c(CRAN = "https://packagemanager.posit.co/cran/__linux__/jammy/latest")
+          linux_mirror <- c(CRAN = "https://cloud.r-project.org")
           options(repos = linux_mirror)
           options(renv.config.install.staged = FALSE)
-          options(pkgType = "binary")
+          options(pkgType = "source")
           
           # Ensure the directory explicitly exists in the runner workspace
           if (!dir.exists(Sys.getenv("R_LIBS_USER"))) {
