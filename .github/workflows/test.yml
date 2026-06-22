@@ -90,28 +90,24 @@ jobs:
         shell: Rscript {0}
         env:
           R_LIBS_USER: /home/runner/work/_temp/Library
+          # Require the runner to pull down pre-compiled Linux binaries exclusively
+          RENV_CONFIG_REPOS_TYPE: "binary"
         run: |
           # Ensure the directory explicitly exists in the runner workspace
           if (!dir.exists(Sys.getenv("R_LIBS_USER"))) {
             dir.create(Sys.getenv("R_LIBS_USER"), recursive = TRUE)
           }
+          
+          # install renv
           install.packages(
             "renv",
             lib = Sys.getenv("R_LIBS_USER"),
             repos = "https://packagemanager.posit.co/cran/2025-07-01"
           )
-
-      - name: Setup R dependencies
-        if: steps.cache-renv-restore.outputs.cache-hit != 'true'
-        uses: r-lib/actions/setup-renv@v2
-        # make sure it doesn't try to create its own cache
-        with:
-          bypass-cache: true
-        env:
-          GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-          R_LIBS_USER: /home/runner/work/_temp/Library
-          # force it to skip the azure/microsoft downloads, which are unreliable.
-          RENV_CONFIG_REPOS_OVERRIDE: "https://packagemanager.posit.co/cran/__linux__/jammy/2025-07-01"
+          
+          # manually setup all R dependencies from renv.lock
+          library(renv, lib.loc = Sys.getenv("R_LIBS_USER"))
+          renv::restore(prompt = FALSE)
 
       - name: Save renv cache
         id: cache-renv-save
