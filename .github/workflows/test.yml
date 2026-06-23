@@ -20,9 +20,9 @@ jobs:
       R_LIBS_USER: /home/runner/work/_temp/Library
       RENV_PATHS_ROOT: /home/runner/work/_temp/renv
       # lock it all to a url date with no binaries
-      RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/2025-07-01
+      RENV_CONFIG_REPOS_OVERRIDE: https://cloud.r-project.org
       # force it to bypass azure.archive.unbuntu.com or packages.microsoft.com which usually fail
-      RSPM: https://packagemanager.posit.co/cran/2025-07-01
+      RSPM:  https://cloud.r-project.org
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repo
@@ -41,10 +41,9 @@ jobs:
         if: steps.cache-apt-restore.outputs.cache-hit != 'true'
         # terra requires gdal and sql libraries
         run: |
-          cat /etc/apt/apt-mirrors.txt
           # 1. Force the runner to bypass the broken Azure mirror
-          sudo sed -i 's|deb http://azure.archive.ubuntu.com/ubuntu|deb https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
-          sudo sed -i 's|deb-src http://azure.archive.ubuntu.com/ubuntu|deb-src http://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          # to check the mirror file: `cat /etc/apt/apt-mirrors.txt`
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
           
           # 2. Add aggressive timeout limits so it never hangs for an hour again (and avoids Microsoft's ipv6 errors)
           sudo apt-get \
