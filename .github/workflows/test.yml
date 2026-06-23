@@ -41,6 +41,7 @@ jobs:
         if: steps.cache-apt-restore.outputs.cache-hit != 'true'
         # terra requires gdal and sql libraries
         run: |
+          cat /etc/apt/apt-mirrors.txt
           # 1. Force the runner to bypass the broken Azure mirror
           sudo sed -i 's|deb http://azure.archive.ubuntu.com/ubuntu|deb https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
           sudo sed -i 's|deb-src http://azure.archive.ubuntu.com/ubuntu|deb-src http://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
@@ -57,6 +58,8 @@ jobs:
             libgeos-dev
             libproj-dev
             libsqlite3-dev
+            gdal-bin
+            pandoc
           )
           sudo apt-get install --yes --no-install-recommends "${packages[@]}"
 
@@ -160,6 +163,7 @@ jobs:
         if: always()
         shell: Rscript {0}
         run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
           renv::activate()
           rhino::lint_r()
 
@@ -167,6 +171,7 @@ jobs:
         if: always()
         shell: Rscript {0}
         run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
           renv::activate()
           rhino::lint_js()
 
@@ -174,6 +179,7 @@ jobs:
         if: always()
         shell: Rscript {0}
         run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
           renv::activate()
           rhino::lint_sass()
 
@@ -181,6 +187,7 @@ jobs:
         if: always()
         shell: Rscript {0}
         run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
           renv::activate()
           rhino::build_js()
 
@@ -188,6 +195,7 @@ jobs:
         if: always()
         shell: Rscript {0}
         run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
           renv::activate()
           rhino::build_sass()
 
@@ -195,6 +203,7 @@ jobs:
         if: always()
         shell: Rscript {0}
         run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
           renv::activate()
           rhino::test_r()
 
