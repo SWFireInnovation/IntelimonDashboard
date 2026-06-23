@@ -19,11 +19,10 @@ jobs:
     env:
       R_LIBS_USER: /home/runner/work/_temp/Library
       RENV_PATHS_ROOT: /home/runner/work/_temp/renv
-      CRAN_MIRROR: https://packagemanager.posit.co/cran/2025-07-01
       # lock it all to a url date with no binaries
-      RENV_CONFIG_REPOS_OVERRIDE: ${{ env.CRAN_MIRROR }}
+      RENV_CONFIG_REPOS_OVERRIDE: https://packagemanager.posit.co/cran/2025-07-01
       # force it to bypass azure.archive.unbuntu.com or packages.microsoft.com which usually fail
-      RSPM: ${{ env.CRAN_MIRROR }}
+      RSPM: https://packagemanager.posit.co/cran/2025-07-01
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout repo
@@ -101,7 +100,7 @@ jobs:
           RENV_CONFIG_REPOS_TYPE: "source"
         run: |
           # 1. Define the specific target Linux mirror for the GitHub Runner execution env
-          linux_mirror <- c(CRAN = Sys.getenv("CRAN_MIRROR"))
+          linux_mirror <- c(CRAN = Sys.getenv("RSPM"))
           options(repos = linux_mirror)
           options(renv.config.install.staged = FALSE)
           options(pkgType = "source")
