@@ -42,8 +42,8 @@ jobs:
         # terra requires gdal and sql libraries
         run: |
           # 1. Force the runner to bypass the broken Azure mirror
-          sudo sed -i 's|deb http://azure.archive.ubuntu.com/ubuntu|deb https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
-          sudo sed -i 's|deb-src http://azure.archive.ubuntu.com/ubuntu|deb-src http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+          sudo sed -i 's|deb http://azure.archive.ubuntu.com/ubuntu|deb https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          sudo sed -i 's|deb-src http://azure.archive.ubuntu.com/ubuntu|deb-src http://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
           
           # 2. Add aggressive timeout limits so it never hangs for an hour again (and avoids Microsoft's ipv6 errors)
           sudo apt-get \
@@ -159,32 +159,44 @@ jobs:
       - name: Lint R
         if: always()
         shell: Rscript {0}
-        run: rhino::lint_r()
+        run: |
+          renv::activate()
+          rhino::lint_r()
 
       - name: Lint JavaScript
         if: always()
         shell: Rscript {0}
-        run: rhino::lint_js()
+        run: |
+          renv::activate()
+          rhino::lint_js()
 
       - name: Lint Sass
         if: always()
         shell: Rscript {0}
-        run: rhino::lint_sass()
+        run: |
+          renv::activate()
+          rhino::lint_sass()
 
       - name: Build JavaScript
         if: always()
         shell: Rscript {0}
-        run: rhino::build_js()
+        run: |
+          renv::activate()
+          rhino::build_js()
 
       - name: Build Sass
         if: always()
         shell: Rscript {0}
-        run: rhino::build_sass()
+        run: |
+          renv::activate()
+          rhino::build_sass()
 
       - name: Run R unit tests
         if: always()
         shell: Rscript {0}
-        run: rhino::test_r()
+        run: |
+          renv::activate()
+          rhino::test_r()
 
       - name: Run Cypress end-to-end tests
         if: github.ref_name == 'main'
