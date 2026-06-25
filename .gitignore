@@ -1,4 +1,6 @@
 data_loc.yaml
+# store API server path in encrypted key
+.env
 
 # Electron standalone app build process
 # -----------------------------------------
