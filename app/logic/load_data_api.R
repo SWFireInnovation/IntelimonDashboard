@@ -88,7 +88,7 @@ resp2dt <- function(resp) {
     # if json is a simple list
     } else if(is.character(test_sample)|is.numeric(test_sample)){
       # may need unlist before data.table?
-      dt$data.table(resp_json)
+      dt$data.table(value = unlist(resp_json))
     }
   }
 }

@@ -5,6 +5,10 @@ box::use(
   shiny,
 )
 
+box::use(
+  api = app/logic/load_data_api
+)
+
 #' @export
 ui <- function(id) {
   ns <- shiny$NS(id)
@@ -27,11 +31,7 @@ ui <- function(id) {
         area = "IntELiMonDSS",
         card_header("Select Scans"),
         card_body(
-          shiny$selectInput(
-            inputId = ns("mySelectInput"),
-            label = "Agency selection",
-            choices = list("ALL" = "NULL", "usfws" = "a", "choice b" = "b")
-          ),
+          shiny$uiOutput(ns("ui_select_agency")),
           shiny$radioButtons(
             inputId = ns("myRadioButtons"),
             label = "Plot selection",
@@ -91,6 +91,17 @@ server <- function(id) {
           lat = 39,
           zoom = 4
         )
+    })
+
+    output$ui_select_agency <- shiny$renderUI({
+      agencies <- api$get_agencies()$value
+      shiny$selectInput(
+        inputId = session$ns("ui_select_agency"),
+        label = "Agency selection",
+        choices = agencies,
+        multiple = TRUE
+
+      )
     })
 
     # Return dates as YYYYMMDD
