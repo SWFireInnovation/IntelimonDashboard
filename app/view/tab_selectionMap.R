@@ -81,9 +81,19 @@ server <- function(id) {
         # Esri World Imagery (satellite basemap)
         leaflet$addProviderTiles(
           leaflet$providers$Esri.WorldImagery,
-          options = leaflet$providerTileOptions(
-            maxZoom = 20
-          )
+          options = leaflet$providerTileOptions(maxZoom = 20),
+          group = "Satellite"
+        ) |>
+        # Esri World Imagery (political basemap)
+        leaflet$addProviderTiles(
+          leaflet$providers$CartoDB.Positron,
+          options = leaflet$providerTileOptions(maxZoom = 20),
+          group = "Political map"
+        ) |>
+        leaflet$addLayersControl(
+          baseGroups = c("Satellite", "Political map"),
+          options    = leaflet$layersControlOptions(collapsed = FALSE),
+          position   = "topright"
         ) |>
         # Initial view
         leaflet$setView(
@@ -98,7 +108,7 @@ server <- function(id) {
       shiny$selectInput(
         inputId = session$ns("ui_select_agency"),
         label = "Agency selection",
-        choices = agencies,
+        choices = agencies[order(agencies)],
         multiple = TRUE
 
       )
