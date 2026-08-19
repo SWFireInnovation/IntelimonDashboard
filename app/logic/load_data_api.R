@@ -120,16 +120,25 @@ get_sites_from_agency <- function(agencies) {
     resp <- api_request('/sites', request_body = list(agency=agcy))
     # add to list of datatables
     site_list[[i]] <- resp2dt(resp)
+    dt$setnames(site_list[[i]], c('site'))
+    site_list[[i]][,'Agency'] <- agcy
     i <- i + 1
   }
   # concatenate list of data tables into a single data table
   dt$rbindlist(site_list)
 }
 
+#' Get a list of plots within a certain geographic bounding box
+#'
+#' API uses Coordinate Reference System EPSG: 3857
 #'
 #' @param xmin a floating point number
+#' @param xmax a floating point number
+#' @param ymin a floating point number
+#' @param ymax a floating point number
+#' @return data table of sites.
 #' @export
-get_sites_from_bbox <- function(x_min,
+get_plots_from_bbox <- function(x_min,
                                 x_max,
                                 y_min,
                                 y_max,
@@ -143,6 +152,32 @@ get_sites_from_bbox <- function(x_min,
                                             xmin=x_min,
                                             ymax=y_max
                        )
+  )
+  resp2dt(resp)
+}
+
+#' Get a list of all sites
+#'
+#' @return a data table of sites
+#' @export
+get_all_plot_loc <- function(
+) {
+
+  resp <- api_request('/plots',
+                       request_body = NULL
+  )
+  resp2dt(resp)
+}
+
+#' Get a list of all scans
+#'
+#' @return a data table of scans
+#' @export
+get_all_scans <- function(
+) {
+
+  resp <- api_request('/scans',
+                       request_body = NULL
   )
   resp2dt(resp)
 }
