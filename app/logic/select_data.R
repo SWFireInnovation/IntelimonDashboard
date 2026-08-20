@@ -23,7 +23,8 @@ build_scan_loc_dt <- function() {
   scan_loc_dt[, ':='(
     Longitude = NA_real_,
     Latitude = NA_real_,
-    Agency = NA_character_
+    Agency = NA_character_,
+    date = as.Date(as.character(date), '%Y%m%d')
   )]
 
   # add location data (lat/long)
