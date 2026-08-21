@@ -38,11 +38,6 @@ ui <- function(id) {
         card_header("Select Scans"),
         card_body(
           shiny$uiOutput(ns("ui_select_agency")),
-          shiny$textInput(
-            inputId = ns("myTextInput"),
-            label = "Treatment dates",
-            value = "YYYYMMDD, YYYYMMDD..."
-          ),
           shiny$uiOutput(ns("ui_select_date_range"))
         )
       ),
@@ -60,7 +55,7 @@ ui <- function(id) {
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
 
-    #-----Base Map-----
+    #-----Base Map-------------------------------
     output$map <- leaflet$renderLeaflet({
       leaflet$leaflet(
         options = leaflet$leafletOptions(
@@ -97,11 +92,12 @@ server <- function(id) {
         )
     })
 
-    #-----Map plot locations----
+    #-----Map plot locations---------------------
     # Discrete palette for plot mapping
     n_color <- length(unique(plots$Agency))
     color_palette <- leaflet$colorFactor(hcl.colors(n_color, 'Dark 2'), levels = plots$Agency)
 
+    # make reactive markers
     filtered_plots <- shiny$reactive({
       filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
       if (is.null(input$ui_select_agency) ||
@@ -111,28 +107,87 @@ server <- function(id) {
       filter_plots[Agency %in% input$ui_select_agency]
     })
 
+    # empty dt of same schema, plus new ID column
+    session$userData$scan_selection <- shiny$reactiveVal(plots[0][, id := character()])
+
     proxy_map <- leaflet$leafletProxy("map", session)
 
     shiny$observeEvent(filtered_plots(), {
+      markers <- filtered_plots()
+      # remove selected plots that do not fit the updated filter
+      all_clicks <- session$userData$scan_selection()
+      all_clicks[markers, on = .(site, plot, date), nomatch = 0]
+      session$userData$scan_selection(all_clicks)
 
-                       markers <- filtered_plots()
-                       proxy_map |>
-                         leaflet$clearMarkers() |>
-                         leaflet$clearControls() |>
-                         leaflet$addCircleMarkers(data = markers,
-                                                  lng = ~Longitude,
-                                                  lat = ~Latitude,
-                                                  color = ~color_palette(Agency),
-                                                  radius = 4
-                         )|>
-                         leaflet$addLegend(data = markers,
-                                           position = 'bottomright',
-                                           pal = color_palette, values=~Agency,
-                                           opacity = 0.6
-                         )
+      proxy_map |>
+        leaflet$clearMarkers() |>
+        leaflet$clearControls() |>
+        leaflet$addCircleMarkers(data = markers,
+                                 layerId = ~paste(site, plot, sep = "-"),
+                                 lng = ~Longitude,
+                                 lat = ~Latitude,
+                                 color = ~color_palette(Agency),
+                                 radius = 4
+        ) |>
+        leaflet$addLegend(data = markers,
+                          position = 'bottomright',
+                          pal = color_palette, values=~Agency,
+                          opacity = 0.6
+        )
+  }
+  )
+
+    #----Select plots----------------------------
+    shiny$observeEvent(input$map_marker_click,
+    {
+      click <- input$map_marker_click
+
+      markers <- filtered_plots()
+      all_clicks <- session$userData$scan_selection()
+
+      if (is.null(click$id)) return()
+
+      # extract site and plot from the click id
+      click_id <- strsplit(click$id, '-')[[1]]
+      if (length(click_id) != 2){
+        return()
+      } else if (length(click_id) == 2) {
+        clk_site <- click_id[[1]]
+        clk_plt <- click_id[[2]]
+      }
+
+      if (click$id %in% all_clicks$id) {
+        #if clicked on a second time, remove (un-select)
+        all_clicks <- all_clicks[id != click$id]
+      } else {
+        selected <- markers[site == clk_site & plot == clk_plt]
+        selected[, id := click$id]
+        all_clicks <- rbind(all_clicks, selected)
+      }
+
+      # reassign to reactive variable
+      session$userData$scan_selection(all_clicks)
+
     }
+    )
 
+    shiny$observeEvent(session$userData$scan_selection(),{
+      # can be changed by `filtered_plots()` or by `input$map_marker_click`
+      proxy_map |>
+        leaflet$clearGroup('all_clicks') |>
+        leaflet$addCircleMarkers(group = 'all_clicks',
+                                 #layerId = ~paste("filtered", site, plot, sep = "-"),
+                                 data = session$userData$scan_selection(),
+                                 # make sure that you can still click on filtered plots to deselect
+                                 options = leaflet$pathOptions(clickable = FALSE),
+                                 lng = ~Longitude,
+                                 lat = ~Latitude,
+                                 color = 'blue',
+                                 radius = 2
+        )
+    })
 
+    #-----renderUI components--------------------
     output$ui_select_agency <- shiny$renderUI({
       agencies <- api$get_agencies()$value
       shiny$selectInput(
@@ -155,18 +210,6 @@ server <- function(id) {
         step = 30,
         timeFormat = '%Y-%m-%d'
       )
-    })
-
-    # Return dates as YYYYMMDD
-    selected_dates <- shiny$reactive({
-      c(
-        start = format(input$daterange[1], "%Y%m%d"),
-        end   = format(input$daterange[2], "%Y%m%d")
-      )
-    })
-
-    output$dates <- shiny$renderPrint({
-      selected_dates()
     })
   })
 }
