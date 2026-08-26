@@ -134,8 +134,56 @@ server <- function(id) {
                           pal = color_palette, values=~Agency,
                           opacity = 0.6
         )
-  }
-  )
+    }
+    )
+
+    #-----Show labels once zoomed in-------------
+    shiny$observeEvent({input$map_zoom
+                       input$map_bounds},
+    {
+      min_zoom_label <- 10
+      max_plots <- 400
+
+      # immediately exit if zoomed out
+      if (input$map_zoom < min_zoom_label) {
+        proxy_map |>
+          leaflet$clearGroup("plot-labels")
+        return()
+      }
+
+      # Filter to minimum labels
+      # if zoomed in, filter plots to current extent.
+      markers <- filtered_plots()
+      bounds <- input$map_bounds
+      in_view_mark <- markers[
+                              Latitude  >= bounds$south & Latitude  <= bounds$north &
+                              Longitude >= bounds$west & Longitude <= bounds$east
+      ]
+      # remove rescans
+      plt_mark <- unique(in_view_mark, by = c("site", "plot"))
+
+      # if there are too many plots in the current view, clear labels and return
+      if (nrow(plt_mark) > max_plots) {
+        proxy_map |>
+          leaflet$clearGroup("plot-labels")
+        return()
+      }
+
+      proxy_map |>
+        leaflet$clearGroup("plot-labels") |>
+        leaflet$addLabelOnlyMarkers(
+          data = plt_mark,
+          lng = ~Longitude,
+          lat = ~Latitude,
+          label = ~plot,
+          group = "plot-labels",
+          labelOptions = leaflet$labelOptions(
+            noHide = TRUE,
+            textOnly = TRUE,
+            className = "plot-label"
+          )
+        )
+    })
 
     #----Select plots----------------------------
     shiny$observeEvent(input$map_marker_click,

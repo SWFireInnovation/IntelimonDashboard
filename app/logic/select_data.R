@@ -10,7 +10,7 @@ box::use(
 #' @export
 build_scan_loc_dt <- function() {
   # get list of every scan (uniqueID = site, plot, date)
-  # this is
+  # unused columns are (Status, updated_at, and error_message)
   scan_loc_dt <- api$get_all_scans()
 
   # Replace uneeded columns with desired data name and type
