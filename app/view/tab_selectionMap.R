@@ -38,7 +38,8 @@ ui <- function(id) {
         card_header("Select Scans"),
         card_body(
           shiny$uiOutput(ns("ui_select_agency")),
-          shiny$uiOutput(ns("ui_select_date_range"))
+          shiny$uiOutput(ns("ui_select_date_range")),
+          shiny$actionButton(ns("btn_get_data"), "\u2913  Get Data", width = "100%")
         )
       ),
       grid_card(
@@ -142,7 +143,7 @@ server <- function(id) {
                        input$map_bounds},
     {
       min_zoom_label <- 10
-      max_plots <- 400
+      max_plots <- 200
 
       # immediately exit if zoomed out
       if (input$map_zoom < min_zoom_label) {
@@ -234,6 +235,35 @@ server <- function(id) {
                                  radius = 2
         )
     })
+
+    shiny$observeEvent(input$btn_get_data,
+    {
+      selected <- session$userData$scan_selection()
+      nscans <- nrow(selected)
+
+       if (nscans == 0) {
+        shiny$showNotification(
+          "No populated scans in the selected date range - press Get Scans first.",
+          type = "warning", duration = 5
+        )
+        return()
+      }
+
+      shiny$withProgress(message = paste("Retrieving data from", nscans, " scans..."), value = 0, {
+        step <- 1 / 3
+
+        session$userData$metrics <- api$get_metrics_for_scans(selected)
+        shiny$incProgress(step, detail = 'scan metrics')
+
+        # session$userData$tree_inv <- api$get_treeinv_for_scans(selected)
+        # incProgress(step, detail = 'tree inventory')
+        # session$userData$spec_models <- api$get_specmodels_for_scans(selected)
+        # incProgress(step, detail = 'special models')
+
+      }
+      )
+    }
+    )
 
     #-----renderUI components--------------------
     output$ui_select_agency <- shiny$renderUI({

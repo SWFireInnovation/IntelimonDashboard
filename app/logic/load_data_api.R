@@ -85,14 +85,42 @@ resp2dt <- function(resp) {
     test_sample <- resp_json[[1]]
     if (is.list(test_sample)){
       dt$rbindlist(resp_json, fill=TRUE)
-    # if json is a simple list
-    } else if(is.character(test_sample)|is.numeric(test_sample)){
-      # may need unlist before data.table?
+    # if json is a simple one column list (returns single row with column names V1-Vn)
+    } else if(
+      (is.character(test_sample)|is.numeric(test_sample))
+        && all(grepl("^V\\d+$", names(resp_json)))
+    ){
       dt$data.table(value = unlist(resp_json))
+    # if json is a one row table with many named columns (column names do not fit generic pattern V1-Vn)
+    } else if(
+      (is.character(test_sample)|is.numeric(test_sample))
+        && !any(grepl("^V\\d+$", names(resp_json)))
+    ){
+      dt$as.data.table(resp_json)
     }
   }
 }
 
+#' @export
+.get_multi_scan <- function(scan_dt, api_fnc){
+  n_scans <- nrow(scan_dt)
+  out <- vector('list', n_scans)
+
+  for (row in seq_len(n_scans)){
+    this_scan <- scan_dt[row,]
+
+    out[[row]] <- api_fnc(this_scan$site,
+                          this_scan$plot,
+                          format(this_scan$date, "%Y%m%d"),
+                          this_scan$scanner_id
+    )
+  }
+  data <- dt$rbindlist(out)
+  data[, `:=`(site_name  = this_scan$site,
+             plot       = this_scan$plot,
+             date_code  = this_scan$date,
+             scanner_id = this_scan$scanner_id)]
+}
 #--IntELiMon specific API interactions---------------------------------------------------------------------------
 
 #' Get list of agencies that have collected IntELiMon data.
@@ -178,6 +206,87 @@ get_all_scans <- function(
 
   resp <- api_request('/scans',
                        request_body = NULL
+  )
+  resp2dt(resp)
+}
+
+#' Get metrics for an individual scan
+#'
+#' Get metrics calculated by IntELiMon for an individual scan at a specifc date and time
+#' @param siteid character string of a site
+#' @param plotid character string of a plot number (must include leading zeros)
+#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug 26, 2026.
+#' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
+#' @return data.table of metrics
+#' @export
+get_metrics_for_1scan <- function(siteid,
+                                 plotid,
+                                 date_,
+                                 scanner_gen
+) {
+  date_ <- as.character(date_)
+  scanner_gen <- as.integer(scanner_gen)
+
+  resp <- api_request('scan/metrics',
+                     request_body = list(site = siteid,
+                                         plot = plotid,
+                                         date = date_,
+                                         scanner_id = scanner_gen
+                     )
+  )
+  resp2dt(resp)
+}
+
+#' Get metrics for a list of scans
+#'
+#' Get metrics calculated by IntELiMon for multiple scans. Metrics are queried individually and concatenated in a single
+#' data.table.
+#' @param list of scans to be queried containing columns for siteid, plotid, date and scanner generation.
+#' @return a data.table of IntELiMon metrics
+#' @export
+get_metrics_for_scans <- function(scan_dt) {
+
+  .get_multi_scan(scan_dt, get_metrics_for_1scan)
+  # n_scans <- nrow(scan_dt)
+  # metrics <- vector('list', n_scans)
+  #
+  # for (row in seq_len(n_scans)){
+  #   this_scan <- scan_dt[row,]
+  #
+  #   metrics[[row]] <- get_metrics_for_1scan(this_scan$site,
+  #                                    this_scan$plot,
+  #                                    format(this_scan$date, "%Y%m%d"),
+  #                                    this_scan$scanner_id
+  #   )
+  # }
+  # dt$rbindlist(metrics)
+}
+
+
+#' Get tree inventory for an individual scan
+#'
+#' Get tree inventory calculated by IntELiMon for an individual scan at a specifc date and time
+#' @param siteid character string of a site
+#' @param plotid character string of a plot number (must include leading zeros)
+#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug 26, 2026.
+#' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
+#' @return data.table of tree inventory
+#' @export
+get_treeinv_for_1scan <- function(siteid,
+                                 plotid,
+                                 date_,
+                                 scanner_gen
+) {
+  date_ <- as.character(date_)
+  scanner_gen <- as.integer(scanner_gen)
+
+  resp <- api_request('scan/tree_inventory',
+                     request_body = list(site = siteid,
+                                         plot = plotid,
+                                         date = date_,
+                                         scanner_id = scanner_gen,
+                                         format = 'json'
+                     )
   )
   resp2dt(resp)
 }
