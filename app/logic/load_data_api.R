@@ -114,12 +114,14 @@ resp2dt <- function(resp) {
                           format(this_scan$date, "%Y%m%d"),
                           this_scan$scanner_id
     )
+    out[[row]][, `:=`(
+      site_name = this_scan$site,
+      plot = this_scan$plot,
+      date_code = this_scan$date,
+      scanner_id = this_scan$scanner_id
+    )]
   }
   data <- dt$rbindlist(out)
-  data[, `:=`(site_name  = this_scan$site,
-             plot       = this_scan$plot,
-             date_code  = this_scan$date,
-             scanner_id = this_scan$scanner_id)]
 }
 #--IntELiMon specific API interactions---------------------------------------------------------------------------
 
