@@ -5,7 +5,7 @@ box::use(
 
 # API server path has been encrypted
 # The decryption key is stored in .env as:
-# API_PATH_KEY=super_secret_32_character_key___
+# > API_PATH_KEY = super_secret_32_character_key___
 # the path was encrypted using:
 # > readRenviron('.env')
 # > httr2$secret_encrypt("https://the/intelimon/api/path/", "API_PATH_KEY")
@@ -21,10 +21,12 @@ api_base_url <- httr2$secret_decrypt(
 
 #' Perform a REST API request.
 #'
-#' This function assembles the request to a specific resource and returns a response object using the httr2 library
+#' This function assembles the request to a specific resource and returns a response object using the httr2
+#' library
 #'
 #' @param resource_url A string to be appeneded to the api's base url, usually starting with a single /
-#' @param request_body A list to be supplied as the request body. If no body is accepted by the resource,the value is NULL
+#' @param request_body A list to be supplied as the request body. If no body is accepted by the resource,the
+#' value is NULL
 #'  and no body is sent with the request
 #' @param request_base_url A string containing the base url that all resources are appended to.
 #' @return A httr2 response object containing the response of the api.
@@ -37,7 +39,7 @@ api_request <- function(resource_url,
     httr2$req_headers(Accept = "application/json") |>
     httr2$req_method(request_method) |>
     httr2$req_url_path_append(resource_url) |>
-    (\(req_obj){
+    (\(req_obj) {
       if (!is.null(request_body)) {
         httr2$req_body_json(req_obj, request_body)
       } else {
@@ -56,7 +58,8 @@ api_request <- function(resource_url,
 
 #' Check if API request was successful and return a boolean response.
 #'
-#' This function checks an API response to see if it returned an error. Function returns False if there is an error and
+#' This function checks an API response to see if it returned an error. Function returns False if there is an
+#' error and
 #' True if there is no error.
 #'
 #' @param resp an httr2 library response variable from an API request
@@ -68,14 +71,19 @@ is_request_successful <- function(resp) {
 
 #' Convert a REST API response to a data table
 #'
-#' Convert an httr2 API response into a data.table. When httr2 poles an API it creates a response object with the body
+#' Convert an httr2 API response into a data.table. When httr2 poles an API it creates a response object with
+#' the body
 #' of the response in JSON format.This function converts the json body into a data.table.
 #'
 #' @param httr2 API response
 #' @return data.table
 #' @export
 resp2dt <- function(resp) {
-  if (is_request_successful(resp)) {
+  error <- !is_request_successful(resp)
+
+  if (error) {
+    warning(httr2$last_response(resp))
+  } else if (!error) {
     resp_json <- resp |> httr2$resp_body_json(check_type = TRUE)
 
     # if json is a list of lists
@@ -89,13 +97,13 @@ resp2dt <- function(resp) {
 
       # if json is a simple one column list (returns single row with column names V1-Vn)
     } else if (
-      (is.character(test_sample) | is.numeric(test_sample)) &&
+      (is.character(test_sample) || is.numeric(test_sample)) &&
         all(grepl("^V\\d+$", names(resp_json)))
     ) {
       dt$data.table(value = unlist(resp_json))
       # if json is a one row table with many named columns (column names do not fit generic pattern V1-Vn)
     } else if (
-      (is.character(test_sample) | is.numeric(test_sample)) &&
+      (is.character(test_sample) || is.numeric(test_sample)) &&
         !any(grepl("^V\\d+$", names(resp_json)))
     ) {
       dt$as.data.table(resp_json)
@@ -130,9 +138,9 @@ resp2dt <- function(resp) {
     )]
     out[[row]] <- api_dt
   }
-  data <- dt$rbindlist(out, fill = TRUE)
+  dt$rbindlist(out, fill = TRUE)
 }
-#--IntELiMon specific API interactions---------------------------------------------------------------------------
+#--IntELiMon specific API interactions------------------------------------------------------------------------
 
 #' Get list of agencies that have collected IntELiMon data.
 #'
@@ -221,7 +229,8 @@ get_all_scans <- function() {
 #' Get metrics calculated by IntELiMon for an individual scan at a specifc date and time
 #' @param siteid character string of a site
 #' @param plotid character string of a plot number (must include leading zeros)
-#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug 26, 2026.
+#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug
+#' 26, 2026.
 #' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
 #' @return data.table of metrics
 #' @export
@@ -245,7 +254,8 @@ get_metrics_for_1scan <- function(siteid,
 
 #' Get metrics for a list of scans
 #'
-#' Get metrics calculated by IntELiMon for multiple scans. Metrics are queried individually and concatenated in a single
+#' Get metrics calculated by IntELiMon for multiple scans. Metrics are queried individually and concatenated
+#' in a single
 #' data.table.
 #' @param list of scans to be queried containing columns for siteid, plotid, date and scanner generation.
 #' @return a data.table of IntELiMon metrics
@@ -259,7 +269,8 @@ get_metrics_for_scans <- function(scan_dt) {
 #' Get tree inventory calculated by IntELiMon for an individual scan at a specifc date and time
 #' @param siteid character string of a site
 #' @param plotid character string of a plot number (must include leading zeros)
-#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug 26, 2026.
+#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug
+#' 26, 2026.
 #' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
 #' @return data.table of tree inventory
 #' @export
@@ -284,7 +295,8 @@ get_treeinv_for_1scan <- function(siteid,
 
 #' Get treeinventory for a list of scans. This returns individual trees identified from the point cloud.
 #'
-#' Get tree inventory calculated by IntELiMon for multiple scans. Tree inventories are queried individually and
+#' Get tree inventory calculated by IntELiMon for multiple scans. Tree inventories are queried individually
+#' and
 #' concatenated in a single data.table.
 #' @param list of scans to be queried containing columns for siteid, plotid, date and scanner generation.
 #' @return a data.table of IntELiMon metrics
@@ -293,19 +305,21 @@ get_treeinv_for_scans <- function(scan_dt) {
   .get_multi_scan(scan_dt, get_treeinv_for_1scan)
 }
 
-#' Get additional models for an individual scan. This returns a table where each row is a model for the specified scan.
+#' Get additional models for an individual scan. This returns a table where each row is a model for the
+#' specified scan.
 #'
 #' Get additional model values calculated by IntELiMon for an individual scan at a specifc date and time
 #' @param siteid character string of a site
 #' @param plotid character string of a plot number (must include leading zeros)
-#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug 26, 2026.
+#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug
+#' 26, 2026.
 #' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
 #' @return data.table of additional models
 #' @export
-get_additional_models_for_1scan <- function(siteid,
-                                            plotid,
-                                            date_,
-                                            scanner_gen) {
+get_extra_models_for_1scan <- function(siteid,
+                                       plotid,
+                                       date_,
+                                       scanner_gen) {
   date_ <- as.character(date_)
   scanner_gen <- as.integer(scanner_gen)
 
@@ -321,16 +335,18 @@ get_additional_models_for_1scan <- function(siteid,
   resp2dt(resp)
 }
 
-#' Get additional models for a list of scans. This returns a table where each row is a model, and each scan can have
+#' Get additional models for a list of scans. This returns a table where each row is a model, and each scan
+#' can have
 #' multiple models and multiple rows.
 #'
 #' Get additional model values calculated by IntELiMon for a data.table of scans.
 #' @param siteid character string of a site
 #' @param plotid character string of a plot number (must include leading zeros)
-#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug 26, 2026.
+#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug
+#' 26, 2026.
 #' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
 #' @return data.table of additional models
 #' @export
-get_additional_models_for_scans <- function(scan_dt) {
-  .get_multi_scan(scan_dt, get_additional_models_for_1scan)
+get_extra_models_for_scans <- function(scan_dt) {
+  .get_multi_scan(scan_dt, get_extra_models_for_1scan)
 }

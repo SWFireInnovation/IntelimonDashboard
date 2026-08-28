@@ -76,7 +76,6 @@ describe("tab_histogram server", {
 
       df <- combined_data()
       # will change dependent on IntELiMon version
-      # expect_true("Plot_ID" %in% names(df))
       expect_equal(nrow(df), 2L)
     })
   })

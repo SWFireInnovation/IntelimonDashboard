@@ -8,7 +8,6 @@ box::use(
 
 box::use(
   api = app/logic/load_data_api,
-  app/logic/map_fnc,
   app/logic/select_data,
 )
 
@@ -102,8 +101,8 @@ server <- function(id) {
     filtered_plots <- shiny$reactive({
       filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
       if (is.null(input$ui_select_agency) ||
-        length(input$ui_select_agency) == 0) {
-        return(filter_plots)
+            length(input$ui_select_agency) == 0) {
+            return(filter_plots)
       }
       filter_plots[Agency %in% input$ui_select_agency]
     })
@@ -117,7 +116,11 @@ server <- function(id) {
       markers <- filtered_plots()
       # remove selected plots that do not fit the updated filter
       all_clicks <- session$userData$scan_selection()
-      all_clicks <- all_clicks[markers, on = .(site, plot, date), nomatch = 0, .SD, .SDcols = names(all_clicks)]
+      all_clicks <- all_clicks[markers,
+        on = .(site, plot, date),
+        nomatch = 0, .SD,
+        .SDcols = names(all_clicks)
+      ]
       session$userData$scan_selection(all_clicks)
 
       proxy_map |>
@@ -230,7 +233,6 @@ server <- function(id) {
         leaflet$clearGroup("all_clicks") |>
         leaflet$addCircleMarkers(
           group = "all_clicks",
-          # layerId = ~paste("filtered", site, plot, sep = "-"),
           data = session$userData$scan_selection(),
           # make sure that you can still click on filtered plots to deselect
           options = leaflet$pathOptions(clickable = FALSE),
@@ -259,7 +261,7 @@ server <- function(id) {
       }
 
       shiny$withProgress(message = paste("Retrieving data from", nscans, " scans..."), value = 0, {
-        step <- 1/3
+        step <- 1 / 3
 
         shiny$incProgress(step, detail = "Metrics")
         session$userData$metrics <- api$get_metrics_for_scans(selected)
@@ -268,7 +270,7 @@ server <- function(id) {
         session$userData$tree_inv <- api$get_treeinv_for_scans(selected)
 
         shiny$incProgress(step, detail = "Custom models")
-        session$userData$spec_models <- api$get_additional_models_for_scans(selected)
+        session$userData$extra_models <- api$get_extra_models_for_scans(selected)
       })
     })
 

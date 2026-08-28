@@ -71,15 +71,4 @@ describe("load_selected_plots", {
     expect_equal(nrow(result), 1L)
   })
 
-  # This check will vary depending on the current version of IntELiMon
-  #
-  # it("preserves all columns from the source CSV", {
-  #   result <- load_data_dir$load_selected_plots(
-  #     data_dir       = test_data,
-  #     selected_plots = "scan_A",
-  #     plot_files     = PLOT_FILES
-  #   )
-  #
-  #   expect_true(all(c("DBH", "Height", "CanopyCover") %in% names(result)))
-  # })
 })
