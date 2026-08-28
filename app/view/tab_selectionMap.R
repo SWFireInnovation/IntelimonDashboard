@@ -39,7 +39,8 @@ ui <- function(id) {
         card_body(
           shiny$uiOutput(ns("ui_select_agency")),
           shiny$uiOutput(ns("ui_select_date_range")),
-          shiny$actionButton(ns("btn_get_data"), "\u2913  Get Data", width = "100%")
+          shiny$actionButton(ns("btn_clear"), "\u2715  Clear All Plots", width = "100%"),
+          shiny$actionButton(ns("btn_get_data"), "\u2913  Get Data", width = "100%"),
         )
       ),
       grid_card(
@@ -234,6 +235,12 @@ server <- function(id) {
                                  color = 'blue',
                                  radius = 2
         )
+    })
+
+    shiny$observeEvent(input$btn_clear,
+    {
+      session$userData$scan_selection(plots[0][, id := character()])
+      showNotification("Cleared selected plots.", type = "message", duration = 5)
     })
 
     shiny$observeEvent(input$btn_get_data,
