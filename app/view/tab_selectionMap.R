@@ -243,7 +243,7 @@ server <- function(id) {
 
        if (nscans == 0) {
         shiny$showNotification(
-          "No populated scans in the selected date range - press Get Scans first.",
+          "No scans selected. Click on a desired plot and set date range.",
           type = "warning", duration = 5
         )
         return()
@@ -252,13 +252,14 @@ server <- function(id) {
       shiny$withProgress(message = paste("Retrieving data from", nscans, " scans..."), value = 0, {
         step <- 1 / 3
 
+        shiny$incProgress(step, detail = 'Metrics')
         session$userData$metrics <- api$get_metrics_for_scans(selected)
-        shiny$incProgress(step, detail = 'scan metrics')
 
-        # session$userData$tree_inv <- api$get_treeinv_for_scans(selected)
-        # incProgress(step, detail = 'tree inventory')
-        # session$userData$spec_models <- api$get_specmodels_for_scans(selected)
-        # incProgress(step, detail = 'special models')
+        shiny$incProgress(step, detail = 'Tree inventory')
+        session$userData$tree_inv <- api$get_treeinv_for_scans(selected)
+
+        shiny$incProgress(step, detail = 'Custom models')
+        session$userData$spec_models <- api$get_additional_models_for_scans(selected)
 
       }
       )

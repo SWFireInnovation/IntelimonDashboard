@@ -83,8 +83,13 @@ resp2dt <- function(resp) {
 
     # if json is a list of lists
     test_sample <- resp_json[[1]]
-    if (is.list(test_sample)){
+    if (is.list(test_sample) && !'models' %in% names(test_sample)){
       dt$rbindlist(resp_json, fill=TRUE)
+
+    # if json has nested lists (additional models)
+    } else if ((is.list(test_sample) && 'models' %in% names(test_sample))){
+      dt$rbindlist(test_sample$models, fill = TRUE)
+
     # if json is a simple one column list (returns single row with column names V1-Vn)
     } else if(
       (is.character(test_sample)|is.numeric(test_sample))
@@ -109,19 +114,25 @@ resp2dt <- function(resp) {
   for (row in seq_len(n_scans)){
     this_scan <- scan_dt[row,]
 
-    out[[row]] <- api_fnc(this_scan$site,
+    api_dt <- api_fnc(this_scan$site,
                           this_scan$plot,
                           format(this_scan$date, "%Y%m%d"),
                           this_scan$scanner_id
     )
-    out[[row]][, `:=`(
+
+    if (is.null(api_dt) || nrow(api_dt) == 0){
+      next
+    }
+
+    api_dt[, `:=`(
       site_name = this_scan$site,
       plot = this_scan$plot,
       date_code = this_scan$date,
       scanner_id = this_scan$scanner_id
     )]
+    out[[row]] <- api_dt
   }
-  data <- dt$rbindlist(out)
+  data <- dt$rbindlist(out, fill = TRUE)
 }
 #--IntELiMon specific API interactions---------------------------------------------------------------------------
 
@@ -249,23 +260,10 @@ get_metrics_for_1scan <- function(siteid,
 get_metrics_for_scans <- function(scan_dt) {
 
   .get_multi_scan(scan_dt, get_metrics_for_1scan)
-  # n_scans <- nrow(scan_dt)
-  # metrics <- vector('list', n_scans)
-  #
-  # for (row in seq_len(n_scans)){
-  #   this_scan <- scan_dt[row,]
-  #
-  #   metrics[[row]] <- get_metrics_for_1scan(this_scan$site,
-  #                                    this_scan$plot,
-  #                                    format(this_scan$date, "%Y%m%d"),
-  #                                    this_scan$scanner_id
-  #   )
-  # }
-  # dt$rbindlist(metrics)
+
 }
 
-
-#' Get tree inventory for an individual scan
+#' Get tree inventory for an individual scan. This returns individual trees identified from the point cloud.
 #'
 #' Get tree inventory calculated by IntELiMon for an individual scan at a specifc date and time
 #' @param siteid character string of a site
@@ -291,4 +289,61 @@ get_treeinv_for_1scan <- function(siteid,
                      )
   )
   resp2dt(resp)
+}
+
+#' Get treeinventory for a list of scans. This returns individual trees identified from the point cloud.
+#'
+#' Get tree inventory calculated by IntELiMon for multiple scans. Tree inventories are queried individually and
+#' concatenated in a single data.table.
+#' @param list of scans to be queried containing columns for siteid, plotid, date and scanner generation.
+#' @return a data.table of IntELiMon metrics
+#' @export
+get_treeinv_for_scans <- function(scan_dt) {
+
+  .get_multi_scan(scan_dt, get_treeinv_for_1scan)
+
+}
+
+#' Get additional models for an individual scan. This returns a table where each row is a model for the specified scan.
+#'
+#' Get additional model values calculated by IntELiMon for an individual scan at a specifc date and time
+#' @param siteid character string of a site
+#' @param plotid character string of a plot number (must include leading zeros)
+#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug 26, 2026.
+#' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
+#' @return data.table of additional models
+#' @export
+get_additional_models_for_1scan <- function(siteid,
+                                 plotid,
+                                 date_,
+                                 scanner_gen
+) {
+  date_ <- as.character(date_)
+  scanner_gen <- as.integer(scanner_gen)
+
+  resp <- api_request('scan/additional_models_metrics',
+                     request_body = list(site = siteid,
+                                         plot = plotid,
+                                         date = date_,
+                                         scanner_id = scanner_gen,
+                                         format = 'json'
+                     )
+  )
+  resp2dt(resp)
+}
+
+#' Get additional models for a list of scans. This returns a table where each row is a model, and each scan can have
+#' multiple models and multiple rows.
+#'
+#' Get additional model values calculated by IntELiMon for a data.table of scans.
+#' @param siteid character string of a site
+#' @param plotid character string of a plot number (must include leading zeros)
+#' @param date_ int or charcter string containing the scan date in the format YYYYmmDD. E.g. 20260826 is Aug 26, 2026.
+#' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
+#' @return data.table of additional models
+#' @export
+get_additional_models_for_scans <- function(scan_dt) {
+
+  .get_multi_scan(scan_dt, get_additional_models_for_1scan)
+
 }
