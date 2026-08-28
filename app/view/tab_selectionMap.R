@@ -117,7 +117,7 @@ server <- function(id) {
       markers <- filtered_plots()
       # remove selected plots that do not fit the updated filter
       all_clicks <- session$userData$scan_selection()
-      all_clicks[markers, on = .(site, plot, date), nomatch = 0]
+      all_clicks <- all_clicks[markers, on = .(site, plot, date), nomatch = 0, .SD, .SDcols = names(all_clicks)]
       session$userData$scan_selection(all_clicks)
 
       proxy_map |>
@@ -142,8 +142,8 @@ server <- function(id) {
     shiny$observeEvent({input$map_zoom
                        input$map_bounds},
     {
-      min_zoom_label <- 10
-      max_plots <- 200
+      min_zoom_label <- 11
+      max_plots <- 80
 
       # immediately exit if zoomed out
       if (input$map_zoom < min_zoom_label) {
