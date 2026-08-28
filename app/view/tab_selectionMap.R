@@ -1,9 +1,9 @@
 box::use(
   bslib[card_body, card_header, nav_panel],
+  grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
   shiny,
-  grDevices[hcl.colors],
 )
 
 box::use(
@@ -56,7 +56,6 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
-
     #-----Base Map-------------------------------
     output$map <- leaflet$renderLeaflet({
       leaflet$leaflet(
@@ -97,7 +96,7 @@ server <- function(id) {
     #-----Map plot locations---------------------
     # Discrete palette for plot mapping
     n_color <- length(unique(plots$Agency))
-    color_palette <- leaflet$colorFactor(hcl.colors(n_color, 'Dark 2'), levels = plots$Agency)
+    color_palette <- leaflet$colorFactor(hcl.colors(n_color, "Dark 2"), levels = plots$Agency)
 
     # make reactive markers
     filtered_plots <- shiny$reactive({
@@ -124,82 +123,88 @@ server <- function(id) {
       proxy_map |>
         leaflet$clearMarkers() |>
         leaflet$clearControls() |>
-        leaflet$addCircleMarkers(data = markers,
-                                 layerId = ~paste(site, plot, sep = "-"),
-                                 lng = ~Longitude,
-                                 lat = ~Latitude,
-                                 color = ~color_palette(Agency),
-                                 radius = 4
-        ) |>
-        leaflet$addLegend(data = markers,
-                          position = 'bottomright',
-                          pal = color_palette, values=~Agency,
-                          opacity = 0.6
-        )
-    }
-    )
-
-    #-----Show labels once zoomed in-------------
-    shiny$observeEvent({input$map_zoom
-                       input$map_bounds},
-    {
-      min_zoom_label <- 11
-      max_plots <- 80
-
-      # immediately exit if zoomed out
-      if (input$map_zoom < min_zoom_label) {
-        proxy_map |>
-          leaflet$clearGroup("plot-labels")
-        return()
-      }
-
-      # Filter to minimum labels
-      # if zoomed in, filter plots to current extent.
-      markers <- filtered_plots()
-      bounds <- input$map_bounds
-      in_view_mark <- markers[
-                              Latitude  >= bounds$south & Latitude  <= bounds$north &
-                              Longitude >= bounds$west & Longitude <= bounds$east
-      ]
-      # remove rescans
-      plt_mark <- unique(in_view_mark, by = c("site", "plot"))
-
-      # if there are too many plots in the current view, clear labels and return
-      if (nrow(plt_mark) > max_plots) {
-        proxy_map |>
-          leaflet$clearGroup("plot-labels")
-        return()
-      }
-
-      proxy_map |>
-        leaflet$clearGroup("plot-labels") |>
-        leaflet$addLabelOnlyMarkers(
-          data = plt_mark,
+        leaflet$addCircleMarkers(
+          data = markers,
+          layerId = ~ paste(site, plot, sep = "-"),
           lng = ~Longitude,
           lat = ~Latitude,
-          label = ~plot,
-          group = "plot-labels",
-          labelOptions = leaflet$labelOptions(
-            noHide = TRUE,
-            textOnly = TRUE,
-            className = "plot-label"
-          )
+          color = ~ color_palette(Agency),
+          radius = 4
+        ) |>
+        leaflet$addLegend(
+          data = markers,
+          position = "bottomright",
+          pal = color_palette, values = ~Agency,
+          opacity = 0.6
         )
     })
 
+    #-----Show labels once zoomed in-------------
+    shiny$observeEvent(
+      {
+        input$map_zoom
+        input$map_bounds
+      },
+      {
+        min_zoom_label <- 11
+        max_plots <- 80
+
+        # immediately exit if zoomed out
+        if (input$map_zoom < min_zoom_label) {
+          proxy_map |>
+            leaflet$clearGroup("plot-labels")
+          return()
+        }
+
+        # Filter to minimum labels
+        # if zoomed in, filter plots to current extent.
+        markers <- filtered_plots()
+        bounds <- input$map_bounds
+        in_view_mark <- markers[
+          Latitude >= bounds$south & Latitude <= bounds$north &
+            Longitude >= bounds$west & Longitude <= bounds$east
+        ]
+        # remove rescans
+        plt_mark <- unique(in_view_mark, by = c("site", "plot"))
+
+        # if there are too many plots in the current view, clear labels and return
+        if (nrow(plt_mark) > max_plots) {
+          proxy_map |>
+            leaflet$clearGroup("plot-labels")
+          return()
+        }
+
+        proxy_map |>
+          leaflet$clearGroup("plot-labels") |>
+          leaflet$addLabelOnlyMarkers(
+            data = plt_mark,
+            lng = ~Longitude,
+            lat = ~Latitude,
+            label = ~plot,
+            group = "plot-labels",
+            labelOptions = leaflet$labelOptions(
+              noHide = TRUE,
+              textOnly = TRUE,
+              className = "plot-label"
+            )
+          )
+      }
+    )
+
     #----Select plots----------------------------
-    shiny$observeEvent(input$map_marker_click,
-    {
+    shiny$observeEvent(input$map_marker_click, {
       click <- input$map_marker_click
 
       markers <- filtered_plots()
       all_clicks <- session$userData$scan_selection()
 
-      if (is.null(click$id)) return()
+      if (is.null(click$id)) {
+        return()
+      }
 
       # extract site and plot from the click id
-      click_id <- strsplit(click$id, '-')[[1]]
-      if (length(click_id) != 2){
+      click_id <- strsplit(click$id, "-")[[1]]
+      if (length(click_id) != 2) {
         return()
       } else if (length(click_id) == 2) {
         clk_site <- click_id[[1]]
@@ -207,7 +212,7 @@ server <- function(id) {
       }
 
       if (click$id %in% all_clicks$id) {
-        #if clicked on a second time, remove (un-select)
+        # if clicked on a second time, remove (un-select)
         all_clicks <- all_clicks[id != click$id]
       } else {
         selected <- markers[site == clk_site & plot == clk_plt]
@@ -217,38 +222,35 @@ server <- function(id) {
 
       # reassign to reactive variable
       session$userData$scan_selection(all_clicks)
+    })
 
-    }
-    )
-
-    shiny$observeEvent(session$userData$scan_selection(),{
+    shiny$observeEvent(session$userData$scan_selection(), {
       # can be changed by `filtered_plots()` or by `input$map_marker_click`
       proxy_map |>
-        leaflet$clearGroup('all_clicks') |>
-        leaflet$addCircleMarkers(group = 'all_clicks',
-                                 #layerId = ~paste("filtered", site, plot, sep = "-"),
-                                 data = session$userData$scan_selection(),
-                                 # make sure that you can still click on filtered plots to deselect
-                                 options = leaflet$pathOptions(clickable = FALSE),
-                                 lng = ~Longitude,
-                                 lat = ~Latitude,
-                                 color = 'blue',
-                                 radius = 2
+        leaflet$clearGroup("all_clicks") |>
+        leaflet$addCircleMarkers(
+          group = "all_clicks",
+          # layerId = ~paste("filtered", site, plot, sep = "-"),
+          data = session$userData$scan_selection(),
+          # make sure that you can still click on filtered plots to deselect
+          options = leaflet$pathOptions(clickable = FALSE),
+          lng = ~Longitude,
+          lat = ~Latitude,
+          color = "blue",
+          radius = 2
         )
     })
 
-    shiny$observeEvent(input$btn_clear,
-    {
+    shiny$observeEvent(input$btn_clear, {
       session$userData$scan_selection(plots[0][, id := character()])
       showNotification("Cleared selected plots.", type = "message", duration = 5)
     })
 
-    shiny$observeEvent(input$btn_get_data,
-    {
+    shiny$observeEvent(input$btn_get_data, {
       selected <- session$userData$scan_selection()
       nscans <- nrow(selected)
 
-       if (nscans == 0) {
+      if (nscans == 0) {
         shiny$showNotification(
           "No scans selected. Click on a desired plot and set date range.",
           type = "warning", duration = 5
@@ -257,21 +259,18 @@ server <- function(id) {
       }
 
       shiny$withProgress(message = paste("Retrieving data from", nscans, " scans..."), value = 0, {
-        step <- 1 / 3
+        step <- 1/3
 
-        shiny$incProgress(step, detail = 'Metrics')
+        shiny$incProgress(step, detail = "Metrics")
         session$userData$metrics <- api$get_metrics_for_scans(selected)
 
-        shiny$incProgress(step, detail = 'Tree inventory')
+        shiny$incProgress(step, detail = "Tree inventory")
         session$userData$tree_inv <- api$get_treeinv_for_scans(selected)
 
-        shiny$incProgress(step, detail = 'Custom models')
+        shiny$incProgress(step, detail = "Custom models")
         session$userData$spec_models <- api$get_additional_models_for_scans(selected)
-
-      }
-      )
-    }
-    )
+      })
+    })
 
     #-----renderUI components--------------------
     output$ui_select_agency <- shiny$renderUI({
@@ -288,13 +287,13 @@ server <- function(id) {
       min_yr <- min(plots$date)
       max_yr <- max(plots$date)
       shiny$sliderInput(
-        inputId = session$ns('ui_select_date_range'),
+        inputId = session$ns("ui_select_date_range"),
         label = "Select date range",
         min = min_yr,
         max = max_yr,
         value = c(min_yr, max_yr),
         step = 30,
-        timeFormat = '%Y-%m-%d'
+        timeFormat = "%Y-%m-%d"
       )
     })
   })

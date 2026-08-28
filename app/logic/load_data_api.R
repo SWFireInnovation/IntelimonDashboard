@@ -1,6 +1,6 @@
 box::use(
-  httr2,
   dt = data.table,
+  httr2,
 )
 
 # API server path has been encrypted
@@ -32,16 +32,15 @@ api_base_url <- httr2$secret_decrypt(
 api_request <- function(resource_url,
                         request_body = NULL,
                         request_base_url = api_base_url,
-                        request_method = 'GET'
-) {
+                        request_method = "GET") {
   req <- httr2$request(request_base_url) |>
-    httr2$req_headers(Accept = 'application/json') |>
+    httr2$req_headers(Accept = "application/json") |>
     httr2$req_method(request_method) |>
     httr2$req_url_path_append(resource_url) |>
     (\(req_obj){
-      if (!is.null(request_body)){
+      if (!is.null(request_body)) {
         httr2$req_body_json(req_obj, request_body)
-      }else{
+      } else {
         req_obj
       }
     })()
@@ -52,9 +51,7 @@ api_request <- function(resource_url,
     error = \(e) {
       resp <- httr2$last_response()
     }
-
   )
-
 }
 
 #' Check if API request was successful and return a boolean response.
@@ -79,48 +76,49 @@ is_request_successful <- function(resp) {
 #' @export
 resp2dt <- function(resp) {
   if (is_request_successful(resp)) {
-    resp_json <- resp |> httr2$resp_body_json(check_type=TRUE)
+    resp_json <- resp |> httr2$resp_body_json(check_type = TRUE)
 
     # if json is a list of lists
     test_sample <- resp_json[[1]]
-    if (is.list(test_sample) && !'models' %in% names(test_sample)){
-      dt$rbindlist(resp_json, fill=TRUE)
+    if (is.list(test_sample) && !"models" %in% names(test_sample)) {
+      dt$rbindlist(resp_json, fill = TRUE)
 
-    # if json has nested lists (additional models)
-    } else if ((is.list(test_sample) && 'models' %in% names(test_sample))){
+      # if json has nested lists (additional models)
+    } else if ((is.list(test_sample) && "models" %in% names(test_sample))) {
       dt$rbindlist(test_sample$models, fill = TRUE)
 
-    # if json is a simple one column list (returns single row with column names V1-Vn)
-    } else if(
-      (is.character(test_sample)|is.numeric(test_sample))
-        && all(grepl("^V\\d+$", names(resp_json)))
-    ){
+      # if json is a simple one column list (returns single row with column names V1-Vn)
+    } else if (
+      (is.character(test_sample) | is.numeric(test_sample)) &&
+        all(grepl("^V\\d+$", names(resp_json)))
+    ) {
       dt$data.table(value = unlist(resp_json))
-    # if json is a one row table with many named columns (column names do not fit generic pattern V1-Vn)
-    } else if(
-      (is.character(test_sample)|is.numeric(test_sample))
-        && !any(grepl("^V\\d+$", names(resp_json)))
-    ){
+      # if json is a one row table with many named columns (column names do not fit generic pattern V1-Vn)
+    } else if (
+      (is.character(test_sample) | is.numeric(test_sample)) &&
+        !any(grepl("^V\\d+$", names(resp_json)))
+    ) {
       dt$as.data.table(resp_json)
     }
   }
 }
 
 #' @export
-.get_multi_scan <- function(scan_dt, api_fnc){
+.get_multi_scan <- function(scan_dt, api_fnc) {
   n_scans <- nrow(scan_dt)
-  out <- vector('list', n_scans)
+  out <- vector("list", n_scans)
 
-  for (row in seq_len(n_scans)){
-    this_scan <- scan_dt[row,]
+  for (row in seq_len(n_scans)) {
+    this_scan <- scan_dt[row, ]
 
-    api_dt <- api_fnc(this_scan$site,
-                          this_scan$plot,
-                          format(this_scan$date, "%Y%m%d"),
-                          this_scan$scanner_id
+    api_dt <- api_fnc(
+      this_scan$site,
+      this_scan$plot,
+      format(this_scan$date, "%Y%m%d"),
+      this_scan$scanner_id
     )
 
-    if (is.null(api_dt) || nrow(api_dt) == 0){
+    if (is.null(api_dt) || nrow(api_dt) == 0) {
       next
     }
 
@@ -141,7 +139,7 @@ resp2dt <- function(resp) {
 #' Poll the IntELiMon API for a list of valid agencies that are tied to plot data.
 #' @export
 get_agencies <- function() {
-  resp <- api_request('/agencies')
+  resp <- api_request("/agencies")
 
   resp2dt(resp)
 }
@@ -158,11 +156,11 @@ get_sites_from_agency <- function(agencies) {
   i <- 1
   for (agcy in agencies) {
     # get datatable of sites for an agency
-    resp <- api_request('/sites', request_body = list(agency=agcy))
+    resp <- api_request("/sites", request_body = list(agency = agcy))
     # add to list of datatables
     site_list[[i]] <- resp2dt(resp)
-    dt$setnames(site_list[[i]], c('site'))
-    site_list[[i]][,'Agency'] <- agcy
+    dt$setnames(site_list[[i]], c("site"))
+    site_list[[i]][, "Agency"] <- agcy
     i <- i + 1
   }
   # concatenate list of data tables into a single data table
@@ -183,16 +181,15 @@ get_plots_from_bbox <- function(x_min,
                                 x_max,
                                 y_min,
                                 y_max,
-                                site = NULL
-) {
-
-  resp <- api_request('/plots',
-                       request_body = list( site=site,
-                                            xmax=-x_max,
-                                            ymin=y_min,
-                                            xmin=x_min,
-                                            ymax=y_max
-                       )
+                                site = NULL) {
+  resp <- api_request("/plots",
+    request_body = list(
+      site = site,
+      xmax = -x_max,
+      ymin = y_min,
+      xmin = x_min,
+      ymax = y_max
+    )
   )
   resp2dt(resp)
 }
@@ -201,11 +198,9 @@ get_plots_from_bbox <- function(x_min,
 #'
 #' @return a data table of sites
 #' @export
-get_all_plot_loc <- function(
-) {
-
-  resp <- api_request('/plots',
-                       request_body = NULL
+get_all_plot_loc <- function() {
+  resp <- api_request("/plots",
+    request_body = NULL
   )
   resp2dt(resp)
 }
@@ -214,11 +209,9 @@ get_all_plot_loc <- function(
 #'
 #' @return a data table of scans
 #' @export
-get_all_scans <- function(
-) {
-
-  resp <- api_request('/scans',
-                       request_body = NULL
+get_all_scans <- function() {
+  resp <- api_request("/scans",
+    request_body = NULL
   )
   resp2dt(resp)
 }
@@ -233,19 +226,19 @@ get_all_scans <- function(
 #' @return data.table of metrics
 #' @export
 get_metrics_for_1scan <- function(siteid,
-                                 plotid,
-                                 date_,
-                                 scanner_gen
-) {
+                                  plotid,
+                                  date_,
+                                  scanner_gen) {
   date_ <- as.character(date_)
   scanner_gen <- as.integer(scanner_gen)
 
-  resp <- api_request('scan/metrics',
-                     request_body = list(site = siteid,
-                                         plot = plotid,
-                                         date = date_,
-                                         scanner_id = scanner_gen
-                     )
+  resp <- api_request("scan/metrics",
+    request_body = list(
+      site = siteid,
+      plot = plotid,
+      date = date_,
+      scanner_id = scanner_gen
+    )
   )
   resp2dt(resp)
 }
@@ -258,9 +251,7 @@ get_metrics_for_1scan <- function(siteid,
 #' @return a data.table of IntELiMon metrics
 #' @export
 get_metrics_for_scans <- function(scan_dt) {
-
   .get_multi_scan(scan_dt, get_metrics_for_1scan)
-
 }
 
 #' Get tree inventory for an individual scan. This returns individual trees identified from the point cloud.
@@ -273,20 +264,20 @@ get_metrics_for_scans <- function(scan_dt) {
 #' @return data.table of tree inventory
 #' @export
 get_treeinv_for_1scan <- function(siteid,
-                                 plotid,
-                                 date_,
-                                 scanner_gen
-) {
+                                  plotid,
+                                  date_,
+                                  scanner_gen) {
   date_ <- as.character(date_)
   scanner_gen <- as.integer(scanner_gen)
 
-  resp <- api_request('scan/tree_inventory',
-                     request_body = list(site = siteid,
-                                         plot = plotid,
-                                         date = date_,
-                                         scanner_id = scanner_gen,
-                                         format = 'json'
-                     )
+  resp <- api_request("scan/tree_inventory",
+    request_body = list(
+      site = siteid,
+      plot = plotid,
+      date = date_,
+      scanner_id = scanner_gen,
+      format = "json"
+    )
   )
   resp2dt(resp)
 }
@@ -299,9 +290,7 @@ get_treeinv_for_1scan <- function(siteid,
 #' @return a data.table of IntELiMon metrics
 #' @export
 get_treeinv_for_scans <- function(scan_dt) {
-
   .get_multi_scan(scan_dt, get_treeinv_for_1scan)
-
 }
 
 #' Get additional models for an individual scan. This returns a table where each row is a model for the specified scan.
@@ -314,20 +303,20 @@ get_treeinv_for_scans <- function(scan_dt) {
 #' @return data.table of additional models
 #' @export
 get_additional_models_for_1scan <- function(siteid,
-                                 plotid,
-                                 date_,
-                                 scanner_gen
-) {
+                                            plotid,
+                                            date_,
+                                            scanner_gen) {
   date_ <- as.character(date_)
   scanner_gen <- as.integer(scanner_gen)
 
-  resp <- api_request('scan/additional_models_metrics',
-                     request_body = list(site = siteid,
-                                         plot = plotid,
-                                         date = date_,
-                                         scanner_id = scanner_gen,
-                                         format = 'json'
-                     )
+  resp <- api_request("scan/additional_models_metrics",
+    request_body = list(
+      site = siteid,
+      plot = plotid,
+      date = date_,
+      scanner_id = scanner_gen,
+      format = "json"
+    )
   )
   resp2dt(resp)
 }
@@ -343,7 +332,5 @@ get_additional_models_for_1scan <- function(siteid,
 #' @return data.table of additional models
 #' @export
 get_additional_models_for_scans <- function(scan_dt) {
-
   .get_multi_scan(scan_dt, get_additional_models_for_1scan)
-
 }

@@ -10,7 +10,7 @@ box::use(
 # test_data: scan_A.csv, scan_B.csv, notes.txt
 test_data <- test_path("../test_data")
 
-# ── get_data_path ─────────────────────────────────────────────────────────────
+# -- get_data_path -------------------------------------------------------------
 
 describe("get_data_path", {
   it("returns NULL when data_loc.yaml does not exist", {
@@ -18,7 +18,7 @@ describe("get_data_path", {
   })
 })
 
-# ── list_plot_files ───────────────────────────────────────────────────────────
+# -- list_plot_files -----------------------------------------------------------
 
 describe("list_plot_files", {
   it("returns a named character vector containing only the two CSV fixtures", {
@@ -42,7 +42,7 @@ describe("list_plot_files", {
   })
 })
 
-# ── load_selected_plots ───────────────────────────────────────────────────────
+# -- load_selected_plots -------------------------------------------------------
 
 plot_files <- c(scan_A = "scan_A.csv", scan_B = "scan_B.csv")
 
