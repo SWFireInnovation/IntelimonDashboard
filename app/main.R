@@ -1,12 +1,14 @@
 box::use(
   bslib[bs_theme, page_navbar],
-  shiny[NS, moduleServer],
+  dt = data.table,
+  shiny[NS, moduleServer, reactiveVal],
 )
 
 box::use(
   view/tab_directOutputs,
   view/tab_forestry,
   view/tab_fuels,
+  view/tab_group_scans,
   view/tab_help,
   view/tab_histogram,
   view/tab_load_data,
@@ -31,6 +33,7 @@ ui <- function(id) {
     },
     tab_histogram$ui(ns("Histogram")),
     tab_selectionMap$ui(ns("Selection Map")),
+    tab_group_scans$ui(ns("Group Scans")),
     tab_directOutputs$ui(ns("Direct outputs")),
     tab_predictive_models$ui(ns("Predictive models")),
     tab_raster$ui(ns("Raster products")),
@@ -45,8 +48,35 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   moduleServer(id, function(input, output, session) {
+    # --------Shared User Data-------------------
+    # scans selected for anaylysis
+    session$userData$scan_selection <- reactiveVal(
+      dt$data.table(
+        id = character(),
+        site = character(),
+        plot = character(),
+        date = as.Date(character()),
+        scanner_id = integer(),
+        scanner_name = character(),
+        Longitude = numeric(),
+        Latitude = numeric(),
+        Agency = character(),
+        Unit = character(),
+        Remeasurement = integer()
+      )
+    )
+
+    # IntELiMon metrics for selected scans
+    session$userData$metrics <- dt$data.table()
+    # IntELiMon identified tree inventory for scans
+    session$userData$tree_inv <- dt$data.table()
+    # IntELiMon identified extra models for scans
+    session$userData$extra_models <- dt$data.table()
+
+    # -------Tab Servers ------------------------
     data_dir <- tab_load_data$server("Load Data")
     tab_histogram$server("Histogram", data_dir = data_dir)
     tab_selectionMap$server("Selection Map")
+    tab_group_scans$server("Group Scans")
   })
 }

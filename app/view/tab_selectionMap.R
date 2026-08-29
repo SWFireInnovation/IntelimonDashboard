@@ -8,11 +8,11 @@ box::use(
 
 box::use(
   api = app/logic/load_data_api,
-  app/logic/select_data,
+  app/logic/manage_data[build_scan_loc_dt, set_remeas_by_yr],
 )
 
 # load all plot locations
-plots <- select_data$build_scan_loc_dt()
+plots <- build_scan_loc_dt()
 
 #' @export
 ui <- function(id) {
@@ -106,9 +106,6 @@ server <- function(id) {
       }
       filter_plots[Agency %in% input$ui_select_agency]
     })
-
-    # empty dt of same schema, plus new ID column
-    session$userData$scan_selection <- shiny$reactiveVal(plots[0][, id := character()])
 
     proxy_map <- leaflet$leafletProxy("map", session)
 
@@ -219,7 +216,11 @@ server <- function(id) {
         all_clicks <- all_clicks[id != click$id]
       } else {
         selected <- markers[site == clk_site & plot == clk_plt]
-        selected[, id := click$id]
+        selected[, ":="(
+          id = click$id,
+          Unit = "My Unit",
+          Remeasurement = NA_real_
+        )]
         all_clicks <- rbind(all_clicks, selected)
       }
 
@@ -244,8 +245,9 @@ server <- function(id) {
     })
 
     shiny$observeEvent(input$btn_clear, {
-      session$userData$scan_selection(plots[0][, id := character()])
-      showNotification("Cleared selected plots.", type = "message", duration = 5)
+      current <- session$userData$scan_selection()
+      session$userData$scan_selection(current[0])
+      shiny$showNotification("Cleared selected plots.", type = "message", duration = 5)
     })
 
     shiny$observeEvent(input$btn_get_data, {
@@ -259,6 +261,9 @@ server <- function(id) {
         )
         return()
       }
+
+      # assign a default remeasurement number based on sequential years of measurment
+      set_remeas_by_yr(session)
 
       shiny$withProgress(message = paste("Retrieving data from", nscans, " scans..."), value = 0, {
         step <- 1 / 3

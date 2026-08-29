@@ -50,3 +50,18 @@ build_scan_loc_dt <- function() {
 
   scan_loc_dt
 }
+
+#' Set the remeasurement value for each scan based on a lazy evaluation of measurement year.
+#'
+#' Assign each measurement year a number, starting with 0, and label each scan with its corresponding
+#' remeasurement number. For example, if the first scan was in 2023, all scans from that year are given a
+#' remeasurement number of 0. And if the next year with scans is 2024, all scans in that year are assigned a
+#' remeasurement number of 1.
+#' @export
+set_remeas_by_yr <- function(session) {
+  selected <- session$userData$scan_selection()
+
+  selected[, Remeasurement := .GRP - 1L, by = .(format(date, "%Y"))]
+
+  session$userData$scan_selection(selected)
+}
