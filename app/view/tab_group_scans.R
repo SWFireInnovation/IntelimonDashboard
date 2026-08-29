@@ -43,8 +43,15 @@ server <- function(id) {
         shiny$need(
           nrow(selected_scans) > 0,
           "No scans selected. Return to Selection Map tab."
+        ),
+        shiny$need(
+          nrow(session$userData$metrics()) > 0,
+          "No scans have been downloaded! Return to Selection Map tab"
         )
       )
+
+      # set the default table sorting
+      selected_scans <- selected_scans[order(-date, site, plot)]
 
       DT$datatable(
         selected_scans[, ..columns],

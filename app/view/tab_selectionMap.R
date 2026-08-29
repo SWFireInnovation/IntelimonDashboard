@@ -269,7 +269,7 @@ server <- function(id) {
         step <- 1 / 3
 
         shiny$incProgress(step, detail = "Metrics")
-        session$userData$metrics <- api$get_metrics_for_scans(selected)
+        session$userData$metrics(api$get_metrics_for_scans(selected))
 
         shiny$incProgress(step, detail = "Tree inventory")
         session$userData$tree_inv <- api$get_treeinv_for_scans(selected)

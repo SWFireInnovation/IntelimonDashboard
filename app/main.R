@@ -67,7 +67,7 @@ server <- function(id) {
     )
 
     # IntELiMon metrics for selected scans
-    session$userData$metrics <- dt$data.table()
+    session$userData$metrics <- reactiveVal(dt$data.table())
     # IntELiMon identified tree inventory for scans
     session$userData$tree_inv <- dt$data.table()
     # IntELiMon identified extra models for scans
