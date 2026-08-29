@@ -82,7 +82,8 @@ resp2dt <- function(resp) {
   error <- !is_request_successful(resp)
 
   if (error) {
-    warning(httr2$last_response(resp))
+    warning(httr2$last_response())
+    return(NULL)
   } else if (!error) {
     resp_json <- resp |> httr2$resp_body_json(check_type = TRUE)
 
