@@ -61,7 +61,8 @@ build_scan_loc_dt <- function() {
 set_remeas_by_yr <- function(session) {
   selected <- session$userData$scan_selection()
 
-  selected[, Remeasurement := .GRP - 1L, by = .(format(date, "%Y"))]
+  # rank data by year and assign as remeasurement number
+  selected[, Remeasurement := dt$frank(format(date, "%Y"), ties.method ="dense") - 1L]
 
   session$userData$scan_selection(selected)
 }

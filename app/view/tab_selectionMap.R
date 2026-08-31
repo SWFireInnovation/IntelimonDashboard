@@ -75,7 +75,7 @@ server <- function(id) {
         ) |>
         # Esri World Imagery (political basemap)
         leaflet$addProviderTiles(
-          leaflet$providers$CartoDB.Positron,
+          leaflet$providers$Esri.WorldGrayCanvas,
           options = leaflet$providerTileOptions(maxZoom = 20),
           group = "Base Map"
         ) |>
@@ -146,6 +146,9 @@ server <- function(id) {
         input$map_bounds
       },
       {
+        shiny$req(input$map_zoom)
+        shiny$req(input$map_bounds)
+
         min_zoom_label <- 11
         max_plots <- 80
 
@@ -167,8 +170,9 @@ server <- function(id) {
         # remove rescans
         plt_mark <- unique(in_view_mark, by = c("site", "plot"))
 
+        nplts <- nrow(plt_mark)
         # if there are too many plots in the current view, clear labels and return
-        if (nrow(plt_mark) > max_plots) {
+        if (nplts > max_plots || nplts == 0) {
           proxy_map |>
             leaflet$clearGroup("plot-labels")
           return()
@@ -274,7 +278,7 @@ server <- function(id) {
         shiny$incProgress(step, detail = "Tree inventory")
         session$userData$tree_inv <- api$get_treeinv_for_scans(selected)
 
-        shiny$incProgress(step, detail = "Custom models")
+        shiny$incProgress(step-0.05, detail = "Custom models")
         session$userData$extra_models <- api$get_extra_models_for_scans(selected)
       })
     })

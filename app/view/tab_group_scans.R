@@ -39,19 +39,25 @@ server <- function(id) {
     output$selected_plots <- DT$renderDT({
       selected_scans <- session$userData$scan_selection()
 
+      nscans <- nrow(selected_scans)
+      metrics_msg <- "Selected scans have not been downloaded! Return to Selection Map tab."
       shiny$validate(
         shiny$need(
-          nrow(selected_scans) > 0,
+          nscans > 0,
           "No scans selected. Return to Selection Map tab."
         ),
         shiny$need(
-          nrow(session$userData$metrics()) > 0,
-          "No scans have been downloaded! Return to Selection Map tab"
+          !is.null(session$userData$metrics()),
+          metrics_msg
+        ),
+        shiny$need(
+          nrow(session$userData$metrics()) == nscans,
+          metrics_msg
         )
       )
 
       # set the default table sorting
-      selected_scans <- selected_scans[order(-date, site, plot)]
+      selected_scans <- selected_scans[order(plot, site, -date)]
 
       DT$datatable(
         selected_scans[, ..columns],
