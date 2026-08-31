@@ -10,7 +10,7 @@ ui <- function(id) {
   ns <- shiny$NS(id)
 
   bslib$nav_panel(
-    title = "Group Scans",
+    title = "Set Treatments",
     fillable = TRUE,
 
     bslib$layout_sidebar(

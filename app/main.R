@@ -8,7 +8,7 @@ box::use(
   view/tab_directOutputs,
   view/tab_forestry,
   view/tab_fuels,
-  view/tab_group_scans,
+  view/tab_set_trtmt,
   view/tab_help,
   view/tab_histogram,
   view/tab_load_data,
@@ -33,7 +33,7 @@ ui <- function(id) {
     },
     tab_histogram$ui(ns("Histogram")),
     tab_selectionMap$ui(ns("Selection Map")),
-    tab_group_scans$ui(ns("Group Scans")),
+    tab_group_scans$ui(ns("Set Treatments")),
     tab_directOutputs$ui(ns("Direct outputs")),
     tab_predictive_models$ui(ns("Predictive models")),
     tab_raster$ui(ns("Raster products")),
@@ -77,6 +77,6 @@ server <- function(id) {
     data_dir <- tab_load_data$server("Load Data")
     tab_histogram$server("Histogram", data_dir = data_dir)
     tab_selectionMap$server("Selection Map")
-    tab_group_scans$server("Group Scans")
+    tab_group_scans$server("Set Treatments")
   })
 }
