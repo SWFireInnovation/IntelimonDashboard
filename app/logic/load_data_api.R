@@ -113,7 +113,7 @@ resp2dt <- function(resp) {
 }
 
 #' @export
-.get_multi_scan <- function(scan_dt, api_fnc) {
+.get_multi_scan <- function(scan_dt, api_fnc, progress = NULL) {
   n_scans <- nrow(scan_dt)
   out <- vector("list", n_scans)
 
@@ -138,6 +138,20 @@ resp2dt <- function(resp) {
       scanner_id = this_scan$scanner_id
     )]
     out[[row]] <- api_dt
+
+    if (!is.null(progress)) {
+      progress$obj$inc(
+        progress$step,
+        detail = sprintf(
+          "%s: %s %s (%d/%d)",
+          progress$detail,
+          this_scan$site,
+          this_scan$plot,
+          row,
+          n_scans
+)
+      )
+    }
   }
   dt$rbindlist(out, fill = TRUE)
 }
@@ -261,8 +275,9 @@ get_metrics_for_1scan <- function(siteid,
 #' @param list of scans to be queried containing columns for siteid, plotid, date and scanner generation.
 #' @return a data.table of IntELiMon metrics
 #' @export
-get_metrics_for_scans <- function(scan_dt) {
-  .get_multi_scan(scan_dt, get_metrics_for_1scan)
+get_metrics_for_scans <- function(scan_dt, progress = NULL) {
+  if (!is.null(progress)) progress$detail <- "Metrics"
+  .get_multi_scan(scan_dt, get_metrics_for_1scan, progress)
 }
 
 #' Get tree inventory for an individual scan. This returns individual trees identified from the point cloud.
@@ -302,8 +317,9 @@ get_treeinv_for_1scan <- function(siteid,
 #' @param list of scans to be queried containing columns for siteid, plotid, date and scanner generation.
 #' @return a data.table of IntELiMon metrics
 #' @export
-get_treeinv_for_scans <- function(scan_dt) {
-  .get_multi_scan(scan_dt, get_treeinv_for_1scan)
+get_treeinv_for_scans <- function(scan_dt, progress = NULL) {
+  if (!is.null(progress)) progress$detail <- "Tree Inventory"
+  .get_multi_scan(scan_dt, get_treeinv_for_1scan, progress)
 }
 
 #' Get additional models for an individual scan. This returns a table where each row is a model for the
@@ -348,6 +364,7 @@ get_extra_models_for_1scan <- function(siteid,
 #' @param scanner_gen int defining which generation of BLK scanner was used for the scan (so far 1 or 2)
 #' @return data.table of additional models
 #' @export
-get_extra_models_for_scans <- function(scan_dt) {
-  .get_multi_scan(scan_dt, get_extra_models_for_1scan)
+get_extra_models_for_scans <- function(scan_dt, progress = NULL) {
+  if (!is.null(progress)) progress$detail <- "Models"
+  .get_multi_scan(scan_dt, get_extra_models_for_1scan, progress)
 }

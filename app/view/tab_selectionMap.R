@@ -269,18 +269,26 @@ server <- function(id) {
       # assign a default remeasurement number based on sequential years of measurment
       set_remeas_by_yr(session)
 
-      shiny$withProgress(message = paste("Retrieving data from", nscans, " scans..."), value = 0, {
-        step <- 1 / 3
+      # create a progress bar
+      dwnld_prog <- shiny$Progress$new(session)
+      on.exit(dwnld_prog$close())
+      dwnld_prog$set(
+        message = paste("Getting data from", nscans, " scans..."),
+        value = 0
+      )
+      prog_obj <- list(
+        step = 1/(nscans*3),
+        obj = dwnld_prog,
+        detail = ""
+      )
 
-        shiny$incProgress(step, detail = "Metrics")
-        session$userData$metrics(api$get_metrics_for_scans(selected))
+      # download data from the API and save to this session
+      session$userData$metrics(api$get_metrics_for_scans(selected, progress = prog_obj))
 
-        shiny$incProgress(step, detail = "Tree inventory")
-        session$userData$tree_inv <- api$get_treeinv_for_scans(selected)
+      session$userData$tree_inv <- api$get_treeinv_for_scans(selected, progress = prog_obj)
 
-        shiny$incProgress(step-0.05, detail = "Custom models")
-        session$userData$extra_models <- api$get_extra_models_for_scans(selected)
-      })
+      session$userData$extra_models <- api$get_extra_models_for_scans(selected, progress = prog_obj)
+
     })
 
     #-----renderUI components--------------------
