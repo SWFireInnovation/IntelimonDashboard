@@ -26,6 +26,20 @@ ui <- function(id) {
         ns("selected_plots"),
         height = "100%"
       )
+    ),
+
+    shiny$dateInput(
+      session$ns("date_select"),
+      inputID = "date_select",
+      label = shiny$h3("Add Each Treatment Date"),
+      value =  Sys.Date(),
+      format = "YYY-mm-dd",
+      autoclose = TRUE
+    ),
+
+    shiny$actionButton(
+      session$ns("add_trtmt"),
+      "Add Date"
     )
   )
 }
