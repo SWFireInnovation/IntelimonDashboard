@@ -1,8 +1,13 @@
 box::use(
   bslib,
   DT,
+  dt = data.table,
   gridlayout[grid_card, grid_card_plot, grid_container],
   shiny,
+)
+
+box::use(
+  app/logic/manage_data
 )
 
 #' @export
@@ -21,25 +26,30 @@ ui <- function(id) {
         position = "right",
         width = 350,
 
+        bslib$card(
+          bslib$card_header(shiny$h4("Add Treatment Dates")),
+          shiny$dateInput(
+            ns("ui_selected_date"),
+            label = shiny$h6("Select Date"),
+            value =  Sys.Date(),
+            format = "yyyy-mm-dd",
+            autoclose = TRUE
+          ),
+
+          shiny$actionButton(
+            ns("btn_add_trtmt"),
+            "Add Date"
+          ),
+
+          DT$DTOutput(
+            ns("tbl_trtmt_dates")
+          )
+        )
       ),
       DT$DTOutput(
         ns("selected_plots"),
         height = "100%"
       )
-    ),
-
-    shiny$dateInput(
-      session$ns("date_select"),
-      inputID = "date_select",
-      label = shiny$h3("Add Each Treatment Date"),
-      value =  Sys.Date(),
-      format = "YYY-mm-dd",
-      autoclose = TRUE
-    ),
-
-    shiny$actionButton(
-      session$ns("add_trtmt"),
-      "Add Date"
     )
   )
 }
@@ -48,6 +58,48 @@ ui <- function(id) {
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
 
+    shiny$observeEvent(input$btn_add_trtmt, {
+      trtmt_dates <- session$userData$trtmt_dates()
+
+      is_new <- !(input$ui_selected_date %in% trtmt_dates$TreatmentDate)
+      if (!is_new) {
+        shiny$showNotification(
+          "Date already added.",
+          type = "warning"
+        )
+        return()
+      } else if (is_new) {
+        trtmt_dates <- rbind(
+          trtmt_dates,
+          dt$data.table(
+            TreatmentDate = input$ui_selected_date
+          )
+        )
+        session$userData$trtmt_dates(trtmt_dates)
+
+        manage_data$set_remeas_by_trtmt(session, input$ui_selected_date)
+      }
+    })
+
+    output$tbl_trtmt_dates <- DT$renderDT({
+        DT$datatable(
+          session$userData$trtmt_dates(),
+          colnames="",
+          caption = "Treatment Dates",
+          filter = "none",
+          rownames = FALSE,
+          selection = "single",
+          options = list(
+            pageLength = 10,
+            ordering = TRUE,
+            searching = FALSE,
+            paging = FALSE,
+            dom = "t"
+          )
+        )
+    })
+
+    #---Data Table-------------------------------
     columns <- c('site', 'plot', 'date', 'scanner_id', "Unit", "Remeasurement")
 
     output$selected_plots <- DT$renderDT({
@@ -76,11 +128,12 @@ server <- function(id) {
       DT$datatable(
         selected_scans[, ..columns],
         filter = "top",
-        rownames = TRUE,
+        rownames = FALSE,
         selection = "multiple",
         options = list(
           pageLength = 50,
           ordering = TRUE,
+          paging = FALSE,
           # sort by date, then site w/in each date, then plot w/in each site
           order = list(list(2, "asc"), list(0, "asc"), list(1, "asc"))
         )

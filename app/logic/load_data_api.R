@@ -120,6 +120,20 @@ resp2dt <- function(resp) {
   for (row in seq_len(n_scans)) {
     this_scan <- scan_dt[row, ]
 
+    if (!is.null(progress)) {
+      progress$obj$inc(
+        progress$step,
+        detail = sprintf(
+          "%s: %s %s (%d/%d)",
+          progress$detail,
+          this_scan$site,
+          this_scan$plot,
+          row,
+          n_scans
+        )
+      )
+    }
+
     api_dt <- api_fnc(
       this_scan$site,
       this_scan$plot,
@@ -139,19 +153,6 @@ resp2dt <- function(resp) {
     )]
     out[[row]] <- api_dt
 
-    if (!is.null(progress)) {
-      progress$obj$inc(
-        progress$step,
-        detail = sprintf(
-          "%s: %s %s (%d/%d)",
-          progress$detail,
-          this_scan$site,
-          this_scan$plot,
-          row,
-          n_scans
-)
-      )
-    }
   }
   dt$rbindlist(out, fill = TRUE)
 }

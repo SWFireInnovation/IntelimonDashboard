@@ -49,7 +49,7 @@ ui <- function(id) {
 server <- function(id) {
   moduleServer(id, function(input, output, session) {
     # --------Shared User Data-------------------
-    # scans selected for anaylysis
+    # User selected scans for anaylysis
     session$userData$scan_selection <- reactiveVal(
       dt$data.table(
         id = character(),
@@ -72,6 +72,12 @@ server <- function(id) {
     session$userData$tree_inv <- dt$data.table()
     # IntELiMon identified extra models for scans
     session$userData$extra_models <- dt$data.table()
+    # User defined treatment dates
+    session$userData$trtmt_dates <- reactiveVal(
+      dt$data.table(
+        TreatmentDate = as.Date(character())
+      )
+    )
 
     # -------Tab Servers ------------------------
     data_dir <- tab_load_data$server("Load Data")

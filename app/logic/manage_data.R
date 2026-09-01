@@ -66,3 +66,33 @@ set_remeas_by_yr <- function(session) {
 
   session$userData$scan_selection(selected)
 }
+
+#' @export
+set_remeas_by_trtmt <- function(session, trtmt_date) {
+  # by updating in place, the reactiveVal doesn't notice it's been updated, so a copy is necessary
+  selected <- dt$copy(session$userData$scan_selection())
+
+  if (nrow(selected) == 0) {
+    return()
+  }
+
+  before_t <- selected$date < trtmt_date
+  after_t <- selected$date >= trtmt_date
+
+  before_rnum <- unique(selected[before_t, Remeasurement])
+  after_rnum <- unique(selected[after_t, Remeasurement])
+
+  # if all pre and post treatment scans already have different remeasurement numbers
+  if (!any(after_rnum %in% before_rnum)) {
+    return()
+  # if pre and post treatment scans have overlapping remeasurement numbers (but are not all NA)
+  } else if (any(after_rnum %in% before_rnum) && !is.null(after_rnum)){
+    selected[after_t, Remeasurement := Remeasurement + 1L]
+  # if the remeasurement column is empty
+  } else if (is.null(after_rnum) && is.null(before_rnum)){
+    selected[before_t, Remeasurement := 0]
+    selected[after_t, Remeasurement := 1]
+  }
+
+  session$userData$scan_selection(selected)
+}
