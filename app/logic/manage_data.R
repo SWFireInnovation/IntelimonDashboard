@@ -62,7 +62,7 @@ set_remeas_by_yr <- function(session) {
   selected <- session$userData$scan_selection()
 
   # rank data by year and assign as remeasurement number
-  selected[, Remeasurement := dt$frank(format(date, "%Y"), ties.method ="dense") - 1L]
+  selected[, Remeasurement := dt$frank(format(date, "%Y"), ties.method = "dense") - 1L]
 
   session$userData$scan_selection(selected)
 }
@@ -85,11 +85,11 @@ set_remeas_by_trtmt <- function(session, trtmt_date) {
   # if all pre and post treatment scans already have different remeasurement numbers
   if (!any(after_rnum %in% before_rnum)) {
     return()
-  # if pre and post treatment scans have overlapping remeasurement numbers (but are not all NA)
-  } else if (any(after_rnum %in% before_rnum) && !is.null(after_rnum)){
+    # if pre and post treatment scans have overlapping remeasurement numbers (but are not all NA)
+  } else if (any(after_rnum %in% before_rnum) && !is.null(after_rnum)) {
     selected[after_t, Remeasurement := Remeasurement + 1L]
-  # if the remeasurement column is empty
-  } else if (is.null(after_rnum) && is.null(before_rnum)){
+    # if the remeasurement column is empty
+  } else if (is.null(after_rnum) && is.null(before_rnum)) {
     selected[before_t, Remeasurement := 0]
     selected[after_t, Remeasurement := 1]
   }

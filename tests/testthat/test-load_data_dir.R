@@ -70,5 +70,4 @@ describe("load_selected_plots", {
     expect_equal(unique(result$Plot_ID), "scan_A")
     expect_equal(nrow(result), 1L)
   })
-
 })

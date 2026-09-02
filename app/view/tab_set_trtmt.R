@@ -1,13 +1,13 @@
 box::use(
-  bslib,
   DT,
+  bslib,
   dt = data.table,
   gridlayout[grid_card, grid_card_plot, grid_container],
   shiny,
 )
 
 box::use(
-  app/logic/manage_data
+  app/logic/manage_data,
 )
 
 #' @export
@@ -17,21 +17,17 @@ ui <- function(id) {
   bslib$nav_panel(
     title = "Set Treatments",
     fillable = TRUE,
-
     bslib$layout_sidebar(
       fillable = TRUE,
       height = "100%",
-
       sidebar = bslib$sidebar(
         position = "right",
         width = 350,
-
         bslib$card(
           full_screen = FALSE,
           fill = FALSE,
           max_height = "500px",
           min_height = "100px",
-
           bslib$card_header(shiny$h4("Add Treatment Dates")),
           bslib$card_body(
             fill = FALSE,
@@ -39,36 +35,30 @@ ui <- function(id) {
               "Scans measured after treatment dates will have their remeasurement numbers
                                                       automatically increased."
             ),
-
             shiny$dateInput(
               ns("ui_selected_date"),
               label = shiny$h6("Select Date"),
-              value =  Sys.Date(),
+              value = Sys.Date(),
               format = "yyyy-mm-dd",
               autoclose = TRUE
             ),
-
             shiny$actionButton(
               ns("btn_add_trtmt"),
               "Add Date"
             ),
-
             shiny$div(
-              style = "text-align:right; margin-top: 5px;",#"display:flex; justify-content:flex-end;", #
+              style = "text-align:right; margin-top: 5px;", # "display:flex; justify-content:flex-end;", #
               shiny$actionLink(
-                 ns("btn_delete_trtmt"),
-                 label = NULL, #"Delete selected",
-                 icon = shiny$icon("trash"),
+                ns("btn_delete_trtmt"),
+                label = NULL, # "Delete selected",
+                icon = shiny$icon("trash"),
               ),
-
-            DT$DTOutput(
-              ns("tbl_trtmt_dates")
-            )
-
+              DT$DTOutput(
+                ns("tbl_trtmt_dates")
+              )
             )
           )
         ),
-
         bslib$card(
           bslib$card_header(shiny$h4("Set Unit Name or Remeasurement")),
           shiny$helpText(
@@ -98,9 +88,9 @@ ui <- function(id) {
       shiny$div(
         style = "text-align:right;",
         shiny$actionLink(
-           ns("btn_clear_selection"),
-           label = "Clear selection",
-           icon = shiny$icon("xmark")
+          ns("btn_clear_selection"),
+          label = "Clear selection",
+          icon = shiny$icon("xmark")
         )
       ),
       DT$DTOutput(
@@ -114,7 +104,6 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
-
     #----Add Treatment Dates---------------------
     shiny$observeEvent(input$btn_add_trtmt, {
       trtmt_dates <- session$userData$trtmt_dates()
@@ -140,25 +129,25 @@ server <- function(id) {
     })
 
     output$tbl_trtmt_dates <- DT$renderDT({
-        trtmt_dates <- session$userData$trtmt_dates()
+      trtmt_dates <- session$userData$trtmt_dates()
 
 
-        DT$datatable(
-          session$userData$trtmt_dates(),
-          colnames="",
-          caption = "Treatment Dates",
-          filter = "none",
-          rownames = FALSE,
-          height = "100%",
-          selection = "single",
-          editable = TRUE,
-          options = list(
-            ordering = TRUE,
-            searching = FALSE,
-            paging = FALSE,
-            dom = "t"
-          )
+      DT$datatable(
+        session$userData$trtmt_dates(),
+        colnames = "",
+        caption = "Treatment Dates",
+        filter = "none",
+        rownames = FALSE,
+        height = "100%",
+        selection = "single",
+        editable = TRUE,
+        options = list(
+          ordering = TRUE,
+          searching = FALSE,
+          paging = FALSE,
+          dom = "t"
         )
+      )
     })
 
     # delete treament dates
@@ -179,7 +168,6 @@ server <- function(id) {
 
     #------Assign Unit or Remeasurement----------
     shiny$observeEvent(input$btn_assign, {
-
       # always initializes as NULL
       selected_rows <- input$tbl_selected_scans_rows_selected
       if (is.null(selected_rows)) {
@@ -209,7 +197,7 @@ server <- function(id) {
     })
 
     #---Data Table-------------------------------
-    columns <- c('site', 'plot', 'date', 'scanner_id', "Unit", "Remeasurement")
+    columns <- c("site", "plot", "date", "scanner_id", "Unit", "Remeasurement")
 
     output$tbl_selected_scans <- DT$renderDT({
       selected_scans <- session$userData$scan_selection()
@@ -261,7 +249,7 @@ server <- function(id) {
     })
 
     # allow the user to change table values
-    shiny$observeEvent(input$tbl_selected_scans_cell_edit,{
+    shiny$observeEvent(input$tbl_selected_scans_cell_edit, {
       changes <- input$tbl_selected_scans_cell_edit
 
       selected_scans <- session$userData$scan_selection()
@@ -273,5 +261,3 @@ server <- function(id) {
     })
   })
 }
-
-

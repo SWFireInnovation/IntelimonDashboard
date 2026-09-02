@@ -8,7 +8,6 @@ box::use(
   view/tab_directOutputs,
   view/tab_forestry,
   view/tab_fuels,
-  view/tab_set_trtmt,
   view/tab_help,
   view/tab_histogram,
   view/tab_load_data,
@@ -16,6 +15,7 @@ box::use(
   view/tab_raster,
   view/tab_rothRmel,
   view/tab_selectionMap,
+  view/tab_set_trtmt,
 )
 
 # Define UI for application that draws a histogram

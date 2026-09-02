@@ -152,7 +152,6 @@ resp2dt <- function(resp) {
       scanner_id = this_scan$scanner_id
     )]
     out[[row]] <- api_dt
-
   }
   dt$rbindlist(out, fill = TRUE)
 }

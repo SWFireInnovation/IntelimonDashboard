@@ -101,8 +101,8 @@ server <- function(id) {
     filtered_plots <- shiny$reactive({
       filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
       if (is.null(input$ui_select_agency) ||
-            length(input$ui_select_agency) == 0) {
-            return(filter_plots)
+        length(input$ui_select_agency) == 0) {
+        return(filter_plots)
       }
       filter_plots[Agency %in% input$ui_select_agency]
     })
@@ -278,7 +278,7 @@ server <- function(id) {
         value = 0
       )
       prog_obj <- list(
-        step = 1/(nscans*3), step = 1/(nscans*3),
+        step = 1 / (nscans * 3), step = 1 / (nscans * 3),
         obj = dwnld_prog,
         detail = ""
       )
@@ -289,7 +289,6 @@ server <- function(id) {
       session$userData$tree_inv <- api$get_treeinv_for_scans(selected, progress = prog_obj)
 
       session$userData$extra_models <- api$get_extra_models_for_scans(selected, progress = prog_obj)
-
     })
 
     #-----renderUI components--------------------
