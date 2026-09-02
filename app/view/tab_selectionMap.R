@@ -257,6 +257,7 @@ server <- function(id) {
     shiny$observeEvent(input$btn_get_data, {
       selected <- session$userData$scan_selection()
       nscans <- nrow(selected)
+      nplots <- nrow(unique(selected, by = c("site", "plot")))
 
       if (nscans == 0) {
         shiny$showNotification(
@@ -273,11 +274,11 @@ server <- function(id) {
       dwnld_prog <- shiny$Progress$new(session)
       on.exit(dwnld_prog$close())
       dwnld_prog$set(
-        message = paste("Getting data from", nscans, " scans..."),
+        message = paste("Getting data from", nscans, " scans at", nplots, "plots..."),
         value = 0
       )
       prog_obj <- list(
-        step = 1/(nscans*3),
+        step = 1/(nscans*3), step = 1/(nscans*3),
         obj = dwnld_prog,
         detail = ""
       )

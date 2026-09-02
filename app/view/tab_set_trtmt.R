@@ -27,27 +27,45 @@ ui <- function(id) {
         width = 350,
 
         bslib$card(
+          full_screen = FALSE,
+          fill = FALSE,
+          max_height = "500px",
+          min_height = "100px",
+
           bslib$card_header(shiny$h4("Add Treatment Dates")),
-          shiny$helpText(
-            "Scans after entered treatment dates will have their remeasurement numbers
-            automatically increased."
-          ),
-          height = "400px",
-          shiny$dateInput(
-            ns("ui_selected_date"),
-            label = shiny$h6("Select Date"),
-            value =  Sys.Date(),
-            format = "yyyy-mm-dd",
-            autoclose = TRUE
-          ),
+          bslib$card_body(
+            fill = FALSE,
+            shiny$helpText(
+              "Scans measured after treatment dates will have their remeasurement numbers
+                                                      automatically increased."
+            ),
 
-          shiny$actionButton(
-            ns("btn_add_trtmt"),
-            "Add Date"
-          ),
+            shiny$dateInput(
+              ns("ui_selected_date"),
+              label = shiny$h6("Select Date"),
+              value =  Sys.Date(),
+              format = "yyyy-mm-dd",
+              autoclose = TRUE
+            ),
 
-          DT$DTOutput(
-            ns("tbl_trtmt_dates")
+            shiny$actionButton(
+              ns("btn_add_trtmt"),
+              "Add Date"
+            ),
+
+            shiny$div(
+              style = "text-align:right; margin-top: 5px;",#"display:flex; justify-content:flex-end;", #
+              shiny$actionLink(
+                 ns("btn_delete_trtmt"),
+                 label = NULL, #"Delete selected",
+                 icon = shiny$icon("trash"),
+              ),
+
+            DT$DTOutput(
+              ns("tbl_trtmt_dates")
+            )
+
+            )
           )
         ),
 
@@ -75,6 +93,14 @@ ui <- function(id) {
             ns("btn_assign"),
             "Assign"
           )
+        )
+      ),
+      shiny$div(
+        style = "text-align:right;",
+        shiny$actionLink(
+           ns("btn_clear_selection"),
+           label = "Clear selection",
+           icon = shiny$icon("xmark")
         )
       ),
       DT$DTOutput(
@@ -114,23 +140,41 @@ server <- function(id) {
     })
 
     output$tbl_trtmt_dates <- DT$renderDT({
+        trtmt_dates <- session$userData$trtmt_dates()
+
+
         DT$datatable(
           session$userData$trtmt_dates(),
           colnames="",
           caption = "Treatment Dates",
           filter = "none",
           rownames = FALSE,
-          fillContainer = TRUE,
+          height = "100%",
           selection = "single",
           editable = TRUE,
           options = list(
-            scrollY = "100%",
             ordering = TRUE,
             searching = FALSE,
             paging = FALSE,
             dom = "t"
           )
         )
+    })
+
+    # delete treament dates
+    shiny$observeEvent(input$btn_delete_trtmt, {
+      row <- input$tbl_trtmt_dates_rows_selected
+      if (is.null(row) || length(row) == 0) {
+        shiny$showNotification(
+          "Select a treatment date to delete.",
+          type = "warning"
+        )
+        return()
+      }
+      trtmt_dates <- session$userData$trtmt_dates()
+
+      trtmt_dates <- trtmt_dates[-row]
+      session$userData$trtmt_dates(trtmt_dates)
     })
 
     #------Assign Unit or Remeasurement----------
@@ -205,6 +249,15 @@ server <- function(id) {
           order = list(list(2, "asc"), list(0, "asc"), list(1, "asc"))
         )
       )
+    })
+
+    proxy <- DT$dataTableProxy(
+      "tbl_selected_scans",
+      session = session
+    )
+
+    shiny$observeEvent(input$btn_clear_selection, {
+      DT$selectRows(proxy, NULL)
     })
 
     # allow the user to change table values
