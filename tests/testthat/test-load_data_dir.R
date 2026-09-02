@@ -10,7 +10,7 @@ box::use(
 # test_data: scan_A.csv, scan_B.csv, notes.txt
 test_data <- test_path("../test_data")
 
-# ── get_data_path ─────────────────────────────────────────────────────────────
+# -- get_data_path -------------------------------------------------------------
 
 describe("get_data_path", {
   it("returns NULL when data_loc.yaml does not exist", {
@@ -18,7 +18,7 @@ describe("get_data_path", {
   })
 })
 
-# ── list_plot_files ───────────────────────────────────────────────────────────
+# -- list_plot_files -----------------------------------------------------------
 
 describe("list_plot_files", {
   it("returns a named character vector containing only the two CSV fixtures", {
@@ -42,7 +42,7 @@ describe("list_plot_files", {
   })
 })
 
-# ── load_selected_plots ───────────────────────────────────────────────────────
+# -- load_selected_plots -------------------------------------------------------
 
 plot_files <- c(scan_A = "scan_A.csv", scan_B = "scan_B.csv")
 
@@ -70,16 +70,4 @@ describe("load_selected_plots", {
     expect_equal(unique(result$Plot_ID), "scan_A")
     expect_equal(nrow(result), 1L)
   })
-
-  # This check will vary depending on the current version of IntELiMon
-  #
-  # it("preserves all columns from the source CSV", {
-  #   result <- load_data_dir$load_selected_plots(
-  #     data_dir       = test_data,
-  #     selected_plots = "scan_A",
-  #     plot_files     = PLOT_FILES
-  #   )
-  #
-  #   expect_true(all(c("DBH", "Height", "CanopyCover") %in% names(result)))
-  # })
 })

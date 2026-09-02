@@ -1,9 +1,18 @@
 box::use(
   bslib[card_body, card_header, nav_panel],
+  grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
   shiny,
 )
+
+box::use(
+  api = app/logic/load_data_api,
+  app/logic/manage_data[build_scan_loc_dt, set_remeas_by_yr],
+)
+
+# load all plot locations
+plots <- build_scan_loc_dt()
 
 #' @export
 ui <- function(id) {
@@ -27,31 +36,10 @@ ui <- function(id) {
         area = "IntELiMonDSS",
         card_header("Select Scans"),
         card_body(
-          shiny$selectInput(
-            inputId = ns("mySelectInput"),
-            label = "Agency selection",
-            choices = list("ALL" = "NULL", "usfws" = "a", "choice b" = "b")
-          ),
-          shiny$radioButtons(
-            inputId = ns("myRadioButtons"),
-            label = "Plot selection",
-            choices = list("choice a" = "a", "choice b" = "b"),
-            width = "100%"
-          ),
-          shiny$textInput(
-            inputId = ns("myTextInput"),
-            label = "Treatment dates",
-            value = "YYYYMMDD, YYYYMMDD..."
-          ),
-          shiny$dateRangeInput(
-            inputId = ns("daterange"),
-            label = "Select date range",
-            start = "2021-01-01",
-            end = Sys.Date(),
-            min = "2021-01-01",
-            max = Sys.Date(),
-            format = "yyyy-mm-dd"
-          )
+          shiny$uiOutput(ns("ui_select_agency")),
+          shiny$uiOutput(ns("ui_select_date_range")),
+          shiny$actionButton(ns("btn_clear"), "\u2715  Clear All Plots", width = "100%"),
+          shiny$actionButton(ns("btn_get_data"), "\u2913  Get Data", width = "100%"),
         )
       ),
       grid_card(
@@ -67,6 +55,7 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
+    #-----Base Map-------------------------------
     output$map <- leaflet$renderLeaflet({
       leaflet$leaflet(
         options = leaflet$leafletOptions(
@@ -81,9 +70,19 @@ server <- function(id) {
         # Esri World Imagery (satellite basemap)
         leaflet$addProviderTiles(
           leaflet$providers$Esri.WorldImagery,
-          options = leaflet$providerTileOptions(
-            maxZoom = 20
-          )
+          options = leaflet$providerTileOptions(maxZoom = 20),
+          group = "Satellite"
+        ) |>
+        # Esri World Imagery (political basemap)
+        leaflet$addProviderTiles(
+          leaflet$providers$Esri.WorldGrayCanvas,
+          options = leaflet$providerTileOptions(maxZoom = 20),
+          group = "Base Map"
+        ) |>
+        leaflet$addLayersControl(
+          baseGroups = c("Satellite", "Base Map"),
+          options    = leaflet$layersControlOptions(collapsed = FALSE),
+          position   = "topright"
         ) |>
         # Initial view
         leaflet$setView(
@@ -93,16 +92,228 @@ server <- function(id) {
         )
     })
 
-    # Return dates as YYYYMMDD
-    selected_dates <- shiny$reactive({
-      c(
-        start = format(input$daterange[1], "%Y%m%d"),
-        end   = format(input$daterange[2], "%Y%m%d")
+    #-----Map plot locations---------------------
+    # Discrete palette for plot mapping
+    n_color <- length(unique(plots$Agency))
+    color_palette <- leaflet$colorFactor(hcl.colors(n_color, "Dark 2"), levels = plots$Agency)
+
+    # make reactive markers
+    filtered_plots <- shiny$reactive({
+      filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
+      if (is.null(input$ui_select_agency) ||
+        length(input$ui_select_agency) == 0) {
+        return(filter_plots)
+      }
+      filter_plots[Agency %in% input$ui_select_agency]
+    })
+
+    proxy_map <- leaflet$leafletProxy("map", session)
+
+    shiny$observeEvent(filtered_plots(), {
+      markers <- filtered_plots()
+      # remove selected plots that do not fit the updated filter
+      all_clicks <- session$userData$scan_selection()
+      all_clicks <- all_clicks[markers,
+        on = .(site, plot, date),
+        nomatch = 0, .SD,
+        .SDcols = names(all_clicks)
+      ]
+      session$userData$scan_selection(all_clicks)
+
+      proxy_map |>
+        leaflet$clearMarkers() |>
+        leaflet$clearControls() |>
+        leaflet$addCircleMarkers(
+          data = markers,
+          layerId = ~ paste(site, plot, sep = "-"),
+          lng = ~Longitude,
+          lat = ~Latitude,
+          color = ~ color_palette(Agency),
+          radius = 4
+        ) |>
+        leaflet$addLegend(
+          data = markers,
+          position = "bottomright",
+          pal = color_palette, values = ~Agency,
+          opacity = 0.6
+        )
+    })
+
+    #-----Show labels once zoomed in-------------
+    shiny$observeEvent(
+      {
+        input$map_zoom
+        input$map_bounds
+      },
+      {
+        shiny$req(input$map_zoom)
+        shiny$req(input$map_bounds)
+
+        min_zoom_label <- 11
+        max_plots <- 80
+
+        # immediately exit if zoomed out
+        if (input$map_zoom < min_zoom_label) {
+          proxy_map |>
+            leaflet$clearGroup("plot-labels")
+          return()
+        }
+
+        # Filter to minimum labels
+        # if zoomed in, filter plots to current extent.
+        markers <- filtered_plots()
+        bounds <- input$map_bounds
+        in_view_mark <- markers[
+          Latitude >= bounds$south & Latitude <= bounds$north &
+            Longitude >= bounds$west & Longitude <= bounds$east
+        ]
+        # remove rescans
+        plt_mark <- unique(in_view_mark, by = c("site", "plot"))
+
+        nplts <- nrow(plt_mark)
+        # if there are too many plots in the current view, clear labels and return
+        if (nplts > max_plots || nplts == 0) {
+          proxy_map |>
+            leaflet$clearGroup("plot-labels")
+          return()
+        }
+
+        proxy_map |>
+          leaflet$clearGroup("plot-labels") |>
+          leaflet$addLabelOnlyMarkers(
+            data = plt_mark,
+            lng = ~Longitude,
+            lat = ~Latitude,
+            label = ~plot,
+            group = "plot-labels",
+            labelOptions = leaflet$labelOptions(
+              noHide = TRUE,
+              textOnly = TRUE,
+              className = "plot-label"
+            )
+          )
+      }
+    )
+
+    #----Select plots----------------------------
+    shiny$observeEvent(input$map_marker_click, {
+      click <- input$map_marker_click
+
+      markers <- filtered_plots()
+      all_clicks <- session$userData$scan_selection()
+
+      if (is.null(click$id)) {
+        return()
+      }
+
+      # extract site and plot from the click id
+      click_id <- strsplit(click$id, "-")[[1]]
+      if (length(click_id) != 2) {
+        return()
+      } else if (length(click_id) == 2) {
+        clk_site <- click_id[[1]]
+        clk_plt <- click_id[[2]]
+      }
+
+      if (click$id %in% all_clicks$id) {
+        # if clicked on a second time, remove (un-select)
+        all_clicks <- all_clicks[id != click$id]
+      } else {
+        selected <- markers[site == clk_site & plot == clk_plt]
+        selected[, ":="(
+          id = click$id,
+          Unit = "My Unit",
+          Remeasurement = NA_real_
+        )]
+        all_clicks <- rbind(all_clicks, selected)
+      }
+
+      # reassign to reactive variable
+      session$userData$scan_selection(all_clicks)
+    })
+
+    shiny$observeEvent(session$userData$scan_selection(), {
+      # can be changed by `filtered_plots()` or by `input$map_marker_click`
+      proxy_map |>
+        leaflet$clearGroup("all_clicks") |>
+        leaflet$addCircleMarkers(
+          group = "all_clicks",
+          data = session$userData$scan_selection(),
+          # make sure that you can still click on filtered plots to deselect
+          options = leaflet$pathOptions(clickable = FALSE),
+          lng = ~Longitude,
+          lat = ~Latitude,
+          color = "blue",
+          radius = 2
+        )
+    })
+
+    shiny$observeEvent(input$btn_clear, {
+      current <- session$userData$scan_selection()
+      session$userData$scan_selection(current[0])
+      shiny$showNotification("Cleared selected plots.", type = "message", duration = 5)
+    })
+
+    shiny$observeEvent(input$btn_get_data, {
+      selected <- session$userData$scan_selection()
+      nscans <- nrow(selected)
+      nplots <- nrow(unique(selected, by = c("site", "plot")))
+
+      if (nscans == 0) {
+        shiny$showNotification(
+          "No scans selected. Click on a desired plot and set date range.",
+          type = "warning", duration = 5
+        )
+        return()
+      }
+
+      # assign a default remeasurement number based on sequential years of measurment
+      set_remeas_by_yr(session)
+
+      # create a progress bar
+      dwnld_prog <- shiny$Progress$new(session)
+      on.exit(dwnld_prog$close())
+      dwnld_prog$set(
+        message = paste("Getting data from", nscans, " scans at", nplots, "plots..."),
+        value = 0
+      )
+      prog_obj <- list(
+        step = 1 / (nscans * 3), step = 1 / (nscans * 3),
+        obj = dwnld_prog,
+        detail = ""
+      )
+
+      # download data from the API and save to this session
+      session$userData$metrics(api$get_metrics_for_scans(selected, progress = prog_obj))
+
+      session$userData$tree_inv <- api$get_treeinv_for_scans(selected, progress = prog_obj)
+
+      session$userData$extra_models <- api$get_extra_models_for_scans(selected, progress = prog_obj)
+    })
+
+    #-----renderUI components--------------------
+    output$ui_select_agency <- shiny$renderUI({
+      agencies <- api$get_agencies()$value
+      shiny$selectInput(
+        inputId = session$ns("ui_select_agency"),
+        label = "Agency selection",
+        choices = agencies[order(agencies)],
+        multiple = TRUE
       )
     })
 
-    output$dates <- shiny$renderPrint({
-      selected_dates()
+    output$ui_select_date_range <- shiny$renderUI({
+      min_yr <- min(plots$date)
+      max_yr <- max(plots$date)
+      shiny$sliderInput(
+        inputId = session$ns("ui_select_date_range"),
+        label = "Select date range",
+        min = min_yr,
+        max = max_yr,
+        value = c(min_yr, max_yr),
+        step = 30,
+        timeFormat = "%Y-%m-%d"
+      )
     })
   })
 }

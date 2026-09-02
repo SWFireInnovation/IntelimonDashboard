@@ -14,7 +14,7 @@ box::use(
 # test_data: scan_A.csv, scan_B.csv, notes.txt
 testdata <- test_path("../test_data")
 
-# ── main server ───────────────────────────────────────────────────────────────
+# -- main server ---------------------------------------------------------------
 
 describe("main server", {
   it("initialises without error", {
@@ -24,7 +24,7 @@ describe("main server", {
   })
 })
 
-# ── tab_load_data server ──────────────────────────────────────────────────────
+# -- tab_load_data server ------------------------------------------------------
 
 describe("tab_load_data server", {
   it("returns NULL as the initial data_dir when no yaml is configured", {
@@ -50,7 +50,7 @@ describe("tab_load_data server", {
   })
 })
 
-# ── tab_histogram server ──────────────────────────────────────────────────────
+# -- tab_histogram server ------------------------------------------------------
 
 describe("tab_histogram server", {
   it("file_select lists only the CSV files in the testdata directory", {
@@ -76,7 +76,6 @@ describe("tab_histogram server", {
 
       df <- combined_data()
       # will change dependent on IntELiMon version
-      # expect_true("Plot_ID" %in% names(df))
       expect_equal(nrow(df), 2L)
     })
   })
@@ -108,7 +107,7 @@ describe("tab_histogram server", {
   })
 })
 
-# ── tab_selectionMap server ───────────────────────────────────────────────────
+# -- tab_selectionMap server ---------------------------------------------------
 
 describe("tab_selectionMap server", {
   it("renders the leaflet map output", {
@@ -126,7 +125,7 @@ describe("tab_selectionMap server", {
 
       dates <- selected_dates()
       expect_equal(dates[["start"]], "20230601")
-      expect_equal(dates[["end"]],   "20230930")
+      expect_equal(dates[["end"]], "20230930")
     })
   })
 
