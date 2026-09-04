@@ -1,6 +1,5 @@
 box::use(
   sf,
-  stats[setNames],
   tidyr[separate],
 )
 
@@ -83,6 +82,8 @@ parse_click_id <- function(click, sep = "-", labels = c("site", "plot")) {
   if (length(parts) != 2) {
     return(NULL)
   } else {
-    setNames(as.list(parts), labels)
+    part_list <- as.list(parts)
+    names(part_list) <- labels
+    part_list
   }
 }
