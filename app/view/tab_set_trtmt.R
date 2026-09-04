@@ -200,8 +200,10 @@ server <- function(id) {
 
     output$tbl_selected_scans <- DT$renderDT({
       selected_scans <- session$userData$scan_selection()
+      dwnlded_scans <- session$userData$metrics()
 
       nscans <- nrow(selected_scans)
+      ndwnld <- nrow(dwnlded_scans)
       metrics_msg <- "Selected scans have not been downloaded! Return to Selection Map tab."
       shiny$validate(
         shiny$need(
@@ -209,12 +211,12 @@ server <- function(id) {
           "No scans selected. Return to Selection Map tab."
         ),
         shiny$need(
-          !is.null(session$userData$metrics()),
+          !is.null(dwnlded_scans),
           metrics_msg
         ),
         shiny$need(
-          nrow(session$userData$metrics()) == nscans,
-          metrics_msg
+          ndwnld == nscans,
+          paste(metrics_msg, "\nScans downloaded: ", ndwnld, "\nScans selected: ", nscans)
         )
       )
 

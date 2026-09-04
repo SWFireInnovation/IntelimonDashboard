@@ -8,7 +8,7 @@ box::use(
 
 box::use(
   api = app/logic/load_data_api,
-  app/logic/manage_data[build_scan_loc_dt, set_remeas_by_yr],
+  app/logic/manage_data[build_scan_loc_dt, get_scans4dwnld, set_remeas_by_yr],
   app/logic/map_fnc[parse_click_id],
   app/view/map_controls[update_dwnld_scan_points, update_point_labels, update_selected_scan_points],
 )
@@ -136,7 +136,8 @@ server <- function(id) {
         leaflet$addLegend(
           data = markers,
           position = "bottomright",
-          pal = color_palette, values = ~Agency,
+          pal = color_palette,
+          values = ~Agency,
           opacity = 0.6
         )
     })
@@ -145,7 +146,7 @@ server <- function(id) {
     update_point_labels(input,
                         proxy_map,
                         filtered_plots(),
-                        mapID = "map",
+                        map_id = "map",
                         col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
 
     #----Select plots----------------------------
@@ -188,7 +189,7 @@ server <- function(id) {
     })
 
     shiny$observeEvent(input$btn_get_data, {
-      selected <- session$userData$scan_selection()
+      selected <- get_scans4dwnld(session)
       nscans <- nrow(selected)
       nplots <- nrow(unique(selected, by = c("site", "plot")))
 
@@ -207,7 +208,7 @@ server <- function(id) {
       dwnld_prog <- shiny$Progress$new(session)
       on.exit(dwnld_prog$close())
       dwnld_prog$set(
-        message = paste("Getting data from", nscans, " scans at", nplots, "plots..."),
+        message = paste("Getting data from", nscans, " new scans at", nplots, "plots..."),
         value = 0
       )
       prog_obj <- list(
@@ -217,11 +218,22 @@ server <- function(id) {
       )
 
       # download data from the API and save to this session
-      session$userData$metrics(api$get_metrics_for_scans(selected, progress = prog_obj))
+      session$userData$metrics(
+        rbind(
+          session$userData$metrics(),
+          api$get_metrics_for_scans(selected, progress = prog_obj)
+        )
+      )
 
-      session$userData$tree_inv <- api$get_treeinv_for_scans(selected, progress = prog_obj)
+      session$userData$tree_inv <- rbind(
+        session$userData$tree_inv,
+        api$get_treeinv_for_scans(selected, progress = prog_obj)
+      )
 
-      session$userData$extra_models <- api$get_extra_models_for_scans(selected, progress = prog_obj)
+      session$userData$extra_models <- rbind(
+        session$userData$extra_models,
+        api$get_extra_models_for_scans(selected, progress = prog_obj)
+      )
     })
 
     #-----renderUI components--------------------

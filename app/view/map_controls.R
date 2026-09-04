@@ -92,6 +92,7 @@ map_scan_points <- function(proxy_map,
                             grp = "all_clicks") {
   proxy_map |>
     leaflet$clearGroup(grp) |>
+    leaflet$removeControl(paste0(grp, "_legend")) |>
     leaflet$addCircleMarkers(
       group = grp,
       data = pts,
@@ -101,6 +102,14 @@ map_scan_points <- function(proxy_map,
       lat = pts[[col_names$lat]],
       color = color,
       radius = 2
+    ) |>
+    leaflet$addLegend(
+      layerId =  paste0(grp, "_legend"),
+      data = pts,
+      position = "bottomright",
+      colors = color,
+      labels = grp,
+      opacity = 0.6
     )
 }
 
@@ -120,7 +129,7 @@ update_selected_scan_points <- function(session,
     mark <- session$userData$scan_selection()
     req(mark)
     # can be changed by `filtered_plots()` or by `input$map_marker_click`
-    map_scan_points(proxy_map, mark, col_names, color = "gold", grp = "all_clicks")
+    map_scan_points(proxy_map, mark, col_names, color = "gold", grp = "Selected")
   })
 }
 
@@ -136,6 +145,7 @@ update_dwnld_scan_points <- function(session,
                                      col_names = list(lat = "Latitude", lng = "Longitude")) {
   observeEvent(
     {
+      # if only metrics is monitored, then new selected scans cause all metrics to be overwritten
       session$userData$metrics()
       session$userData$scan_selection()
     },
@@ -143,14 +153,14 @@ update_dwnld_scan_points <- function(session,
       metrics <- session$userData$metrics()
       scans <- session$userData$scan_selection()
 
-      if (nrow(metrics) == 0 || is.null(metrics)) {
+      if (is.null(metrics) || nrow(metrics) == 0) {
         return()
       }
 
       loc <- scans[metrics, on = .(site, plot, date, scanner_id), nomatch = 0, .SD]
 
       # can be changed by `filtered_plots()` or by `input$map_marker_click`
-      map_scan_points(proxy_map, loc, col_names, color = "blue", grp = "all_dwnld")
+      map_scan_points(proxy_map, loc, col_names, color = "blue", grp = "Downloaded")
     }
   )
 }

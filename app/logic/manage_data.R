@@ -57,6 +57,8 @@ build_scan_loc_dt <- function() {
 #' remeasurement number. For example, if the first scan was in 2023, all scans from that year are given a
 #' remeasurement number of 0. And if the next year with scans is 2024, all scans in that year are assigned a
 #' remeasurement number of 1.
+#'
+#' @param session - a shiny session object.
 #' @export
 set_remeas_by_yr <- function(session) {
   selected <- session$userData$scan_selection()
@@ -67,6 +69,16 @@ set_remeas_by_yr <- function(session) {
   session$userData$scan_selection(selected)
 }
 
+#' Set the remeasurement values pre and post treatment date.
+#'
+#' Existing post treatment remeasurement values that are the same as pre treatment remeasurement values are
+#' increased. If remeasurment values have not been assigned, pre treatment values are assigned 0 and post
+#' treatment values are assigned 1.
+#'
+#' Results are applied to session$userData$scan_selection() and nothing is returned.
+#'
+#' @param session - a shiny session object
+#' @param trtmt_date -  a date value
 #' @export
 set_remeas_by_trtmt <- function(session, trtmt_date) {
   # by updating in place, the reactiveVal doesn't notice it's been updated, so a copy is necessary
@@ -95,4 +107,24 @@ set_remeas_by_trtmt <- function(session, trtmt_date) {
   }
 
   session$userData$scan_selection(selected)
+}
+
+#' Get a list of new scans that have not been downloaded yet.
+#'
+#' This function compares the list of downloaded metrics to the list of selected scans and returns any scans
+#' that have been selected, but have not yet been downloaded. This information is pulled from
+#' session$userData.
+#'
+#' @param session - a shiny session object
+#' @return data.table of new scans for download.
+#' @export
+get_scans4dwnld <- function(session) {
+  selection <- session$userData$scan_selection()
+  dwnlded <- session$userData$metrics()
+
+  if (is.null(dwnlded) || nrow(dwnlded) == 0) {
+    return(selection)
+  }
+
+  selection[!dwnlded, on = .(site, plot, date, scanner_id)]
 }
