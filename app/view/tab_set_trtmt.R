@@ -2,7 +2,6 @@ box::use(
   DT,
   bslib,
   dt = data.table,
-  gridlayout[grid_card, grid_card_plot, grid_container],
   shiny,
 )
 
@@ -186,11 +185,11 @@ server <- function(id) {
       displayed_scans <- displayed_scans[order(plot, site, -date)]
 
       if (nzchar(input$ui_enter_unit)) {
-        displayed_scans[orig_display_row, Unit := as.character(input$ui_enter_unit)]
+        displayed_scans[orig_display_row, "Unit" := as.character(input$ui_enter_unit)] # nolint: object_name_linter
       }
 
       if (nzchar(input$ui_enter_remeas)) {
-        displayed_scans[orig_display_row, Remeasurement := as.integer(input$ui_enter_remeas)]
+        displayed_scans[orig_display_row, "Remeasurement" := as.integer(input$ui_enter_remeas)] # nolint: object_name_linter
       }
 
       session$userData$scan_selection(displayed_scans)

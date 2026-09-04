@@ -9,6 +9,8 @@ box::use(
 box::use(
   api = app/logic/load_data_api,
   app/logic/manage_data[build_scan_loc_dt, set_remeas_by_yr],
+  app/logic/map_fnc[parse_click_id],
+  app/view/map_controls[update_dwnld_scan_points, update_point_labels, update_selected_scan_points],
 )
 
 # load all plot locations
@@ -101,7 +103,7 @@ server <- function(id) {
     filtered_plots <- shiny$reactive({
       filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
       if (is.null(input$ui_select_agency) ||
-        length(input$ui_select_agency) == 0) {
+            length(input$ui_select_agency) == 0) {
         return(filter_plots)
       }
       filter_plots[Agency %in% input$ui_select_agency]
@@ -140,60 +142,11 @@ server <- function(id) {
     })
 
     #-----Show labels once zoomed in-------------
-    shiny$observeEvent(
-      {
-        input$map_zoom
-        input$map_bounds
-      },
-      {
-        shiny$req(input$map_zoom)
-        shiny$req(input$map_bounds)
-
-        min_zoom_label <- 11
-        max_plots <- 80
-
-        # immediately exit if zoomed out
-        if (input$map_zoom < min_zoom_label) {
-          proxy_map |>
-            leaflet$clearGroup("plot-labels")
-          return()
-        }
-
-        # Filter to minimum labels
-        # if zoomed in, filter plots to current extent.
-        markers <- filtered_plots()
-        bounds <- input$map_bounds
-        in_view_mark <- markers[
-          Latitude >= bounds$south & Latitude <= bounds$north &
-            Longitude >= bounds$west & Longitude <= bounds$east
-        ]
-        # remove rescans
-        plt_mark <- unique(in_view_mark, by = c("site", "plot"))
-
-        nplts <- nrow(plt_mark)
-        # if there are too many plots in the current view, clear labels and return
-        if (nplts > max_plots || nplts == 0) {
-          proxy_map |>
-            leaflet$clearGroup("plot-labels")
-          return()
-        }
-
-        proxy_map |>
-          leaflet$clearGroup("plot-labels") |>
-          leaflet$addLabelOnlyMarkers(
-            data = plt_mark,
-            lng = ~Longitude,
-            lat = ~Latitude,
-            label = ~plot,
-            group = "plot-labels",
-            labelOptions = leaflet$labelOptions(
-              noHide = TRUE,
-              textOnly = TRUE,
-              className = "plot-label"
-            )
-          )
-      }
-    )
+    update_point_labels(input,
+                        proxy_map,
+                        filtered_plots(),
+                        mapID = "map",
+                        col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
 
     #----Select plots----------------------------
     shiny$observeEvent(input$map_marker_click, {
@@ -206,20 +159,13 @@ server <- function(id) {
         return()
       }
 
-      # extract site and plot from the click id
-      click_id <- strsplit(click$id, "-")[[1]]
-      if (length(click_id) != 2) {
-        return()
-      } else if (length(click_id) == 2) {
-        clk_site <- click_id[[1]]
-        clk_plt <- click_id[[2]]
-      }
+      site_list <- parse_click_id(click, sep = "-", labels = c("site", "plot"))
 
       if (click$id %in% all_clicks$id) {
         # if clicked on a second time, remove (un-select)
         all_clicks <- all_clicks[id != click$id]
       } else {
-        selected <- markers[site == clk_site & plot == clk_plt]
+        selected <- markers[site == site_list$site & plot == site_list$plot]
         selected[, ":="(
           id = click$id,
           Unit = "My Unit",
@@ -232,21 +178,8 @@ server <- function(id) {
       session$userData$scan_selection(all_clicks)
     })
 
-    shiny$observeEvent(session$userData$scan_selection(), {
-      # can be changed by `filtered_plots()` or by `input$map_marker_click`
-      proxy_map |>
-        leaflet$clearGroup("all_clicks") |>
-        leaflet$addCircleMarkers(
-          group = "all_clicks",
-          data = session$userData$scan_selection(),
-          # make sure that you can still click on filtered plots to deselect
-          options = leaflet$pathOptions(clickable = FALSE),
-          lng = ~Longitude,
-          lat = ~Latitude,
-          color = "blue",
-          radius = 2
-        )
-    })
+    update_selected_scan_points(session, proxy_map, col_names = list(lat = "Latitude", lng = "Longitude"))
+    update_dwnld_scan_points(session, proxy_map, col_names = list(lat = "Latitude", lng = "Longitude"))
 
     shiny$observeEvent(input$btn_clear, {
       current <- session$userData$scan_selection()

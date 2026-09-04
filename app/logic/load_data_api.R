@@ -79,38 +79,33 @@ is_request_successful <- function(resp) {
 #' @return data.table
 #' @export
 resp2dt <- function(resp) {
-  error <- !is_request_successful(resp)
-
-  if (error) {
+  if (!is_request_successful(resp)) {
     warning(httr2$last_response())
     return(NULL)
-  } else if (!error) {
-    resp_json <- resp |> httr2$resp_body_json(check_type = TRUE)
+  }
+  resp_json <- resp |> httr2$resp_body_json(check_type = TRUE)
 
-    # if json is a list of lists
-    test_sample <- resp_json[[1]]
-    if (is.list(test_sample) && !"models" %in% names(test_sample)) {
-      dt$rbindlist(resp_json, fill = TRUE)
-
-      # if json has nested lists (additional models)
-    } else if ((is.list(test_sample) && "models" %in% names(test_sample))) {
-      dt$rbindlist(test_sample$models, fill = TRUE)
-
-      # if json is a simple one column list (returns single row with column names V1-Vn)
-    } else if (
-      (is.character(test_sample) || is.numeric(test_sample)) &&
-        all(grepl("^V\\d+$", names(resp_json)))
-    ) {
-      dt$data.table(value = unlist(resp_json))
-      # if json is a one row table with many named columns (column names do not fit generic pattern V1-Vn)
-    } else if (
-      (is.character(test_sample) || is.numeric(test_sample)) &&
-        !any(grepl("^V\\d+$", names(resp_json)))
-    ) {
-      dt$as.data.table(resp_json)
+  # if json is a list of lists
+  test_sample <- resp_json[[1]]
+  if (is.list(test_sample)) {
+    # if json has nested lists (additional models)
+    if ("models" %in% names(test_sample)) {
+      return(dt$rbindlist(test_sample$models, fill = TRUE))
     }
+
+    dt$rbindlist(resp_json, fill = TRUE)
+
+    # if json is a simple one column or one row list
+  } else if ((is.character(test_sample) || is.numeric(test_sample))) {
+    # if one column (returns single row with column names V1-Vn)
+    if (all(grepl("^V\\d+$", names(resp_json)))) {
+      return(dt$data.table(value = unlist(resp_json)))
+    }
+    # if json is a one row table with many named columns (column names do not fit generic pattern V1-Vn)
+    dt$as.data.table(resp_json)
   }
 }
+
 
 #' @export
 .get_multi_scan <- function(scan_dt, api_fnc, progress = NULL) {
@@ -146,9 +141,9 @@ resp2dt <- function(resp) {
     }
 
     api_dt[, `:=`(
-      site_name = this_scan$site,
+      site = this_scan$site,
       plot = this_scan$plot,
-      date_code = this_scan$date,
+      date = this_scan$date,
       scanner_id = this_scan$scanner_id
     )]
     out[[row]] <- api_dt
