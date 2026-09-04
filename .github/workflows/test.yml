@@ -68,7 +68,7 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: /opt/R
-          key: R-${{ runner.os }}-${{ hashFiles('renv.lock') }}
+          key: R-${{ runner.os }}-${{ steps.r-version.outputs.version }}
 
       - name: Setup R
         if: steps.cache-r-restore.outputs.cache-hit != 'true'
@@ -94,8 +94,14 @@ jobs:
           key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
           restore-keys: renv-${{ runner.os }}-
 
-      - name: Install renv and dependencies
-        if: steps.cache-renv-restore.outputs.cache-hit != 'true'
+        # This step must always run, even on a renv cache hit: RENV_PATHS_ROOT only
+        # caches downloaded/built package files. renv::restore() is what actually
+        # links those files into this checkout's project library (renv/library/...),
+        # which is git-ignored and does not exist until restore() creates it. On a
+        # cache hit this is fast (linking, not downloading/compiling); on a cache
+        # miss it does the full install and "Save renv cache" below persists the
+        # result for next time.
+      - name: Restore renv dependencies
         shell: Rscript {0}
         env:
           # Require the runner to pull down source code and compile
