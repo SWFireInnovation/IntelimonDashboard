@@ -242,7 +242,7 @@ metric_series_plot <- function(metric, y_label, data_dt, treat_dates,
   pct        <- prep$pct
   export_dt  <- .export_table(raw, y_label)
 
-  tvec <- treat_dates#$TreatmentDate
+  tvec <- treat_dates$TreatmentDate
   show_treat <- treatlines_on == "on" && length(tvec) > 0
 
   # ---- Individual plot time series --------------------------------------

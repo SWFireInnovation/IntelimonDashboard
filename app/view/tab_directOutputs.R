@@ -184,7 +184,6 @@ server <- function(id) {
     # Each card is a builder taking `light`: the screen render uses the Aurora
     # palette, the SVG/PNG downloads re-run it light for a white page.
     metric_card <- function(session, id, input_id, labels, prefix) {
-      cat("registering ", id, "\n")
       plot_fn <- function(light = FALSE) {
         key <- input[[input_id]]
 
@@ -202,7 +201,6 @@ server <- function(id) {
           session$userData$trtmt_dates(), input$data_type
         )
       }
-      cat("renderPlot running for ", id, "\n")
       output[[id]] <- shiny$renderPlot(
         plot_fn(),
         bg = "transparent",
