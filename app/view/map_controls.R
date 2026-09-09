@@ -22,7 +22,6 @@ update_point_labels <- function(input,
                                 pts,
                                 map_id = "map",
                                 col_names = list(lat = "Latitude", lng = "Longitude", label = "plots")) {
-
   zoom_name <- paste0(map_id, "_zoom")
   bounds_name <- paste0(map_id, "_bounds")
 
@@ -104,7 +103,7 @@ map_scan_points <- function(proxy_map,
       radius = 2
     ) |>
     leaflet$addLegend(
-      layerId =  paste0(grp, "_legend"),
+      layerId = paste0(grp, "_legend"),
       data = pts,
       position = "bottomright",
       colors = color,

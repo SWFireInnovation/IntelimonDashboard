@@ -122,5 +122,6 @@ Thumbs.db
 
 # ignore the entire contents of all directories or sub directories
 # files named .log or .logs or .logged also excluded
-**log*
+**log
+**logs
 **bin/
