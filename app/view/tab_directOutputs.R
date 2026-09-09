@@ -203,18 +203,10 @@ server <- function(id) {
         )
       }
       cat("renderPlot running for ", id, "\n")
-      output[[id]] <- shiny$renderPlot({
-        tryCatch({
-          cat("rendering", id,"\n")
-          plot_fn()
-      },
-          error = function(e) {
-            cat("ERROR:", conditionMessage(e), "\n")
-          }
-        )
-        cat("rendered", id, "\n")
-        bg = "transparent"
-        res = 110})
+      output[[id]] <- shiny$renderPlot(
+        plot_fn(),
+        bg = "transparent",
+        res = 110)
       plt$register_plot_download(output, id, plot_fn, prefix)
       plt$register_plot_stats(output, id, stats_fn)
     }
