@@ -60,6 +60,7 @@ jobs:
             libsqlite3-dev
             gdal-bin
             pandoc
+            libudunits2-dev
           )
           sudo apt-get install --yes --no-install-recommends "${packages[@]}"
 
