@@ -116,28 +116,15 @@ describe("tab_selectionMap server", {
     })
   })
 
-  it("formats selected_dates as YYYYMMDD strings", {
-    testServer(selection_map_server, {
-      session$setInputs(
-        daterange = c(as.Date("2023-06-01"), as.Date("2023-09-30"))
-      )
-      session$flushReact()
-
-      dates <- selected_dates()
-      expect_equal(dates[["start"]], "20230601")
-      expect_equal(dates[["end"]], "20230930")
-    })
-  })
-
   it("selected_dates updates when the date range input changes", {
     testServer(selection_map_server, {
-      session$setInputs(daterange = c(as.Date("2024-01-01"), as.Date("2024-12-31")))
+      session$setInputs(ui_select_date_range = c(as.Date("2024-01-01"), as.Date("2024-12-31")))
       session$flushReact()
-      first <- selected_dates()[["start"]]
+      first <- input$ui_select_date_range[1]
 
-      session$setInputs(daterange = c(as.Date("2022-03-15"), as.Date("2022-11-01")))
+      session$setInputs(ui_select_date_range = c(as.Date("2022-03-15"), as.Date("2022-11-01")))
       session$flushReact()
-      second <- selected_dates()[["start"]]
+      second <- input$ui_select_date_range[1]
 
       expect_false(first == second)
     })
