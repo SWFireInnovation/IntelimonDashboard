@@ -13,22 +13,22 @@ box::use(
 #' > readRenviron('.env')
 #' > httr2$secret_encrypt("https://the/intelimon/api/path/", "API_PATH_KEY")
 #' @export
-get_api_base_url <- function() {
+get_api_base_url <- function(apikey = "API_PATH_KEY") {
   if (is.null(.cache$.api_base_url)) {
-    if (!nzchar(Sys.getenv("API_PATH_KEY")) && file.exists(".env")) {
+    if (!nzchar(Sys.getenv(apikey)) && file.exists(".env")) {
       readRenviron(".env")
     }
 
     # catches if file did not exist, or variable was named wrong in file
-    if (!nzchar(Sys.getenv("API_PATH_KEY"))) {
-        stop("No API_PATH_KEY provided to decrypt the api url.\n",
-             "The key can be set at the terminal (Sys.setenv()) or saved in a .env file.\n",
-             "API_PATH_KEY = <thiskey>"
-        )
+    if (!nzchar(Sys.getenv(apikey))) {
+      stop(sprintf("No %s  provided to decrypt the api url.\n", apikey),
+        "The key can be set at the terminal (Sys.setenv()) or saved in a .env file.\n",
+        sprintf("%s = <thiskey>", apikey)
+      )
     }
     .cache$.api_base_url <- httr2$secret_decrypt(
       "983U5eHDRR6VR1Czn6pinkokV-PU-sbxWdkl0fmUoYklWMqTfU3oFzUhT3yQXOF8CM4sW0hFsbierKI2fbPx_P7et7k7e25Sqw",
-      key = "API_PATH_KEY"
+      key = apikey
     )
   }
   .cache$.api_base_url
