@@ -9,7 +9,7 @@ ui <- function(id) {
   ns <- NS(id) # nolint: object_usage_linter
 
   nav_panel(
-    title = "Custom calculations",
+    title = "Custom models",
     grid_container(
       layout = c(
         "IntELiMonDSS ."

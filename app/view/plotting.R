@@ -31,6 +31,9 @@ box::use(
   stats[approx],
   grid[unit],
   data.table[fwrite, setnames],
+)
+
+box::use(
   app/logic/series[assign_time_steps, aggregate_time_steps,
                    percent_change_series, describe_time_steps],
 )
@@ -229,10 +232,16 @@ aurora_theme <- function(pal = SCREEN_PAL) {
 #' @param light TRUE swaps the on-screen Aurora palette for the light-ground
 #'   EXPORT palette used by the SVG/PNG downloads.
 #' @export
-metric_series_plot <- function(metric, y_label, data_dt, treat_dates,
-                               errorbars_on, treatlines_on,
-                               mode = "timeseries", data_type = "raw",
-                               light = FALSE) {
+metric_series_plot <- function(data_state, plt_options, light = FALSE) {
+  metric <- data_state$metric
+  y_label <- data_state$label
+  data_dt <- data_state$data_dt
+  treat_dates <- data_state$trtmt_dates
+  data_type <- data_state$data_type
+
+  errorbars_on <- plt_options$errorbars
+  treatlines_on <- plt_options$treatlines
+  mode <- plt_options$plot_type
 
   pal <- if (isTRUE(light)) EXPORT_PAL else SCREEN_PAL
   prep <- .series_prep(metric, y_label, data_dt, treat_dates, data_type)
@@ -384,8 +393,14 @@ metric_series_plot <- function(metric, y_label, data_dt, treat_dates,
 #' Returns a data.frame of formatted character columns with the metric name
 #' carried on the "imn_label" attribute; `register_plot_stats()` renders it.
 #' @export
-metric_series_stats <- function(metric, y_label, data_dt, treat_dates,
-                                data_type = "raw") {
+metric_series_stats <- function(data_state) {
+
+  metric <- data_state$metric
+  y_label <- data_state$label
+  data_dt <- data_state$data_dt
+  treat_dates <- data_state$trtmt_dates
+  data_type <- data_state$data_type
+
   prep <- .series_prep(metric, y_label, data_dt, treat_dates, data_type)
 
   smry <- describe_time_steps(prep$raw)
@@ -414,9 +429,10 @@ metric_series_stats <- function(metric, y_label, data_dt, treat_dates,
 #' app/static/styles.css, which also moves bslib's full-screen expand button
 #' to the opposite corner. Pair with `register_plot_download()` in the module
 #' server.
+#' @param id is a name space passed from the calling ui. Exp: plotting$plot_card_ui(ns('treeStat'))
 #' @export
-plot_card_ui <- function(ns, id, height = "100%") {
-  view <- paste0(id, "_view")
+plot_card_ui <- function(id, height = "100%") {
+  id_view <- paste0(id, "_view")
   div(
     class = "imn-plot-wrap",
     # Graph / Statistics toggle, upper left. Hidden until the card is hovered
@@ -424,19 +440,19 @@ plot_card_ui <- function(ns, id, height = "100%") {
     # there is always a way back to the plot).
     div(
       class = "imn-card-view",
-      radioButtons(ns(view), label = NULL, inline = TRUE,
+      radioButtons(id_view, label = NULL, inline = TRUE,
                    choices = list("Graph" = "graph", "Statistics" = "stats"),
                    selected = "graph")
     ),
     conditionalPanel(
-      condition = sprintf("input['%s'] == 'graph'", ns(view)),
+      condition = sprintf("input['%s'] == 'graph'", id_view),
       style = "height:100%;",
-      plotOutput(ns(id), height = height)
+      plotOutput(id, height = height)
     ),
     conditionalPanel(
-      condition = sprintf("input['%s'] == 'stats'", ns(view)),
+      condition = sprintf("input['%s'] == 'stats'", id_view),
       style = "height:100%;",
-      div(class = "imn-stats", uiOutput(ns(paste0(id, "_stats"))))
+      div(class = "imn-stats", uiOutput(paste0(id, "_stats")))
     ),
     div(
       class = "dropdown imn-plot-dl",
@@ -447,11 +463,11 @@ plot_card_ui <- function(ns, id, height = "100%") {
       ),
       tags$ul(
         class = "dropdown-menu dropdown-menu-end",
-        tags$li(downloadLink(ns(paste0(id, "_dl_csv")), "CSV data",
+        tags$li(downloadLink(paste0(id, "_dl_csv"), "CSV data",
                              class = "dropdown-item")),
-        tags$li(downloadLink(ns(paste0(id, "_dl_svg")), "SVG image",
+        tags$li(downloadLink(paste0(id, "_dl_svg"), "SVG image",
                              class = "dropdown-item")),
-        tags$li(downloadLink(ns(paste0(id, "_dl_png")), "PNG image",
+        tags$li(downloadLink(paste0(id, "_dl_png"), "PNG image",
                              class = "dropdown-item"))
       )
     )
@@ -461,9 +477,9 @@ plot_card_ui <- function(ns, id, height = "100%") {
 #' Render the Statistics view for one card. `stats_fn` is a function of no
 #' arguments returning `metric_series_stats()` output.
 #' @export
-register_plot_stats <- function(output, id, stats_fn) {
+render_plot_stats <- function(output, id, df_r) {
   output[[paste0(id, "_stats")]] <- renderUI({
-    df  <- stats_fn()
+    df <- df_r()
     lab <- attr(df, "imn_label")
 
     tags$div(

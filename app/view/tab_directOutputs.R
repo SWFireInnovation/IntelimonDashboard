@@ -5,7 +5,8 @@ box::use(
 )
 
 box::use(
-  plt = app/logic/plotting
+  app/view/card_metrics,
+  plt = app/view/plotting,
 )
 
 # Points2Pano iframe crop (pixels). The burnpro3d page is cross-origin, so
@@ -16,36 +17,6 @@ PANO_CROP_TOP    <- 70   # px of the pano page's top header to hide
 PANO_CROP_BOTTOM <- 90   # px of the pano page's bottom nav bar to hide
 PANO_CROP_LEFT   <- 60   # px of the left edge (side arrow) to hide
 PANO_CROP_RIGHT  <- 60   # px of the right edge (side arrow) to hide
-
-
-# Y-axis labels for the volume metrics
-VOLUME_METRIC_LABELS <- c(
-  mGCvol = "Ground cover volume (mGCvol)",
-  mUSvol = "Understory volume (mUSvol)",
-  mMSvol = "Midstory volume (mMSvol)",
-  mOSvol = "Overstory volume (mOSvol)"
-)
-
-# Y-axis labels for the tree metrics
-TREE_METRIC_LABELS <- c(
-  Basalarea  = "Basal area (Basalarea)",
-  MDBH       = "Mean DBH (MDBH)",
-  StemsPacre = "Stems per acre (StemsPacre)",
-  TreesN     = "Number of trees (TreesN)",
-  MeanTH     = "Mean tree height (MeanTH)",
-  MaxTH      = "Maximum tree height (MaxTH)"
-)
-
-# Y-axis labels for the canopy metrics
-CANOPY_METRIC_LABELS <- c(
-  CBH         = "Canopy base height (CBH)",
-  canopyCover = "Canopy cover (canopyCover)",
-  gapFraction = "Gap fraction (1 - canopyCover)",
-  LAI         = "Leaf area index (LAI)",
-  OLAI        = "Overstory LAI (OLAI)",
-  MLAI        = "Midstory LAI (MLAI)",
-  ULAI        = "Understory LAI (ULAI)"
-)
 
 #' @export
 ui <- function(id) {
@@ -69,7 +40,7 @@ ui <- function(id) {
         area = "IntELiMonDSS",
         card_header("Select Statistics"),
         card_body(
-          shiny$selectInput(ns("plot_mode"), "Plot type",
+          shiny$selectInput(ns("ui_select_plot_type"), "Plot type",
             choices = list(
               "Time series" = "timeseries",
               "Time series individual plot" = "individual",
@@ -78,22 +49,22 @@ ui <- function(id) {
             ),
             selected = "timeseries", width = "100%"
           ),
-          shiny$selectInput(ns("data_type"), "Data type",
+          shiny$selectInput(ns("ui_select_data_type"), "Data type",
             choices = list(
-              "Raw data"       = "raw",
+              "Values"       = "raw",
               "Percent change" = "percent"
             ),
             selected = "raw", width = "100%"
           ),
-          shiny$radioButtons(ns("show_treatments"), "Treatment date lines",
+          shiny$radioButtons(ns("ui_btn_show_treatments"), "Treatment date lines",
             choices = list("On" = "on", "Off" = "off"),
             selected = "on", inline = TRUE, width = "100%"
           ),
-          shiny$radioButtons(ns("show_errorbars"), "Error bars",
+          shiny$radioButtons(ns("ui_btn_show_errorbars"), "Error bars",
             choices = list("On" = "on", "Off" = "off"),
             selected = "on", inline = TRUE, width = "100%"
           ),
-          shiny$selectInput(ns("treeStatistics"), "Tree statistics",
+          shiny$selectInput(ns("ui_select_treeStat"), "Tree statistics",
             choices = list(
               "Basal area"          = "Basalarea",
               "Mean DBH"            = "MDBH",
@@ -104,7 +75,7 @@ ui <- function(id) {
             ),
             selected = "Basalarea"
           ),
-          shiny$selectInput(ns("volumeStatistics"), "Volume statistics",
+          shiny$selectInput(ns("ui_select_volumeStat"), "Volume statistics",
             choices = list(
               "Ground cover volume" = "mGCvol",
               "Understory volume"   = "mUSvol",
@@ -113,7 +84,7 @@ ui <- function(id) {
             ),
             selected = "mGCvol"
           ),
-          shiny$selectInput(ns("canopyStatistics"), "Canopy statistics",
+          shiny$selectInput(ns("ui_select_canopyStat"), "Canopy statistics",
             choices = list(
               "Canopy base height" = "CBH",
               "Canopy cover"       = "canopyCover",
@@ -131,23 +102,23 @@ ui <- function(id) {
         area = "directOutputs",
         grid_container(
           layout = c(
-            "treeStats   volumeStats",
-            "canopyStats panoViewer "
+            "treeGridArea   volumeGridArea",
+            "canopyGridArea panoViewer "
           ),
           row_sizes = c("1fr", "1fr"),
           col_sizes = c("1fr", "1fr"),
           gap_size = "10px",
           grid_card(
-            area = "treeStats", full_screen = TRUE,
-            card_body(plt$plot_card_ui(ns, "treeStats"))
+            area = "treeGridArea", full_screen = TRUE,
+            card_metrics$ui(ns("treeStats"))
           ),
           grid_card(
-            area = "canopyStats", full_screen = TRUE,
-            card_body(plt$plot_card_ui(ns, "canopyStats"))
+            area = "canopyGridArea", full_screen = TRUE,
+            card_metrics$ui(ns("canopyStats"))
           ),
           grid_card(
-            area = "volumeStats", full_screen = TRUE,
-            card_body(plt$plot_card_ui(ns, "volumeStats"))
+            area = "volumeGridArea", full_screen = TRUE,
+            card_metrics$ui(ns("volumeStats"))
           ),
           grid_card(
             area = "panoViewer",
@@ -183,36 +154,38 @@ server <- function(id) {
     # -- Metric time-series cards -------------------------------------------
     # Each card is a builder taking `light`: the screen render uses the Aurora
     # palette, the SVG/PNG downloads re-run it light for a white page.
-    metric_card <- function(session, id, input_id, labels, prefix) {
-      plot_fn <- function(light = FALSE) {
-        key <- input[[input_id]]
 
-        plt$metric_series_plot(key, labels[[key]], session$userData$metrics(),
-          session$userData$trtmt_dates(),
-          input$show_errorbars, input$show_treatments,
-          input$plot_mode, input$data_type,
-          light = light
-        )
-      }
-      stats_fn <- function() {
-        key <- input[[input_id]]
-        plt$metric_series_stats(
-          key, labels[[key]], session$userData$metrics(),
-          session$userData$trtmt_dates(), input$data_type
-        )
-      }
-      output[[id]] <- shiny$renderPlot(
-        plot_fn(),
-        bg = "transparent",
-        res = 110)
-      plt$register_plot_download(output, id, plot_fn, prefix)
-      plt$register_plot_stats(output, id, stats_fn)
-    }
+    selected_plot_type     <- shiny$reactive(input$ui_select_plot_type)
+    selected_data_type     <- shiny$reactive(input$ui_select_data_type)
+    btn_errorbars     <- shiny$reactive(input$ui_btn_show_errorbars)
+    btn_treaments    <- shiny$reactive(input$ui_btn_show_treatments)
 
-    metric_card(session, "treeStats", "treeStatistics", TREE_METRIC_LABELS, "tree_stats")
-    metric_card(session, "volumeStats", "volumeStatistics", VOLUME_METRIC_LABELS, "volume_stats")
-    metric_card(session, "canopyStats", "canopyStatistics", CANOPY_METRIC_LABELS, "canopy_stats")
+    card_metrics$server("treeStats",
+                       session,
+                       metric_col = shiny$reactive(input$ui_select_treeStat),
+                       errorbars_on = btn_errorbars,
+                       treatlines_on = btn_treaments,
+                       plot_type = selected_plot_type,
+                       data_type = selected_data_type
+    )
 
+    card_metrics$server("canopyStats",
+                   session,
+                   metric_col = shiny$reactive(input$ui_select_canopyStat),
+                   errorbars_on = btn_errorbars,
+                   treatlines_on = btn_treaments,
+                   plot_type = selected_plot_type,
+                   data_type = selected_data_type
+    )
+
+    card_metrics$server("volumeStats",
+                   session,
+                   metric_col = shiny$reactive(input$ui_select_volumeStat),
+                   errorbars_on = btn_errorbars,
+                   treatlines_on = btn_treaments,
+                   plot_type = selected_plot_type,
+                   data_type = selected_data_type
+    )
 
     # -- Points2Pano viewer --------------------------------------------------
     pano_idx <- shiny$reactiveVal(1)
