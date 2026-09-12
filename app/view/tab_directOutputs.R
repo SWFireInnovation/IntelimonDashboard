@@ -5,6 +5,8 @@ box::use(
 )
 
 box::use(
+  app/logic/constants[COLNAME2LABEL],
+  app/logic/manage_data[get_display_col],
   app/view/card_metrics,
   plt = app/view/plotting,
 )
@@ -65,36 +67,42 @@ ui <- function(id) {
             selected = "on", inline = TRUE, width = "100%"
           ),
           shiny$selectInput(ns("ui_select_treeStat"), "Tree statistics",
-            choices = list(
-              "Basal area"          = "Basalarea",
-              "Mean DBH"            = "MDBH",
-              "Stems per acre"      = "StemsPacre",
-              "Number of trees"     = "TreesN",
-              "Mean tree height"    = "MeanTH",
-              "Maximum tree height" = "MaxTH"
-            ),
-            selected = "Basalarea"
+                            choices = get_display_col(
+                              c("Basalarea",
+                                "MDBH",
+                                "StemsPacre",
+                                "TreesN",
+                                "MeanTH",
+                                "MaxTH"
+                              ),
+                              COLNAME2LABEL
+                            ),
+                            selected = "Basalarea"
           ),
           shiny$selectInput(ns("ui_select_volumeStat"), "Volume statistics",
-            choices = list(
-              "Ground cover volume" = "mGCvol",
-              "Understory volume"   = "mUSvol",
-              "Midstory volume"     = "mMSvol",
-              "Overstory volume"    = "mOSvol"
-            ),
-            selected = "mGCvol"
+                            choices =  get_display_col(
+                              c("mGCvol",
+                                "mUSvol",
+                                "mMSvol",
+                                "mOSvol"
+                              ),
+                              COLNAME2LABEL
+                            ),
+                            selected = "mGCvol"
           ),
           shiny$selectInput(ns("ui_select_canopyStat"), "Canopy statistics",
-            choices = list(
-              "Canopy base height" = "CBH",
-              "Canopy cover"       = "canopyCover",
-              "Gap fraction"       = "gapFraction",
-              "Leaf area index"    = "LAI",
-              "Overstory LAI"      = "OLAI",
-              "Midstory LAI"       = "MLAI",
-              "Understory LAI"     = "ULAI"
-            ),
-            selected = "CBH"
+                            choices =  get_display_col(
+                              c("CBH",
+                                "canopyCover",
+                                "gapFraction",
+                                "LAI",
+                                "OLAI",
+                                "MLAI",
+                                "ULAI"
+                              ),
+                              COLNAME2LABEL
+                            ),
+                            selected = "CBH"
           )
         )
       ),

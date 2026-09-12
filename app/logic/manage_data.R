@@ -1,9 +1,11 @@
 box::use(
   dt = data.table,
+  stats[setNames],
 )
 
 box::use(
   api = app/logic/load_data_api,
+  app/logic/constants[COLNAME2LABEL],
   app/logic/map_fnc,
 )
 
@@ -127,4 +129,10 @@ get_scans4dwnld <- function(session) {
   }
 
   selection[!dwnlded, on = .(site, plot, date, scanner_id)]
+}
+
+#' @export
+get_display_col <- function(col_selection, col_list = COLNAME2LABEL) {
+  display_col <- col_list[col_selection]
+  setNames(names(display_col), display_col)
 }
