@@ -29,6 +29,7 @@ box::use(
     drawRectangleOptions,
     editToolbarOptions
   ],
+  sf[st_area, st_polygon, st_sf, st_sfc, st_transform],
   shiny[...],
   stats[setNames],
 )
@@ -607,12 +608,12 @@ server <- function(id) {
       ring <- do.call(rbind, lapply(coords, function(p) c(p[[1]], p[[2]])))
       if (!identical(ring[1, ], ring[nrow(ring), ])) ring <- rbind(ring, ring[1, ])
 
-      poly <- sf::st_sf(
-        geometry = sf::st_sfc(sf::st_polygon(list(ring)), crs = 4326)
+      poly <- st_sf(
+        geometry = st_sfc(st_polygon(list(ring)), crs = 4326)
       )
       session$userData$aoi_polygon(poly)
 
-      area_ha <- as.numeric(sf::st_area(sf::st_transform(poly, 5070)))/1e4
+      area_ha <- as.numeric(st_area(st_transform(poly, 5070)))/1e4
       showNotification(
         sprintf("AOI stored (%d vertices, %.1f ha).", nrow(ring) - 1, area_ha),
         type = "message", duration = 4

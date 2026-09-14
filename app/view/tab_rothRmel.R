@@ -240,12 +240,12 @@ server <- function(id) {
     })
 
     fire_behavior <- reactive({
-      shiny::validate(shiny::need(
+      validate(need(
         nrow(dst_metrics(session)) > 0,
         "No data loaded - press Get Data on the Selection Map tab."
       ))
       if (identical(input$fuel_src, "tool")) {
-        shiny::validate(shiny::need(
+        validate(need(
           !is.null(session$userData$fuel_tool_values()),
           paste(
             "No fuel values submitted yet - set them on the Fuels exports tab",

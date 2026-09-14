@@ -19,9 +19,9 @@
 # Aurora Glass cards; see aurora_theme(). Data points are enlarged diamonds,
 # treatment lines are thick coral verticals.
 #
-# NOTE: shiny::validate / shiny::need are called with an explicit shiny::
-# prefix. jsonlite also exports validate(); the explicit namespace guarantees
-# Shiny's version is used regardless of attach order.
+# NOTE: validate / need are imported from shiny by name below. jsonlite also
+# exports validate(), but box imports are explicit, so Shiny's version is the
+# one bound here regardless of what else is loaded.
 # ---------------------------------------------------------------------------
 box::use(
   data.table[fwrite, setnames],
@@ -54,12 +54,14 @@ box::use(
     div,
     downloadHandler,
     downloadLink,
+    need,
     outputOptions,
     plotOutput,
     radioButtons,
     renderUI,
     tags,
-    uiOutput
+    uiOutput,
+    validate
   ],
   stats[approx],
 )
@@ -254,12 +256,12 @@ aurora_theme <- function(pal = SCREEN_PAL) {
     transform <- identity
   }
 
-  shiny::validate(
-    shiny::need(
+  validate(
+    need(
       nrow(data_dt) > 0,
       "No data loaded - press Get Data on the Selection Map tab."
     ),
-    shiny::need(
+    need(
       source_col %in% names(data_dt),
       paste0("Metric '", source_col, "' not found in the data table.")
     )
@@ -305,7 +307,7 @@ metric_series_plot <- function(metric, y_label, data_dt, treat_dates,
   # ---- Individual plot time series --------------------------------------
   plt <- if (mode == "individual") {
     long <- raw
-    shiny::validate(shiny::need(
+    validate(need(
       nrow(long) > 0, "No valid values for this metric in the loaded scans."
     ))
 
@@ -342,7 +344,7 @@ metric_series_plot <- function(metric, y_label, data_dt, treat_dates,
     # ---- Box & whisker per time step (time on X) --------------------------
   } else if (mode == "boxplot") {
     long <- raw
-    shiny::validate(shiny::need(
+    validate(need(
       nrow(long) > 0, "No valid values for this metric in the loaded scans."
     ))
     .add_step_factor(long)
@@ -376,7 +378,7 @@ metric_series_plot <- function(metric, y_label, data_dt, treat_dates,
     # ---- Bar: mean per time step (time on X) ------------------------------
   } else if (mode == "bar") {
     smry <- aggregate_time_steps(raw)
-    shiny::validate(shiny::need(
+    validate(need(
       nrow(smry) > 0, "No valid values for this metric in the loaded scans."
     ))
     labs_chr <- format(smry$t, "%Y-%m-%d")
@@ -407,7 +409,7 @@ metric_series_plot <- function(metric, y_label, data_dt, treat_dates,
     # ---- Time series (default) --------------------------------------------
   } else {
     smry <- aggregate_time_steps(raw)
-    shiny::validate(shiny::need(
+    validate(need(
       nrow(smry) > 0, "No valid values for this metric in the loaded scans."
     ))
 
@@ -477,7 +479,7 @@ metric_series_stats <- function(metric, y_label, data_dt, treat_dates,
   prep <- .series_prep(metric, y_label, data_dt, treat_dates, data_type)
 
   smry <- describe_time_steps(prep$raw)
-  shiny::validate(shiny::need(
+  validate(need(
     nrow(smry) > 0, "No valid values for this metric in the loaded scans."
   ))
 
