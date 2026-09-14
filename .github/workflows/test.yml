@@ -61,6 +61,11 @@ jobs:
             gdal-bin
             pandoc
             libudunits2-dev
+            # textshaping (needed by svglite for SVG plot export)
+            libharfbuzz-dev
+            libfribidi-dev
+            libfreetype6-dev
+            libpng-dev
           )
           sudo apt-get install --yes --no-install-recommends "${packages[@]}"
 
