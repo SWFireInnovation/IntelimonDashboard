@@ -25,23 +25,29 @@ jobs:
       RSPM:  https://cloud.r-project.org
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       API_PATH_KEY: ${{ secrets.API_PATH_KEY }}
+      # apt downloads .deb files here instead of root-owned /var/cache/apt/archives,
+      # so actions/cache can restore into it without permission errors
+      APT_ARCHIVES: /tmp/apt-archives
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      # load OS (unbuntu) from cache
+      # restore previously downloaded .deb files (not installed packages)
       - name: Restore apt cache
         id: cache-apt-restore
         uses: actions/cache/restore@v5
         with:
-          path: /var/cache/apt/archives
+          path: ${{ env.APT_ARCHIVES }}
           # current configuration will create a new cache every time test.yml changes.
           key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/test.yml') }}
 
+      # Always runs: the apt cache only holds downloaded .deb files, so packages
+      # still need installing on a cache hit (they just skip the download).
       - name: Setup system dependencies
-        if: steps.cache-apt-restore.outputs.cache-hit != 'true'
         # terra requires gdal and sql libraries
         run: |
+          mkdir -p "$APT_ARCHIVES/partial"
+
           # 1. Force the runner to bypass the broken Azure mirror
           # to check the mirror file: `cat /etc/apt/apt-mirrors.txt`
           sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
@@ -67,7 +73,7 @@ jobs:
             libfreetype6-dev
             libpng-dev
           )
-          sudo apt-get install --yes --no-install-recommends "${packages[@]}"
+          sudo apt-get install --yes --no-install-recommends -o Dir::Cache::Archives="$APT_ARCHIVES" "${packages[@]}"
 
       # ----R installation environment----------------------------------------------
       - name: Restore R cache
@@ -148,25 +154,25 @@ jobs:
           key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
 
       - name: Setup Node
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v7
         with:
           node-version: 24
 
-      # save entire OS env, including any installations made by R (like gdal)
-      # remove files that require sudo for access before caching
+      # save the downloaded .deb files; apt ran as root, so hand them back to the
+      # runner user and drop apt's lock and partial-download dir before caching
       - name: Prepare apt cache for saving
         if: always() && steps.cache-apt-restore.outputs.cache-hit != 'true'
         run: |
-          sudo chmod -R a+r /var/cache/apt/archives
-          sudo rm -f /var/cache/apt/archives/lock
-          sudo rm -rf /var/cache/apt/archives/partial
+          sudo chown -R "$(id -u):$(id -g)" "$APT_ARCHIVES"
+          rm -f "$APT_ARCHIVES/lock"
+          rm -rf "$APT_ARCHIVES/partial"
 
       - name: Save apt cache
         id: cache-apt-save
         if: always() && steps.cache-apt-restore.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5
         with:
-          path: /var/cache/apt/archives
+          path: ${{ env.APT_ARCHIVES }}
           # current configuration will create a new cache every time test.yml changes.
           key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/test.yml') }}
 
@@ -221,7 +227,7 @@ jobs:
 
       - name: Run Cypress end-to-end tests
         if: github.ref_name == 'main'
-        uses: cypress-io/github-action@v6
+        uses: cypress-io/github-action@v7
         with:
           working-directory: .rhino # Created by earlier commands which use Node.js
           start: npm run run-app
