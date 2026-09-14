@@ -3,19 +3,36 @@ box::use(
   httr2,
 )
 
-# API server path has been encrypted
-# The decryption key is stored in .env as:
-# > API_PATH_KEY = super_secret_32_character_key___
-# the path was encrypted using:
-# > readRenviron('.env')
-# > httr2$secret_encrypt("https://the/intelimon/api/path/", "API_PATH_KEY")
+# environment variables are locked on import (whenever bod::use() is called)
+#creating a new empty environment allows the variables of that environment to be mutable
+.cache <- new.env(parent = emptyenv())
+#' API server path has been encrypted
+#' The decryption key is stored in .env or set in the environment as:
+#' > API_PATH_KEY = super_secret_32_character_key___
+#' the path was encrypted using:
+#' > readRenviron('.env')
+#' > httr2$secret_encrypt("https://the/intelimon/api/path/", "API_PATH_KEY")
+#' @export
+get_api_base_url <- function(apikey = "API_PATH_KEY") {
+  if (is.null(.cache$.api_base_url)) {
+    if (!nzchar(Sys.getenv(apikey)) && file.exists(".env")) {
+      readRenviron(".env")
+    }
 
-readRenviron(".env")
-
-api_base_url <- httr2$secret_decrypt(
-  "983U5eHDRR6VR1Czn6pinkokV-PU-sbxWdkl0fmUoYklWMqTfU3oFzUhT3yQXOF8CM4sW0hFsbierKI2fbPx_P7et7k7e25Sqw",
-  key = "API_PATH_KEY"
-)
+    # catches if file did not exist, or variable was named wrong in file
+    if (!nzchar(Sys.getenv(apikey))) {
+      stop(sprintf("No %s  provided to decrypt the api url.\n", apikey),
+        "The key can be set at the terminal (Sys.setenv()) or saved in a .env file.\n",
+        sprintf("%s = <thiskey>", apikey)
+      )
+    }
+    .cache$.api_base_url <- httr2$secret_decrypt(
+      "983U5eHDRR6VR1Czn6pinkokV-PU-sbxWdkl0fmUoYklWMqTfU3oFzUhT3yQXOF8CM4sW0hFsbierKI2fbPx_P7et7k7e25Sqw",
+      key = apikey
+    )
+  }
+  .cache$.api_base_url
+}
 
 #--Generic API functions-------------------------------------------------------------------------
 
@@ -33,7 +50,7 @@ api_base_url <- httr2$secret_decrypt(
 #' @export
 api_request <- function(resource_url,
                         request_body = NULL,
-                        request_base_url = api_base_url,
+                        request_base_url = get_api_base_url(),
                         request_method = "GET") {
   req <- httr2$request(request_base_url) |>
     httr2$req_headers(Accept = "application/json") |>

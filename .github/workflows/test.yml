@@ -24,6 +24,7 @@ jobs:
       # force it to bypass azure.archive.unbuntu.com or packages.microsoft.com which usually fail
       RSPM:  https://cloud.r-project.org
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      API_PATH_KEY: ${{ secrets.API_PATH_KEY }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -59,6 +60,7 @@ jobs:
             libsqlite3-dev
             gdal-bin
             pandoc
+            libudunits2-dev
           )
           sudo apt-get install --yes --no-install-recommends "${packages[@]}"
 
