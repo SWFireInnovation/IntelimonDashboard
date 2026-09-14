@@ -1,10 +1,11 @@
 box::use(
-  bslib[bs_theme, page_navbar],
+  bslib[bs_theme, navbar_options, page_navbar],
   dt = data.table,
-  shiny[NS, moduleServer, reactiveVal],
+  shiny[NS, includeCSS, moduleServer, reactiveVal, tags],
 )
 
 box::use(
+  app/logic/dst_state[init_dst_slots],
   view/tab_directOutputs,
   view/tab_forestry,
   view/tab_fuels,
@@ -26,8 +27,17 @@ ui <- function(id) {
     # Application title
     title = "IntELiMon Dashboard",
     selected = "Selection Map",
-    collapsible = TRUE,
+    # bslib 0.9.0 consolidated the loose navbar arguments (collapsible, bg,
+    # position, underline) into this one argument; passing `collapsible`
+    # directly is deprecated.
+    navbar_options = navbar_options(collapsible = TRUE),
     theme = bs_theme(),
+    # Styles are attached here rather than via app/styles/main.scss:
+    # page_navbar builds a complete page and Rhino's separate stylesheet link
+    # does not reliably merge into it, so the header slot is the dependable
+    # place. app/static/styles.css carries the Aurora Glass theme the Fuels
+    # exports and rothRmel cards are built against.
+    header = tags$head(includeCSS("app/static/styles.css")),
     if (!file.exists("../data_loc.yaml")) {
       tab_load_data$ui(ns("Load Data"))
     },
@@ -37,9 +47,12 @@ ui <- function(id) {
     tab_directOutputs$ui(ns("Direct outputs")),
     tab_predictive_models$ui(ns("Predictive models")),
     tab_raster$ui(ns("Raster products")),
-    tab_fuels$ui(ns("Fuels exports")),
+    # These two build input ids dynamically (renderUI) and address them from
+    # JS in conditionalPanel, so they take space-free namespace ids rather
+    # than the display-name ids used above.
+    tab_fuels$ui(ns("fuels_exports")),
     tab_forestry$ui(ns("Forestry exports")),
-    tab_rothRmel$ui(ns("rothRmel")),
+    tab_rothRmel$ui(ns("rothrmel")),
     tab_help$ui(ns("Help"))
   )
 }
@@ -79,10 +92,17 @@ server <- function(id) {
       )
     )
 
+    # Fuel bed submitted from Fuels exports, and the AOI polygon drawn there.
+    # Kept in app/logic/dst_state.R alongside the readers that translate this
+    # store into the column naming the ported DST modules expect.
+    init_dst_slots(session)
+
     # -------Tab Servers ------------------------
     data_dir <- tab_load_data$server("Load Data")
     tab_histogram$server("Histogram", data_dir = data_dir)
     tab_selectionMap$server("Selection Map")
     tab_set_trtmt$server("Set Treatments")
+    tab_fuels$server("fuels_exports")
+    tab_rothRmel$server("rothrmel")
   })
 }

@@ -95,9 +95,19 @@ server <- function(id) {
     })
 
     #-----Map plot locations---------------------
-    # Discrete palette for plot mapping
-    n_color <- length(unique(plots$Agency))
-    color_palette <- leaflet$colorFactor(hcl.colors(n_color, "Dark 2"), levels = plots$Agency)
+    # Discrete palette for plot mapping. `levels` is the set of distinct
+    # agencies, not the whole column: passing all 11k+ scan rows makes
+    # colorFactor warn about duplicate levels on every startup.
+    #
+    # `unique()` rather than `sort(unique())` - colorFactor takes the levels in
+    # the order given, so de-duplicating in place preserves the existing
+    # agency-to-colour assignment. Sorting them would keep the same nine
+    # colours but shuffle which agency gets which.
+    agency_levels <- unique(plots$Agency)
+    color_palette <- leaflet$colorFactor(
+      hcl.colors(length(agency_levels), "Dark 2"),
+      levels = agency_levels
+    )
 
     # make reactive markers
     filtered_plots <- shiny$reactive({

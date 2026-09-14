@@ -5,5 +5,44 @@ linters:
     # functions of modules imported with box give false positives
     box_usage_linter = NULL,
     box_mod_fun_exists_linter = NULL,
-    box_unused_att_pkg_linter = NULL
+    box_unused_att_pkg_linter = NULL,
+    # The settings below arrived with the Decision Support Tool modules ported
+    # from the standalone IntELiMon app (Fuels exports, rothRmel, and the
+    # app/logic/{fuel,fuel_models,fire_behavior,plotting,series,constants}.R
+    # they sit on). They match that project's own .lintr so the two copies
+    # stay lint-clean against each other.
+    #
+    # UPPER_SNAKE_CASE is that code's convention for module-level constants
+    # (PANO_CROP_TOP, BROWN_CLASSES, SURFACE_FUEL_MODELS, ...).
+    object_name_linter = object_name_linter(
+      styles = c("snake_case", "SNAKE_CASE", "symbols")
+    ),
+    # `rhino::format_r()` styles with `rhino_style`, which sets
+    # `math_token_spacing(zero = "'/'")`. That drops the spaces around `/` and,
+    # because it replaces styler's default `zero = "'^'"`, adds them around
+    # `^`. Excluding both operators here keeps Rhino's formatter and linter
+    # from undoing each other's work on every run.
+    infix_spaces_linter = infix_spaces_linter(
+      exclude_operators = c("/", "^")
+    ),
+    # The ported modules open with a `# app/view/foo.R` path header, which
+    # parses as valid R (`app / view / foo.R` - a chain of divisions on symbols
+    # containing dots), so this linter flags every one of them.
+    commented_code_linter = NULL
+  )
+exclusions:
+  list(
+    # Anderson 13 / Scott & Burgan 40 standard fuel model tables. One model per
+    # line keeps the parameter columns readable against the published tables.
+    "app/logic/fuel_models.R" = list(line_length_linter = Inf),
+    # Rothermel (1972) / Andrews (2018) surface spread implemented in native US
+    # customary units. Variable names deliberately mirror the published
+    # equation symbols (I_R, Aij, Qig, rbeQ, phi_w, etaS) so each term can be
+    # checked against the source; renaming them to snake_case would break that.
+    "app/logic/fire_behavior.R" = list(object_name_linter = Inf),
+    # `format_r()` orders `leaflet` before `leaflet.extras`; this linter sorts
+    # with method = "radix" (C locale), where "." (0x2E) < "[" (0x5B) and so
+    # wants the reverse. Sorting it by hand does not stick - the next
+    # `format_r()` run swaps it straight back.
+    "app/view/tab_fuels.R" = list(box_alphabetical_calls_linter = Inf)
   )

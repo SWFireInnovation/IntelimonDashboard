@@ -77,6 +77,27 @@ is_request_successful <- function(resp) {
 #'
 #' @param httr2 API response
 #' @return data.table
+#' Replace absent fields with NA, one record at a time.
+#'
+#' httr2 maps a JSON `null` to `NULL`, which leaves a zero-length element in
+#' the record list. `rbindlist(fill = TRUE)` then fills it with NA anyway, but
+#' warns once per response - and /scans returns a null `error_message` for
+#' nearly every scan, so that is a warning naming ~11,768 rows on every
+#' startup. Substituting NA up front makes the fill explicit and silent; the
+#' resulting table is identical.
+.nulls_to_na <- function(records) {
+  lapply(records, function(record) {
+    if (!is.list(record)) {
+      return(record)
+    }
+    empty <- lengths(record) == 0L
+    if (any(empty)) {
+      record[empty] <- NA
+    }
+    record
+  })
+}
+
 #' @export
 resp2dt <- function(resp) {
   if (!is_request_successful(resp)) {
@@ -90,10 +111,10 @@ resp2dt <- function(resp) {
   if (is.list(test_sample)) {
     # if json has nested lists (additional models)
     if ("models" %in% names(test_sample)) {
-      return(dt$rbindlist(test_sample$models, fill = TRUE))
+      return(dt$rbindlist(.nulls_to_na(test_sample$models), fill = TRUE))
     }
 
-    dt$rbindlist(resp_json, fill = TRUE)
+    dt$rbindlist(.nulls_to_na(resp_json), fill = TRUE)
 
     # if json is a simple one column or one row list
   } else if ((is.character(test_sample) || is.numeric(test_sample))) {
