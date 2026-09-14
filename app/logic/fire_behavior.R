@@ -106,7 +106,8 @@ roth_core <- function(load_lbft2, sav, mf, delta_ft, mx_dead,
   rpr <- beta/beta_op
 
   # Reaction velocity
-  gamma_max <- sigma ^ 1.5/(495 + 0.0594 * sigma ^ 1.5)
+  gamma_denom <- 495 + 0.0594 * sigma ^ 1.5
+  gamma_max <- sigma ^ 1.5/gamma_denom
   Acoef <- 133 * sigma ^ (-0.7913)
   gamma <- gamma_max * rpr ^ Acoef * exp(Acoef * (1 - rpr))
 
@@ -146,8 +147,9 @@ roth_core <- function(load_lbft2, sav, mf, delta_ft, mx_dead,
   etaM_live <- eta_M(mf_live, mx_live)
   etaS <- min(1, 0.174 * S_E ^ (-0.19))
 
-  I_R <- gamma * (wn_dead * heat * etaM_dead * etaS +
-    wn_live * heat * etaM_live * etaS) # BTU/ft^2/min
+  rx_dead <- wn_dead * heat * etaM_dead * etaS
+  rx_live <- wn_live * heat * etaM_live * etaS
+  I_R <- gamma * (rx_dead + rx_live) # BTU/ft^2/min
 
   # Propagating flux ratio
   xi <- exp((0.792 + 0.681 * sqrt(sigma)) * (beta + 0.1))/
@@ -168,8 +170,9 @@ roth_core <- function(load_lbft2, sav, mf, delta_ft, mx_dead,
   # Heat sink
   eps <- exp(-138/sav)
   Qig <- 250 + 1116 * mf
-  rbeQ <- rho_b * (f_dead * sum(f_ij[dead] * eps[dead] * Qig[dead]) +
-    f_live * sum(f_ij[live] * eps[live] * Qig[live]))
+  heat_sink_dead <- f_dead * sum(f_ij[dead] * eps[dead] * Qig[dead])
+  heat_sink_live <- f_live * sum(f_ij[live] * eps[live] * Qig[live])
+  rbeQ <- rho_b * (heat_sink_dead + heat_sink_live)
 
   R <- if (rbeQ > 0) I_R * xi * (1 + phi_w + phi_s)/rbeQ else 0 # ft/min
 
@@ -293,9 +296,8 @@ scan_fire_row <- function(row, env) {
 
   # Rothermel (1991) crown spread rate (m/min): 3.34 x FM10 ROS at crown wind
   # exposure (0.4 x 20-ft wind).
-  crown_ros_m <- 3.34 *
-    (fm10_ros_ft_min(mf, env$mx_dead/100, 0.4 * wind_ftmin, slope_frac) *
-      FTMIN_TO_MMIN)
+  crown_fm10_ros <- fm10_ros_ft_min(mf, env$mx_dead/100, 0.4 * wind_ftmin, slope_frac)
+  crown_ros_m <- 3.34 * crown_fm10_ros * FTMIN_TO_MMIN
 
   # Fire type: 0 surface, 1 passive (torching), 2 active crown
   fire_type <- 0

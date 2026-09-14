@@ -201,9 +201,8 @@ aurora_theme <- function(pal = SCREEN_PAL) {
 .add_step_factor <- function(long) {
   long[, gdate := mean(scan_date), by = grp] # nolint: unused_declared_object_linter.
   labs_chr <- format(long$gdate, "%Y-%m-%d")
-  long[, grp_lab := factor(labs_chr,
-    levels = unique(labs_chr[order(long$gdate)])
-  )]
+  lab_levels <- unique(labs_chr[order(long$gdate)])
+  long[, grp_lab := factor(labs_chr, levels = lab_levels)]
   long
 }
 

@@ -44,5 +44,14 @@ exclusions:
     # with method = "radix" (C locale), where "." (0x2E) < "[" (0x5B) and so
     # wants the reverse. Sorting it by hand does not stick - the next
     # `format_r()` run swaps it straight back.
-    "app/view/tab_fuels.R" = list(box_alphabetical_calls_linter = Inf)
+    "app/view/tab_fuels.R" = list(
+      box_alphabetical_calls_linter = Inf,
+      box_universal_import_linter = Inf
+    ),
+    # The ported DST views use `shiny[...]` and plotting.R attaches 20+ ggplot2
+    # and 10 shiny functions by name. Converting them to `shiny$`/`ggplot2$`
+    # calls would fork this code from the DST copy (see app/logic/dst_state.R),
+    # so the import-style linters are relaxed for these files only.
+    "app/view/tab_rothRmel.R" = list(box_universal_import_linter = Inf),
+    "app/logic/plotting.R" = list(box_func_import_count_linter = Inf)
   )
