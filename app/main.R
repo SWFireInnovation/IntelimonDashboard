@@ -84,7 +84,7 @@ server <- function(id) {
     tab_histogram$server("Histogram", data_dir = data_dir)
     tab_selectionMap$server("Selection Map")
     tab_set_trtmt$server("Set Treatments")
-    tab_directOutputs$server('Standard-outputs')
+    tab_directOutputs$server("Standard-outputs")
     tab_predictive_models$server("Predictive-models")
   })
 }

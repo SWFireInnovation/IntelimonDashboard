@@ -1,12 +1,11 @@
-# app/logic/series.R
 # ---------------------------------------------------------------------------
-# Time-series construction and treatment-date parsing. Pure functions on
-# data.tables; no Shiny.
+# Time-series construction and treatment-date parsing.
+# Pure functions on data.tables; no Shiny.
 # ---------------------------------------------------------------------------
 
 box::use(
-  data.table[data.table, as.data.table, copy, dcast, setorder],
-  stats[sd, median],
+  data.table[copy, data.table,  setorder],
+  stats[median, sd],
 )
 
 #' Parse a comma-separated string of YYYYMMDD dates; returns list(ok, bad).

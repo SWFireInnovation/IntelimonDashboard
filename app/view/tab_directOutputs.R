@@ -1,6 +1,6 @@
 box::use(
   bslib[card_body, card_header, nav_panel],
-  gridlayout[grid_card, grid_card_plot, grid_container],
+  gridlayout[grid_card, grid_container],
   shiny,
 )
 
@@ -10,7 +10,6 @@ box::use(
   app/view/card_metrics,
   app/view/card_points2pano,
   app/view/sidebar_plot_controls[standard_plt_ctrls],
-  plt = app/view/plotting,
 )
 
 #' @export
@@ -37,43 +36,43 @@ ui <- function(id) {
         card_body(
           standard_plt_ctrls(ns),
           shiny$selectInput(ns("ui_select_treeStat"),
-                            "Tree statistics",
-                            choices = get_display_col(
-                              c("Basalarea",
-                                "MDBH",
-                                "StemsPacre",
-                                "TreesN",
-                                "MeanTH",
-                                "MaxTH"
-                              ),
-                              COLNAME2LABEL
-                            ),
-                            selected = "Basalarea"
+            "Tree statistics",
+            choices = get_display_col(
+              c("Basalarea",
+                "MDBH",
+                "StemsPacre",
+                "TreesN",
+                "MeanTH",
+                "MaxTH"
+              ),
+              COLNAME2LABEL
+            ),
+            selected = "Basalarea"
           ),
           shiny$selectInput(ns("ui_select_volumeStat"), "Volume statistics",
-                            choices =  get_display_col(
-                              c("mGCvol",
-                                "mUSvol",
-                                "mMSvol",
-                                "mOSvol"
-                              ),
-                              COLNAME2LABEL
-                            ),
-                            selected = "mGCvol"
+            choices =  get_display_col(
+              c("mGCvol",
+                "mUSvol",
+                "mMSvol",
+                "mOSvol"
+              ),
+              COLNAME2LABEL
+            ),
+            selected = "mGCvol"
           ),
           shiny$selectInput(ns("ui_select_canopyStat"), "Canopy statistics",
-                            choices =  get_display_col(
-                              c("CBH",
-                                "canopyCover",
-                                "gapFraction",
-                                "LAI",
-                                "OLAI",
-                                "MLAI",
-                                "ULAI"
-                              ),
-                              COLNAME2LABEL
-                            ),
-                            selected = "CBH"
+            choices =  get_display_col(
+              c("CBH",
+                "canopyCover",
+                "gapFraction",
+                "LAI",
+                "OLAI",
+                "MLAI",
+                "ULAI"
+              ),
+              COLNAME2LABEL
+            ),
+            selected = "CBH"
           )
         )
       ),
@@ -124,33 +123,33 @@ server <- function(id) {
     btn_treaments    <- shiny$reactive(input$ui_btn_show_treatments)
 
     card_metrics$server("treeStats",
-                       session,
-                       data_dt = session$userData$metrics,
-                       metric_col = shiny$reactive(input$ui_select_treeStat),
-                       errorbars_on = btn_errorbars,
-                       treatlines_on = btn_treaments,
-                       plot_type = selected_plot_type,
-                       data_type = selected_data_type
+      session,
+      data_dt = session$userData$metrics,
+      metric_col = shiny$reactive(input$ui_select_treeStat),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
     )
 
     card_metrics$server("canopyStats",
-                   session,
-                   data_dt = session$userData$metrics,
-                   metric_col = shiny$reactive(input$ui_select_canopyStat),
-                   errorbars_on = btn_errorbars,
-                   treatlines_on = btn_treaments,
-                   plot_type = selected_plot_type,
-                   data_type = selected_data_type
+      session,
+      data_dt = session$userData$metrics,
+      metric_col = shiny$reactive(input$ui_select_canopyStat),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
     )
 
     card_metrics$server("volumeStats",
-                   session,
-                   data_dt = session$userData$metrics,
-                   metric_col = shiny$reactive(input$ui_select_volumeStat),
-                   errorbars_on = btn_errorbars,
-                   treatlines_on = btn_treaments,
-                   plot_type = selected_plot_type,
-                   data_type = selected_data_type
+      session,
+      data_dt = session$userData$metrics,
+      metric_col = shiny$reactive(input$ui_select_volumeStat),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
     )
 
     # -- Points2Pano viewer --------------------------------------------------

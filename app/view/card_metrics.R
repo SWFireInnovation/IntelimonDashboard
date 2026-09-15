@@ -15,7 +15,7 @@ ui <- function(id) {
   bslib$card(
     full_screen = TRUE,
     bslib$card_body(plt$plot_card_ui(ns("plot")),
-                    min_height=150
+      min_height = 150
     )
   )
 }
@@ -36,9 +36,9 @@ server <- function(id, session, data_dt, metric_col, errorbars_on, treatlines_on
     # capture current state of options and data selected
     plt_options <- shiny$reactive({
       list(
-           errorbars    = errorbars_on(),
-           treatlines   = treatlines_on(),
-           plot_type    = plot_type()
+        errorbars    = errorbars_on(),
+        treatlines   = treatlines_on(),
+        plot_type    = plot_type()
       )
     })
 
@@ -46,7 +46,9 @@ server <- function(id, session, data_dt, metric_col, errorbars_on, treatlines_on
       col <- metric_col()
       label <- tryCatch(
         COLNAME2LABEL[[col]],
-        error = function(e){col}
+        error = function(e) {
+          col
+        }
       )
 
       list(
@@ -64,15 +66,16 @@ server <- function(id, session, data_dt, metric_col, errorbars_on, treatlines_on
     }
 
     output$plot <- shiny$renderPlot(
-      plt_fn(light  =FALSE),
-      bg = "transparent",
-      res = 110)
+                                    plt_fn(light  = FALSE),
+                                    bg = "transparent",
+                                    res = 110)
     # the downloads must be able to remake the plot with a different background to before they save
     plt$register_plot_download(output, "plot", plt_fn, id)
 
     #------Stats table builder for data state----
     # create stats table
-    stats_dt <- shiny$reactive({ plt$metric_series_stats(data_state()) })
+    stats_dt <- shiny$reactive({
+                                plt$metric_series_stats(data_state()) })
     # the output stats are created reactively. Pass the reactiveObject, not the data.table,
     # so it can render reactively(dynamically)
     plt$render_plot_stats(output, "plot", stats_dt)

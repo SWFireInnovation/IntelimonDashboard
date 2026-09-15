@@ -1,4 +1,3 @@
-# app/logic/constants.R
 # ---------------------------------------------------------------------------
 # Static lookup tables shared across the view modules. Pure data, no Shiny.
 # Fuel-specific constants live in app/logic/fuel.R; API-specific constants

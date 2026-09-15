@@ -4,8 +4,8 @@ box::use(
 )
 
 box::use(
-  api = app/logic/load_data_api,
   app/logic/constants[COLNAME2LABEL],
+  api = app/logic/load_data_api,
   app/logic/map_fnc,
 )
 

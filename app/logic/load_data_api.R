@@ -4,7 +4,7 @@ box::use(
 )
 
 box::use(
-  app/logic/manage_data[generalize_model_name]
+  app/logic/manage_data[generalize_model_name],
 )
 
 # API server path has been encrypted
@@ -371,9 +371,9 @@ get_extra_models_for_scans <- function(scan_dt, progress = NULL) {
 }
 
 #' @export
-build_points2pano_url_from_SDSC <- function(site, plot, date) {
+build_points2pano_url_sdsc <- function(site, plot, date) {
   sprintf(
-        "https://burnpro3d.sdsc.edu/points2pano/?plot=%s_%s&ts=%s&m=Basalarea",
-        site, plot, format(date, "%Y%m%d")
+    "https://burnpro3d.sdsc.edu/points2pano/?plot=%s_%s&ts=%s&m=Basalarea",
+    site, plot, format(date, "%Y%m%d")
   )
 }

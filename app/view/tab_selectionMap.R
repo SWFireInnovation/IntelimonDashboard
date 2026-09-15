@@ -232,8 +232,8 @@ server <- function(id) {
 
       session$userData$extra_models(
         rbind(
-        session$userData$extra_models(),
-        api$get_extra_models_for_scans(selected, progress = prog_obj)
+          session$userData$extra_models(),
+          api$get_extra_models_for_scans(selected, progress = prog_obj)
         )
       )
     })

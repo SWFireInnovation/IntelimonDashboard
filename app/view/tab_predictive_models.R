@@ -2,7 +2,7 @@ box::use(
   bslib[card_body, card_header, nav_panel],
   gridlayout[grid_card, grid_container],
   shiny,
-  stats[na.omit]
+  stats[na.omit],
 )
 
 box::use(
@@ -37,11 +37,11 @@ ui <- function(id) {
           standard_plt_ctrls(ns),
           #-----Select Model---------------------
           shiny$selectInput(ns("ui_select_modelA"), "Window A available models",
-                      choices = list("Load data first" = "")),
+                            choices = list("Load data first" = "")),
           shiny$selectInput(ns("ui_select_modelB"), "Window B available models",
-                      choices = list("Load data first" = "")),
+                            choices = list("Load data first" = "")),
           shiny$selectInput(ns("ui_select_modelC"), "Window C available models",
-                      choices = list("Load data first" = ""))
+                            choices = list("Load data first" = ""))
         )
       ),
       grid_card(
@@ -49,24 +49,24 @@ ui <- function(id) {
         card_body(
           grid_container(
             layout = c(
-               "modelA modelB",
-               "modelC panoViewer"
+              "modelA modelB",
+              "modelC panoViewer"
             ),
             row_sizes = c("1fr", "1fr"),
             col_sizes = c("1fr", "1fr"),
             gap_size = "10px",
             grid_card(area = "modelA",
-                      card_metrics$ui(ns("modelA"))
+              card_metrics$ui(ns("modelA"))
             ),
             grid_card(area = "modelB",
-                      card_metrics$ui(ns("modelB"))
+              card_metrics$ui(ns("modelB"))
             ),
             grid_card(area = "modelC",
-                      card_metrics$ui(ns("modelC"))
+              card_metrics$ui(ns("modelC"))
             ),
             grid_card(
-                area = "panoViewer",
-                card_points2pano$ui(ns("panoViewer"))
+              area = "panoViewer",
+              card_points2pano$ui(ns("panoViewer"))
             )
           )
         )
@@ -105,37 +105,37 @@ server <- function(id) {
     #---------Model A----------------------------
     dt_a <- shiny$reactive(pivot_on_model(session$userData$extra_models(), input$ui_select_modelA))
     card_metrics$server("modelA",
-                       session,
-                       data_dt = dt_a,
-                       metric_col = shiny$reactive(input$ui_select_modelA),
-                       errorbars_on = btn_errorbars,
-                       treatlines_on = btn_treaments,
-                       plot_type = selected_plot_type,
-                       data_type = selected_data_type
+      session,
+      data_dt = dt_a,
+      metric_col = shiny$reactive(input$ui_select_modelA),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
     )
 
     #---------Model B----------------------------
     dt_b <- shiny$reactive(pivot_on_model(session$userData$extra_models(), input$ui_select_modelB))
     card_metrics$server("modelB",
-                       session,
-                       data_dt = dt_b,
-                       metric_col = shiny$reactive(input$ui_select_modelB),
-                       errorbars_on = btn_errorbars,
-                       treatlines_on = btn_treaments,
-                       plot_type = selected_plot_type,
-                       data_type = selected_data_type
+      session,
+      data_dt = dt_b,
+      metric_col = shiny$reactive(input$ui_select_modelB),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
     )
 
     #---------Model C----------------------------
     dt_c <- shiny$reactive(pivot_on_model(session$userData$extra_models(), input$ui_select_modelC))
     card_metrics$server("modelC",
-                       session,
-                       data_dt = dt_c,
-                       metric_col = shiny$reactive(input$ui_select_modelC),
-                       errorbars_on = btn_errorbars,
-                       treatlines_on = btn_treaments,
-                       plot_type = selected_plot_type,
-                       data_type = selected_data_type
+      session,
+      data_dt = dt_c,
+      metric_col = shiny$reactive(input$ui_select_modelC),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
     )
 
     #------Points2Pano---------------------------

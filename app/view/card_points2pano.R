@@ -1,9 +1,10 @@
-box::use(bslib,
-         shiny,
+box::use(
+  bslib,
+  shiny,
 )
 
 box::use(
-  app/logic/load_data_api[build_points2pano_url_from_SDSC]
+  app/logic/load_data_api[build_points2pano_url_sdsc],
 )
 
 # Points2Pano iframe crop (pixels). The burnpro3d page is cross-origin, so
@@ -20,25 +21,24 @@ ui <- function(id) {
   ns <- shiny$NS(id)
 
   bslib$card(
-      area = "panoViewer",
-      full_screen = TRUE,
-      bslib$card_header(
-          class = "d-flex justify-content-between align-items-center",
-          shiny$span("Points2Pano"),
-          shiny$div(
+    area = "panoViewer",
+    full_screen = TRUE,
+    bslib$card_header(
+      class = "d-flex justify-content-between align-items-center",
+      shiny$span("Points2Pano"),
+      shiny$div(
                 class = "d-flex align-items-center gap-2",
                 shiny$actionButton(ns("btn_pano_prev"), "\u25C0", class = "btn-sm"),
                 shiny$div(
-                          class = "pano-info",
-                          shiny$textOutput(ns("pano_label"), inline = TRUE)
+                  class = "pano-info",
+                  shiny$textOutput(ns("pano_label"), inline = TRUE)
                 ),
-                shiny$actionButton(ns("btn_pano_next"), "\u25B6", class = "btn-sm")
-              )
-      ),
-      bslib$card_body(
-          padding = 0,
-          shiny$uiOutput(ns("pano_frame"), style = "height: 100%;")
-      )
+                shiny$actionButton(ns("btn_pano_next"), "\u25B6", class = "btn-sm"))
+    ),
+    bslib$card_body(
+      padding = 0,
+      shiny$uiOutput(ns("pano_frame"), style = "height: 100%;")
+    )
   )
 }
 
@@ -104,7 +104,7 @@ server <- function(id, session) {
       idx <- min(pano_idx(), nrow(df))
       row <- df[idx]
 
-      pano_url <- build_points2pano_url_from_SDSC(row$site, row$plot, row$date)
+      pano_url <- build_points2pano_url_sdsc(row$site, row$plot, row$date)
 
       shiny$div(
         style = "width:100%; height:100%; overflow:hidden; position:relative;",
