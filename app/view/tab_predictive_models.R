@@ -8,6 +8,7 @@ box::use(
 box::use(
   app/logic/manage_data[pivot_on_model],
   app/view/card_metrics,
+  app/view/card_points2pano,
   app/view/sidebar_plot_controls[standard_plt_ctrls],
 )
 
@@ -55,21 +56,17 @@ ui <- function(id) {
             col_sizes = c("1fr", "1fr"),
             gap_size = "10px",
             grid_card(area = "modelA",
-                      full_screen = TRUE,
                       card_metrics$ui(ns("modelA"))
             ),
             grid_card(area = "modelB",
-                      full_screen = TRUE,
                       card_metrics$ui(ns("modelB"))
             ),
             grid_card(area = "modelC",
-                      full_screen = TRUE,
                       card_metrics$ui(ns("modelC"))
             ),
             grid_card(
                 area = "panoViewer",
-                full_screen = TRUE,
-                shiny$div()
+                card_points2pano$ui(ns("panoViewer"))
             )
           )
         )
@@ -130,7 +127,7 @@ server <- function(id) {
     )
 
     #---------Model C----------------------------
-    dt_c <- shiny$reactive(pivot_on_model(session$userData$extra_models(), inpu$ui_select_modelC))
+    dt_c <- shiny$reactive(pivot_on_model(session$userData$extra_models(), input$ui_select_modelC))
     card_metrics$server("modelC",
                        session,
                        data_dt = dt_c,
@@ -140,6 +137,9 @@ server <- function(id) {
                        plot_type = selected_plot_type,
                        data_type = selected_data_type
     )
+
+    #------Points2Pano---------------------------
+    card_points2pano$server("panoViewer", session)
 
   })
 }
