@@ -369,3 +369,11 @@ get_extra_models_for_scans <- function(scan_dt, progress = NULL) {
 
   generalize_model_name(model_dt)
 }
+
+#' @export
+build_points2pano_url_from_SDSC <- function(site, plot, date) {
+  sprintf(
+        "https://burnpro3d.sdsc.edu/points2pano/?plot=%s_%s&ts=%s&m=Basalarea",
+        site, plot, format(date, "%Y%m%d")
+  )
+}

@@ -2,6 +2,10 @@ box::use(bslib,
          shiny,
 )
 
+box::use(
+  app/logic/load_data_api[build_points2pano_url_from_SDSC]
+)
+
 # Points2Pano iframe crop (pixels). The burnpro3d page is cross-origin, so
 # its own UI (header, bottom nav bar, side arrows) can't be restyled from
 # this app; instead the iframe is oversized and shifted so those strips are
@@ -100,10 +104,7 @@ server <- function(id, session) {
       idx <- min(pano_idx(), nrow(df))
       row <- df[idx]
 
-      pano_url <- sprintf(
-        "https://burnpro3d.sdsc.edu/points2pano/?plot=%s_%s&ts=%s&m=Basalarea",
-        row$site, row$plot, format(row$date, "%Y%m%d")
-      )
+      pano_url <- build_points2pano_url_from_SDSC(row$site, row$plot, row$date)
 
       shiny$div(
         style = "width:100%; height:100%; overflow:hidden; position:relative;",
