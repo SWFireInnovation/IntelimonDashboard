@@ -21,11 +21,12 @@ ui <- function(id) {
 }
 
 #' @param id module id - must match the id `ui()` was called with.
+#' @param session active user server sesion pased to all modules
 #' @param metric_col reactive() -> selected metric column, e.g. "MDBH".
 #' @param errorbars_on,treatlines_on,plot_mode,data_type reactive() -> the
 #'   matching sidebar control's current value.
 #' @export
-server <- function(id, session, metric_col, errorbars_on, treatlines_on, plot_type, data_type) {
+server <- function(id, session, data_dt, metric_col, errorbars_on, treatlines_on, plot_type, data_type) {
   shiny$moduleServer(id, function(input, output, session) {
     # -- Metric time-series cards -------------------------------------------
     # Each card is a builder taking `light`: the screen render uses the Aurora
@@ -43,11 +44,16 @@ server <- function(id, session, metric_col, errorbars_on, treatlines_on, plot_ty
 
     data_state <- shiny$reactive({
       col <- metric_col()
+      label <- tryCatch(
+        COLNAME2LABEL[[col]],
+        error = function(e){col}
+      )
+
       list(
         metric       = col,
-        label        = COLNAME2LABEL[[col]],
+        label        = if (is.null(label) || is.na(label)) col else label,
         data_type    = data_type(),
-        data_dt      = session$userData$metrics(),
+        data_dt      = data_dt(),
         trtmnt_dates    = session$userData$trtmt_dates()
       )
     })

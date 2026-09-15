@@ -136,3 +136,51 @@ get_display_col <- function(col_selection, col_list = COLNAME2LABEL) {
   display_col <- col_list[col_selection]
   setNames(names(display_col), display_col)
 }
+
+#' Generalize the custom predicitive model names. For example: convert 'Forbsmod_TXARR.rda' to 'Forbsmod'.
+#'
+#' Custom predictive models are labeled with the R file name that stores the model in the IntELiMon data
+#' processing program. The model name is formated <descriptor>_<sitename>.rda. This model name is stored in
+#' the data.table recieved through the API. This function strips the file extension and site name from the
+#' model name.
+#'
+#' @param dt - a data.table containing additional models as returned by
+#'        app\logic\load_data_api$get_extra_models_for_1scan. Must have columns: site, model_script_name, and
+#'        model_metric_value.
+#' @export
+generalize_model_name <- function(dt) {
+  if (nrow(dt) == 0) return(dt)
+
+  # Strip "_{site}.rda" (fall back to just ".rda") from the script name
+  dt[, model_name := mapply(
+    function(nm, site) sub(paste0("_", site, "\\.rda$"), "", nm),
+    model_script_name, site
+  )]
+  dt[, model_name := sub("\\.rda$", "", model_name)]
+
+  dt[, model_metric_value := suppressWarnings(as.numeric(model_metric_value))]
+}
+
+#' Pivot the flat extra_models table (one row per model per scan) into
+#' a metrics-like wide table: one row per scan, identifying columns first,
+#' then one column per model holding model_metric_value.
+#'
+#' @param models_dt - data.table containing output from app/logic/load_data_api$get_extra_models_for_scans.
+#' @export
+pivot_on_model <- function(models_dt, model = NULL) {
+  # check for empty data.table
+  if (nrow(models_dt) == 0) return(models_dt)
+
+  # select only the desired model
+  if (!is.null(model)) {
+    models_dt <- models_dt[model_name == model]
+    if (nrow(models_dt) == 0) return(models_dt)
+  }
+
+  dt$dcast(
+    models_dt,
+    site + plot + date + scanner_id ~ model_name,
+    value.var = "model_metric_value",
+    fun.aggregate = mean   # collapses accidental duplicates
+  )
+}

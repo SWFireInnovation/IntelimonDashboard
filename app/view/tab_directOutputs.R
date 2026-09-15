@@ -8,6 +8,7 @@ box::use(
   app/logic/constants[COLNAME2LABEL],
   app/logic/manage_data[get_display_col],
   app/view/card_metrics,
+  app/view/sidebar_plot_controls[standard_plt_ctrls],
   plt = app/view/plotting,
 )
 
@@ -42,31 +43,9 @@ ui <- function(id) {
         area = "IntELiMonDSS",
         card_header("Select Statistics"),
         card_body(
-          shiny$selectInput(ns("ui_select_plot_type"), "Plot type",
-            choices = list(
-              "Time series" = "timeseries",
-              "Time series individual plot" = "individual",
-              "Box and Whisker" = "boxplot",
-              "Bar" = "bar"
-            ),
-            selected = "timeseries", width = "100%"
-          ),
-          shiny$selectInput(ns("ui_select_data_type"), "Data type",
-            choices = list(
-              "Values"       = "raw",
-              "Percent change" = "percent"
-            ),
-            selected = "raw", width = "100%"
-          ),
-          shiny$radioButtons(ns("ui_btn_show_treatments"), "Treatment date lines",
-            choices = list("On" = "on", "Off" = "off"),
-            selected = "on", inline = TRUE, width = "100%"
-          ),
-          shiny$radioButtons(ns("ui_btn_show_errorbars"), "Error bars",
-            choices = list("On" = "on", "Off" = "off"),
-            selected = "on", inline = TRUE, width = "100%"
-          ),
-          shiny$selectInput(ns("ui_select_treeStat"), "Tree statistics",
+          standard_plt_ctrls(ns),
+          shiny$selectInput(ns("ui_select_treeStat"),
+                            "Tree statistics",
                             choices = get_display_col(
                               c("Basalarea",
                                 "MDBH",
@@ -163,6 +142,7 @@ server <- function(id) {
     # Each card is a builder taking `light`: the screen render uses the Aurora
     # palette, the SVG/PNG downloads re-run it light for a white page.
 
+    # make input reactive so that it will update when passed to other module.
     selected_plot_type     <- shiny$reactive(input$ui_select_plot_type)
     selected_data_type     <- shiny$reactive(input$ui_select_data_type)
     btn_errorbars     <- shiny$reactive(input$ui_btn_show_errorbars)
@@ -170,6 +150,7 @@ server <- function(id) {
 
     card_metrics$server("treeStats",
                        session,
+                       data_dt = session$userData$metrics,
                        metric_col = shiny$reactive(input$ui_select_treeStat),
                        errorbars_on = btn_errorbars,
                        treatlines_on = btn_treaments,
@@ -179,6 +160,7 @@ server <- function(id) {
 
     card_metrics$server("canopyStats",
                    session,
+                   data_dt = session$userData$metrics,
                    metric_col = shiny$reactive(input$ui_select_canopyStat),
                    errorbars_on = btn_errorbars,
                    treatlines_on = btn_treaments,
@@ -188,6 +170,7 @@ server <- function(id) {
 
     card_metrics$server("volumeStats",
                    session,
+                   data_dt = session$userData$metrics,
                    metric_col = shiny$reactive(input$ui_select_volumeStat),
                    errorbars_on = btn_errorbars,
                    treatlines_on = btn_treaments,

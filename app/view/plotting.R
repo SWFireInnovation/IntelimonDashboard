@@ -34,7 +34,7 @@ box::use(
 )
 
 box::use(
-  app/logic/series[assign_time_steps, aggregate_time_steps,
+  app/logic/manage_timesteps[assign_time_steps, aggregate_time_steps,
                    percent_change_series, describe_time_steps],
 )
 

@@ -3,6 +3,10 @@ box::use(
   httr2,
 )
 
+box::use(
+  app/logic/manage_data[generalize_model_name]
+)
+
 # API server path has been encrypted
 # The decryption key is stored in .env as:
 # > API_PATH_KEY = super_secret_32_character_key___
@@ -361,5 +365,7 @@ get_extra_models_for_1scan <- function(siteid,
 #' @export
 get_extra_models_for_scans <- function(scan_dt, progress = NULL) {
   if (!is.null(progress)) progress$detail <- "Models"
-  .get_multi_scan(scan_dt, get_extra_models_for_1scan, progress)
+  model_dt <- .get_multi_scan(scan_dt, get_extra_models_for_1scan, progress)
+
+  generalize_model_name(model_dt)
 }

@@ -35,7 +35,7 @@ ui <- function(id) {
     tab_selectionMap$ui(ns("Selection Map")),
     tab_set_trtmt$ui(ns("Set Treatments")),
     tab_directOutputs$ui(ns("Standard-outputs")),
-    tab_predictive_models$ui(ns("Predictive models")),
+    tab_predictive_models$ui(ns("Predictive-models")),
     tab_raster$ui(ns("Raster products")),
     tab_fuels$ui(ns("Fuels exports")),
     tab_forestry$ui(ns("Forestry exports")),
@@ -71,7 +71,7 @@ server <- function(id) {
     # IntELiMon identified tree inventory for scans
     session$userData$tree_inv <- dt$data.table()
     # IntELiMon identified extra models for scans
-    session$userData$extra_models <- dt$data.table()
+    session$userData$extra_models <- reactiveVal(dt$data.table())
     # User defined treatment dates
     session$userData$trtmt_dates <- reactiveVal(
       dt$data.table(
@@ -85,5 +85,6 @@ server <- function(id) {
     tab_selectionMap$server("Selection Map")
     tab_set_trtmt$server("Set Treatments")
     tab_directOutputs$server('Standard-outputs')
+    tab_predictive_models$server("Predictive-models")
   })
 }

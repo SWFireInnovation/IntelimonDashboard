@@ -175,31 +175,3 @@ build_metric_series <- function(metrics_dt, metric_col, treat_dates,
     assign_time_steps(metrics_dt, metric_col, treat_dates, transform)
   )
 }
-
-#' Reshape the long additional_models table (one row per model per scan) into
-#' a metrics-like wide table: one row per scan, identifying columns first,
-#' then one column per model holding model_metric_value. Model script names
-#' are site-specific (e.g. onehrmod_MSGBR.rda), so the "_SITE.rda" suffix is
-#' stripped to a generic model name (onehrmod) so the same model lines up
-#' across sites.
-reshape_models_wide <- function(models_dt) {
-  if (nrow(models_dt) == 0) return(data.table())
-
-  dt <- copy(models_dt)
-
-  # Strip "_{site}.rda" (fall back to just ".rda") from the script name
-  dt[, model_name := mapply(
-    function(nm, site) sub(paste0("_", site, "\\.rda$"), "", nm),
-    model_script_name, site_name
-  )]
-  dt[, model_name := sub("\\.rda$", "", model_name)]
-
-  dt[, model_metric_value := suppressWarnings(as.numeric(model_metric_value))]
-
-  dcast(
-    dt,
-    site_name + plot + date_code + scanner_id ~ model_name,
-    value.var = "model_metric_value",
-    fun.aggregate = mean   # collapses accidental duplicates
-  )
-}
