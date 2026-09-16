@@ -6,25 +6,23 @@ linters:
     box_usage_linter = NULL,
     box_mod_fun_exists_linter = NULL,
     box_unused_att_pkg_linter = NULL,
+    object_name_linter = object_name_linter(
+        styles = c("snake_case", "SNAKE_CASE")
+    ),
     # The settings below arrived with the Decision Support Tool modules ported
     # from the standalone IntELiMon app (Fuels exports, rothRmel, and the
-    # app/logic/{fuel,fuel_models,fire_behavior,plotting,series,constants}.R
     # they sit on). They match that project's own .lintr so the two copies
+    # app/logic/{fuel,fuel_models,fire_behavior,plotting,series,constants}.R
     # stay lint-clean against each other.
     #
-    # UPPER_SNAKE_CASE is that code's convention for module-level constants
-    # (PANO_CROP_TOP, BROWN_CLASSES, SURFACE_FUEL_MODELS, ...).
-    object_name_linter = object_name_linter(
-      styles = c("snake_case", "SNAKE_CASE", "symbols")
+    infix_spaces_linter = infix_spaces_linter(
+        exclude_operators = c("/", "^")
     ),
-    # `rhino::format_r()` styles with `rhino_style`, which sets
+    # from undoing each other's work on every run.
+    # `^`. Excluding both operators here keeps Rhino's formatter and linter
     # `math_token_spacing(zero = "'/'")`. That drops the spaces around `/` and,
     # because it replaces styler's default `zero = "'^'"`, adds them around
-    # `^`. Excluding both operators here keeps Rhino's formatter and linter
-    # from undoing each other's work on every run.
-    infix_spaces_linter = infix_spaces_linter(
-      exclude_operators = c("/", "^")
-    ),
+    # `rhino::format_r()` styles with `rhino_style`, which sets
     # The ported modules open with a `# app/view/foo.R` path header, which
     # parses as valid R (`app / view / foo.R` - a chain of divisions on symbols
     # containing dots), so this linter flags every one of them.

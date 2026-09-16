@@ -396,20 +396,3 @@ scan_fire_behavior <- function(metrics_dt, models_wide_dt, env) {
 
   rbindlist(rows, use.names = TRUE, fill = TRUE)
 }
-
-# Dropdown key -> axis label for the fire-behavior time-series cards.
-#' @export
-FIRE_METRIC_LABELS <- c(
-  ros_ch_hr     = "Surface rate of spread (ch/hr)",
-  ros_m_min     = "Surface rate of spread (m/min)",
-  fli_kw_m      = "Surface fireline intensity (kW/m)",
-  flame_ft      = "Surface flame length (ft)",
-  flame_m       = "Surface flame length (m)",
-  rxn_int       = "Reaction intensity (BTU/ft\u00B2/min)",
-  hpa           = "Heat per unit area (BTU/ft\u00B2)",
-  crown_Io      = "Crown-initiation intensity I\u2080 (kW/m)",
-  crown_Ro      = "Critical active-crown ROS R\u2080 (m/min)",
-  torching_idx  = "Torching index (mi/h)",
-  crowning_idx  = "Crowning index (mi/h)",
-  fire_type_num = "Crown fire type (0/1/2)"
-)

@@ -3,6 +3,10 @@ box::use(
   httr2,
 )
 
+box::use(
+  app/logic/manage_data[generalize_model_name],
+)
+
 # environment variables are locked on import (whenever bod::use() is called)
 #creating a new empty environment allows the variables of that environment to be mutable
 .cache <- new.env(parent = emptyenv())
@@ -399,5 +403,15 @@ get_extra_models_for_1scan <- function(siteid,
 #' @export
 get_extra_models_for_scans <- function(scan_dt, progress = NULL) {
   if (!is.null(progress)) progress$detail <- "Models"
-  .get_multi_scan(scan_dt, get_extra_models_for_1scan, progress)
+  model_dt <- .get_multi_scan(scan_dt, get_extra_models_for_1scan, progress)
+
+  generalize_model_name(model_dt)
+}
+
+#' @export
+build_points2pano_url_sdsc <- function(site, plot, date) {
+  sprintf(
+    "https://burnpro3d.sdsc.edu/points2pano/?plot=%s_%s&ts=%s&m=Basalarea",
+    site, plot, format(date, "%Y%m%d")
+  )
 }

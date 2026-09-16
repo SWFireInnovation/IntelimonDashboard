@@ -44,8 +44,8 @@ ui <- function(id) {
     tab_histogram$ui(ns("Histogram")),
     tab_selectionMap$ui(ns("Selection Map")),
     tab_set_trtmt$ui(ns("Set Treatments")),
-    tab_directOutputs$ui(ns("Direct outputs")),
-    tab_predictive_models$ui(ns("Predictive models")),
+    tab_directOutputs$ui(ns("Standard-outputs")),
+    tab_predictive_models$ui(ns("Predictive-models")),
     tab_raster$ui(ns("Raster products")),
     # These two build input ids dynamically (renderUI) and address them from
     # JS in conditionalPanel, so they take space-free namespace ids rather
@@ -84,7 +84,7 @@ server <- function(id) {
     # IntELiMon identified tree inventory for scans
     session$userData$tree_inv <- dt$data.table()
     # IntELiMon identified extra models for scans
-    session$userData$extra_models <- dt$data.table()
+    session$userData$extra_models <- reactiveVal(dt$data.table())
     # User defined treatment dates
     session$userData$trtmt_dates <- reactiveVal(
       dt$data.table(
@@ -102,6 +102,8 @@ server <- function(id) {
     tab_histogram$server("Histogram", data_dir = data_dir)
     tab_selectionMap$server("Selection Map")
     tab_set_trtmt$server("Set Treatments")
+    tab_directOutputs$server("Standard-outputs")
+    tab_predictive_models$server("Predictive-models")
     tab_fuels$server("fuels_exports")
     tab_rothRmel$server("rothrmel")
   })

@@ -26,7 +26,7 @@ box::use(
 )
 
 box::use(
-  app/logic/series[reshape_models_wide],
+  app/logic/manage_data[pivot_on_model],
 )
 
 # site | plot | date | scanner_id  ->  site_name | plot | date_code | scanner_id
@@ -52,7 +52,7 @@ box::use(
     dt$setnames(out, "site", "site_name")
   }
   if ("date" %in% names(out)) {
-    out[, date_code := format(as.Date(date), "%Y%m%d")]
+    out[, date_code := date]
     out[, date := NULL]
   }
 
@@ -84,14 +84,13 @@ dst_metrics <- function(session) {
 #' @return wide data.table, one row per scan, or an empty data.table
 #' @export
 dst_models_wide <- function(session) {
-  dst_metrics(session)
-
-  models <- session$userData$extra_models
+  models <- session$userData$extra_models()
   if (is.null(models) || nrow(models) == 0) {
     return(dt$data.table())
   }
 
-  reshape_models_wide(.to_dst_names(models))
+  pvt <- pivot_on_model(models)
+  .to_dst_names(pvt)
 }
 
 #' Treatment dates as the character "YYYYmmdd" vector the series and plotting
@@ -132,15 +131,11 @@ dst_scan_calls <- function(session) {
   out <- sel[, list(
     site_name = as.character(site_name),
     plot = as.character(plot),
-    date_code = as.character(date_code),
+    date_code = as.Date(as.character(date_code), "%Y%m%d"),
     scanner_id = as.character(scanner_id)
   )]
   out[is.na(date_code), date_code := ""]
-  # `scan_name` is a data.table column added by reference, not a local object;
-  # the rothRmel tab reads it for the Points2Pano iframe title.
-  # nolint start: unused_declared_object_linter.
-  out[, scan_name := paste(site_name, plot, date_code, scanner_id, sep = "_")]
-  # nolint end
+
   dt$setcolorder(out, c("site_name", "plot", "date_code", "scan_name", "scanner_id"))
   out[]
 }

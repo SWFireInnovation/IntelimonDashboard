@@ -1,15 +1,23 @@
 box::use(
   bslib[card_body, card_header, nav_panel],
-  gridlayout[grid_card, grid_card_plot, grid_container],
-  shiny[NS, moduleServer, selectInput],
+  gridlayout[grid_card, grid_container],
+  shiny,
+)
+
+box::use(
+  app/logic/constants[COLNAME2LABEL],
+  app/logic/manage_data[get_display_col],
+  app/view/card_metrics,
+  app/view/card_points2pano,
+  app/view/sidebar_plot_controls[standard_plt_ctrls],
 )
 
 #' @export
 ui <- function(id) {
-  ns <- NS(id)
+  ns <- shiny$NS(id)
 
   nav_panel(
-    title = "Direct outputs",
+    title = "Standard outputs",
     grid_container(
       layout = c(
         "IntELiMonDSS directOutputs"
@@ -18,7 +26,7 @@ ui <- function(id) {
         "1fr"
       ),
       col_sizes = c(
-        "250px",
+        "258px",
         "1fr"
       ),
       gap_size = "10px",
@@ -26,53 +34,73 @@ ui <- function(id) {
         area = "IntELiMonDSS",
         card_header("Select Statistics"),
         card_body(
-          selectInput(
-            inputId = ns("treeStatistics"),
-            label = "Mean Tree Statistics",
-            choices = list(
-              "Basal area" = "a",
-              "Diameters" = "b",
-              "Mean heights" = "value3",
-              "Maximum heights" = "value4"
-            )
+          standard_plt_ctrls(ns),
+          shiny$selectInput(ns("ui_select_treeStat"),
+            "Tree statistics",
+            choices = get_display_col(
+              c("Basalarea",
+                "MDBH",
+                "StemsPacre",
+                "TreesN",
+                "MeanTH",
+                "MaxTH"
+              ),
+              COLNAME2LABEL
+            ),
+            selected = "Basalarea"
           ),
-          selectInput(
-            inputId = ns("volumeStatistics"),
-            label = "Mean Volume Statistics",
-            choices = list(
-              "micro-Ground cover" = "a",
-              "micro-Understory" = "b",
-              "micro-Midstory" = "value3",
-              "micro-Overstory" = "value4"
-            )
+          shiny$selectInput(ns("ui_select_volumeStat"), "Volume statistics",
+            choices =  get_display_col(
+              c("mGCvol",
+                "mUSvol",
+                "mMSvol",
+                "mOSvol"
+              ),
+              COLNAME2LABEL
+            ),
+            selected = "mGCvol"
           ),
-          selectInput(
-            inputId = ns("mySelectInput"),
-            label = "Mean Canopy Statistics",
-            choices = list("Canopy base height" = "a", "Gap fraction" = "b")
+          shiny$selectInput(ns("ui_select_canopyStat"), "Canopy statistics",
+            choices =  get_display_col(
+              c("CBH",
+                "canopyCover",
+                "gapFraction",
+                "LAI",
+                "OLAI",
+                "MLAI",
+                "ULAI"
+              ),
+              COLNAME2LABEL
+            ),
+            selected = "CBH"
           )
         )
       ),
       grid_card(
         area = "directOutputs",
-        card_body(
-          grid_container(
-            layout = c(
-              "treeStats   volumeStats",
-              "canopyStats .          "
-            ),
-            row_sizes = c(
-              "1fr",
-              "1fr"
-            ),
-            col_sizes = c(
-              "1fr",
-              "1fr"
-            ),
-            gap_size = "10px",
-            grid_card_plot(area = "treeStats"),
-            grid_card_plot(area = "canopyStats"),
-            grid_card_plot(area = "volumeStats")
+        grid_container(
+          layout = c(
+            "treeGridArea   volumeGridArea",
+            "canopyGridArea panoGridArea"
+          ),
+          row_sizes = c("1fr", "1fr"),
+          col_sizes = c("1fr", "1fr"),
+          gap_size = "10px",
+          grid_card(
+            area = "treeGridArea",
+            card_metrics$ui(ns("treeStats"))
+          ),
+          grid_card(
+            area = "canopyGridArea",
+            card_metrics$ui(ns("canopyStats"))
+          ),
+          grid_card(
+            area = "volumeGridArea",
+            card_metrics$ui(ns("volumeStats"))
+          ),
+          grid_card(
+            area = "panoGridArea",
+            card_points2pano$ui(ns("panoViewer"))
           )
         )
       )
@@ -82,5 +110,49 @@ ui <- function(id) {
 
 #' @export
 server <- function(id) {
-  moduleServer(id, function(input, output, session) {})
+  shiny$moduleServer(id, function(input, output, session) {
+
+    # -- Metric time-series cards -------------------------------------------
+    # Each card is a builder taking `light`: the screen render uses the Aurora
+    # palette, the SVG/PNG downloads re-run it light for a white page.
+
+    # make input reactive so that it will update when passed to other module.
+    selected_plot_type     <- shiny$reactive(input$ui_select_plot_type)
+    selected_data_type     <- shiny$reactive(input$ui_select_data_type)
+    btn_errorbars     <- shiny$reactive(input$ui_btn_show_errorbars)
+    btn_treaments    <- shiny$reactive(input$ui_btn_show_treatments)
+
+    card_metrics$server("treeStats",
+      session,
+      data_dt = session$userData$metrics,
+      metric_col = shiny$reactive(input$ui_select_treeStat),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
+    )
+
+    card_metrics$server("canopyStats",
+      session,
+      data_dt = session$userData$metrics,
+      metric_col = shiny$reactive(input$ui_select_canopyStat),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
+    )
+
+    card_metrics$server("volumeStats",
+      session,
+      data_dt = session$userData$metrics,
+      metric_col = shiny$reactive(input$ui_select_volumeStat),
+      errorbars_on = btn_errorbars,
+      treatlines_on = btn_treaments,
+      plot_type = selected_plot_type,
+      data_type = selected_data_type
+    )
+
+    # -- Points2Pano viewer --------------------------------------------------
+    card_points2pano$server("panoViewer", session)
+  })
 }

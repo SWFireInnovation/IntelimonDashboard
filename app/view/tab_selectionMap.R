@@ -222,7 +222,7 @@ server <- function(id) {
         value = 0
       )
       prog_obj <- list(
-        step = 1 / (nscans * 3), step = 1 / (nscans * 3),
+        step = 1 / (nscans * 3),
         obj = dwnld_prog,
         detail = ""
       )
@@ -240,9 +240,11 @@ server <- function(id) {
         api$get_treeinv_for_scans(selected, progress = prog_obj)
       )
 
-      session$userData$extra_models <- rbind(
-        session$userData$extra_models,
-        api$get_extra_models_for_scans(selected, progress = prog_obj)
+      session$userData$extra_models(
+        rbind(
+          session$userData$extra_models(),
+          api$get_extra_models_for_scans(selected, progress = prog_obj)
+        )
       )
     })
 
