@@ -13,7 +13,7 @@
 # ---------------------------------------------------------------------------
 box::use(
   bslib[card_body, card_header, nav_panel],
-  gridlayout[grid_card, grid_container],
+  gridlayout[grid_card, grid_container, grid_place],
   shiny,
 )
 
@@ -142,19 +142,19 @@ ui <- function(id) {
             row_sizes = c("1fr", "1fr"),
             col_sizes = c("1fr", "1fr"),
             gap_size = "10px",
-            grid_card(
+            grid_place(
               area = "card1GridArea",
               card_metrics$ui(ns("card1"))
             ),
-            grid_card(
+            grid_place(
               area = "card2GridArea",
               card_metrics$ui(ns("card2"))
             ),
-            grid_card(
+            grid_place(
               area = "card3GridArea",
               card_metrics$ui(ns("card3"))
             ),
-            grid_card(
+            grid_place(
               area = "panoGridArea",
               card_points2pano$ui(ns("panoViewer"))
             )

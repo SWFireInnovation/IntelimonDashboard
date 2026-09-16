@@ -243,8 +243,6 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
   pct        <- prep$pct
   export_dt  <- .export_table(raw, y_label)
 
-  print("-------------")
-  print(prep$raw)
   tvec <- treat_dates$TreatmentDate
   show_treat <- treatlines_on == "on" && length(tvec) > 0
 

@@ -1,6 +1,6 @@
 box::use(
   bslib[card_body, card_header, nav_panel],
-  gridlayout[grid_card, grid_container],
+  gridlayout[grid_card, grid_container, grid_place],
   shiny,
 )
 
@@ -86,19 +86,19 @@ ui <- function(id) {
           row_sizes = c("1fr", "1fr"),
           col_sizes = c("1fr", "1fr"),
           gap_size = "10px",
-          grid_card(
+          grid_place(
             area = "treeGridArea",
             card_metrics$ui(ns("treeStats"))
           ),
-          grid_card(
+          grid_place(
             area = "canopyGridArea",
             card_metrics$ui(ns("canopyStats"))
           ),
-          grid_card(
+          grid_place(
             area = "volumeGridArea",
             card_metrics$ui(ns("volumeStats"))
           ),
-          grid_card(
+          grid_place(
             area = "panoGridArea",
             card_points2pano$ui(ns("panoViewer"))
           )
