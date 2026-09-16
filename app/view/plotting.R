@@ -247,14 +247,14 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
   show_treat <- treatlines_on == "on" && length(tvec) > 0
 
   # ---- Inshiny$dividual plot time series --------------------------------------
-  plt <- if (mode == "inshiny$dividual") {
+  plt <- if (mode == "individual") {
     long <- raw
-    shiny$validate(shinyEneed(nrow(long) > 0, "No valid values for this metric in the loaded scans."))
+    shiny$validate(shiny$need(nrow(long) > 0, "No valid values for this metric in the loaded scans."))
 
     dr <- as.numeric(diff(range(long$scan_date)))
     jw <- max(1, dr / 120)
 
-    p <- gplt$ggplot(long, aes(x = scan_date, y = value,
+    p <- gplt$ggplot(long, gplt$aes(x = scan_date, y = value,
                                color = label, group = label))
     if (show_treat) {
       p <- p + gplt$geom_vline(xintercept = tvec, color = pal$treat,
