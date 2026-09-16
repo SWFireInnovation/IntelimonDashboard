@@ -1,8 +1,840 @@
+// app/styles/main.scss
+// ---------------------------------------------------------------------------
+// Ported from Intelimon_DST's app/static/styles.css. Plain CSS is valid SCSS,
+// so no syntax changes were needed - this is a straight copy into the standard
+// Rhino styles location.
+//
+// Build: rhino::build_sass() compiles this into app/static/css/app.min.css.
+// rhino::app() (called from app.R) then auto-injects that file into <head> -
+// no manual includeCSS()/header= wiring needed. See chat for the full steps.
+// ---------------------------------------------------------------------------
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&display=swap');
+/* ============================================================
+   Aurora Glass theme  (app/static/styles.css)
+   Frosted translucent cards over a blurred aurora field.
+   Attached via app/main.R page_navbar header slot.
+   ============================================================ */
+:root{
+  --imn-accent:#8ff0e2; --imn-accent2:#ffd29b;
+  --imn-text:#eef3ff; --imn-dim:rgba(238,243,255,.62);
+  --imn-panel:rgba(255,255,255,.10); --imn-panel-2:rgba(255,255,255,.06);
+  --imn-border:rgba(255,255,255,.22); --imn-blur:blur(16px) saturate(140%);
+  --imn-radius:14px;
+}
+html, body{ background:#0b1120 !important; color:var(--imn-text); }
+body{
+  background-image:
+    radial-gradient(55% 70% at 12% 6%, rgba(43,212,196,.55), transparent 55%),
+    radial-gradient(60% 65% at 88% 14%, rgba(123,92,255,.5), transparent 55%),
+    radial-gradient(75% 75% at 72% 96%, rgba(255,138,61,.5), transparent 55%),
+    linear-gradient(160deg,#0f1636,#0a0f1f) !important;
+  background-attachment:fixed !important;
+  font-family:'Inter',system-ui,sans-serif;
+}
+/* navbar */
+.navbar{ background:rgba(255,255,255,.08) !important; backdrop-filter:var(--imn-blur);
+  border-bottom:1px solid var(--imn-border); }
+.navbar .nav-link{ color:var(--imn-dim) !important; font-weight:600; border-radius:10px; margin:0 2px; }
+.navbar .nav-link:hover{ color:var(--imn-text) !important; background:rgba(255,255,255,.10); }
+.navbar .nav-link.active,.navbar .show>.nav-link{ color:var(--imn-text) !important;
+  background:rgba(255,255,255,.12); box-shadow:inset 0 -2px 0 var(--imn-accent); }
+/* cards -> frosted glass */
+.card, .bslib-card{ background:var(--imn-panel) !important; border:1px solid var(--imn-border) !important;
+  border-radius:var(--imn-radius) !important; backdrop-filter:var(--imn-blur);
+  box-shadow:0 8px 30px rgba(0,0,0,.35); color:var(--imn-text); }
+.card-header{ background:transparent !important; border-bottom:1px solid var(--imn-border) !important;
+  color:var(--imn-text) !important; font-family:'Sora',sans-serif; font-weight:600; }
+.card-body{ color:var(--imn-text); }
+/* text */
+h1,h2,h3,h4,h5,h6,label,p,.form-label,.control-label,.shiny-input-container{ color:var(--imn-text); }
+.help-block,.shiny-input-container .checkbox,.text-muted{ color:var(--imn-dim) !important; }
+/* form controls */
+.form-control,.form-select,.selectize-input,textarea,input[type=text],input[type=number],input[type=date]{
+  background:var(--imn-panel-2) !important; color:var(--imn-text) !important;
+  border:1px solid var(--imn-border) !important; border-radius:9px !important; }
+.form-control::placeholder{ color:rgba(238,243,255,.4); }
+.selectize-input, .selectize-input.focus{ box-shadow:none !important; }
+.selectize-dropdown{ background:#12203a !important; color:var(--imn-text) !important;
+  border:1px solid var(--imn-border) !important; }
+.selectize-dropdown .active{ background:rgba(143,240,226,.18) !important; color:var(--imn-text) !important; }
+.btn{ background:rgba(255,255,255,.16) !important; color:var(--imn-text) !important;
+  border:1px solid var(--imn-border) !important; border-radius:10px !important; font-weight:600; }
+.btn:hover{ background:rgba(255,255,255,.24) !important; }
+.form-check-input{ background-color:var(--imn-panel-2); border-color:var(--imn-border); }
+.form-check-input:checked{ background-color:var(--imn-accent); border-color:var(--imn-accent); }
+.irs--shiny .irs-bar,.irs--shiny .irs-handle>i:first-child{ background:var(--imn-accent); }
+.irs--shiny .irs-min,.irs--shiny .irs-max,.irs--shiny .irs-single{ color:#0b1120; }
+table,.table,td,th{ color:var(--imn-text); }
+/* brand */
+.imn-brand{ display:flex; align-items:center; gap:12px; }
+.imn-logo{ width:42px; height:42px; object-fit:contain; filter:drop-shadow(0 2px 6px rgba(0,0,0,.4)); }
+.imn-brand-text{ display:flex; flex-direction:column; line-height:1.05; }
+.imn-brand-title{ font-family:'Sora',sans-serif; font-weight:800; font-size:19px; color:var(--imn-text); }
+.imn-brand-sub{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--imn-dim); }
+/* sponsor footer */
+.imn-sponsorbar{ display:flex; justify-content:center; padding:6px 16px;
+  border-top:1px solid var(--imn-border); background:rgba(255,255,255,.06); backdrop-filter:var(--imn-blur); }
+.imn-sponsor-plate{ display:flex; align-items:center; justify-content:center; gap:24px; flex-wrap:wrap;
+  background:rgba(255,255,255,.94); border:1px solid rgba(255,255,255,.65); border-radius:12px;
+  padding:6px 22px; box-shadow:0 6px 20px rgba(0,0,0,.28); }
+.imn-sponsor{ height:32px; width:auto; display:block; }
+.imn-sponsor.usgs{ height:30px; } .imn-sponsor.bia{ height:38px; } .imn-sponsor.serdp{ height:28px; }
+.leaflet-container{ border-radius:10px; }
+/* ---- end Aurora Glass theme; original functional rules follow ---- */
+
+/* app/static/styles.css
+   Injected into the page from app/main.R via the page_navbar `header` slot.
+   bslib page_navbar() builds a complete HTML page; Rhino's separate stylesheet
+   link does not reliably merge into it, so these styles are attached through
+   the header rather than app/styles/main.scss. Edit styles here. */
+
+/* Center leaflet labels inside the circles, with a white halo for contrast */
 .plot-label {
-  color: #666 !important;
-  font-weight: bold !important;
-  font-size: 30px !important;
   background: transparent !important;
   border: none !important;
-  box-shadow: 0 0 2px white !important;
+  box-shadow: none !important;
+  color: #666 !important;
+  font-size: 12px;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  -webkit-font-smoothing: antialiased;
+  text-shadow:
+    0px  1px 1px rgba(255,255,255,1),
+    0px -1px 1px rgba(255,255,255,1),
+    1px  0px 1px rgba(255,255,255,1),
+   -1px  0px 1px rgba(255,255,255,1),
+    1px  1px 1px rgba(255,255,255,1),
+   -1px -1px 1px rgba(255,255,255,1),
+    1px -1px 1px rgba(255,255,255,1),
+   -1px  1px 1px rgba(255,255,255,1);
+}
+
+/* Shared style for all overlaid map buttons */
+.map-btn-container {
+  position: absolute;
+  left: 10px;
+  z-index: 1000;
+}
+.map-btn-container .btn,
+.map-btn-container .btn-default {
+  background-color: white;
+  border: 2px solid rgba(0,0,0,0.3);
+  border-radius: 4px;
+  color: #333;
+  font-size: 12px;
+  font-weight: bold;
+  padding: 5px 10px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  cursor: pointer;
+  width: 100%;
+}
+.map-btn-container .btn:hover,
+.map-btn-container .btn-default:hover {
+  background-color: #f4f4f4;
+  border-color: rgba(0,0,0,0.5);
+}
+
+/* Plot selection counter in the sidebar */
+.plot-counter {
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  padding: 6px;
+  margin-bottom: 4px;
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 4px;
+  background-color: rgba(0,0,0,0.03);
+}
+
+/* Scan info box between the points2pano arrows */
+.pano-info {
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+  padding: 3px 10px;
+  border: 1px solid rgba(0,0,0,0.2);
+  border-radius: 4px;
+  background-color: rgba(0,0,0,0.03);
+}
+
+/* Compact numeric inputs in the fuel export cards */
+.compact-num, .compact-num .form-group,
+.compact-num .shiny-input-container {
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+.compact-num input.form-control {
+  height: 22px;
+  min-height: 22px;
+  padding: 0 5px;
+  font-size: 12px;
+  line-height: 20px;
+}
+
+/* Crowd the fuel-card rows: kill card padding and stack tightly */
+.fuel-card .card-body {
+  padding: 6px 12px;
+  display: block;          /* don't stretch rows to fill height */
+  overflow: visible;
+}
+.fuel-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 3px 0;
+  line-height: 1;
+}
+.fuel-row .fuel-label { flex: 1; font-size: 12px; }
+
+/* Time-lag fuel card: squashed tighter than the other fuel cards. */
+.timelag-card .fuel-row {
+  margin: 0 0 1px 0;
+}
+.timelag-card .compact-num input.form-control {
+  height: 18px;
+  min-height: 18px;
+  line-height: 16px;
+  font-size: 11px;
+}
+.timelag-card hr {
+  margin: 2px 0 !important;
+  opacity: 0.5;
+}
+
+/* ===== Aurora Glass overrides for functional widgets (source-order last) ===== */
+.plot-counter{ background:var(--imn-panel-2) !important; border-color:var(--imn-border) !important;
+  color:var(--imn-text) !important; }
+.pano-info{ background:var(--imn-panel) !important; border-color:var(--imn-border) !important;
+  color:var(--imn-text) !important; }
+.fuel-row .fuel-label{ color:var(--imn-text); }
+.ftable td, .fuel-card, .fuel-card .card-body{ color:var(--imn-text); }
+
+/* =========================================================================
+   Layout tightening v2 (source-order last, wins).
+   Fixes: navbar hugging top + tall header, big gap under navbar, squashed
+   sidebar inputs, oversized buttons, blurry plot text.
+   ========================================================================= */
+
+/* --- Navbar: shorter, content vertically centered --- */
+.navbar{ padding-top:.28rem !important; padding-bottom:.28rem !important;
+  min-height:0 !important; }
+.navbar > .container-fluid,
+.navbar > .container{ align-items:center !important; }
+.imn-brand{ gap:10px; align-items:center; }
+.imn-logo{ width:38px; height:38px; }
+.imn-brand-title{ font-size:18px; }
+
+/* --- Collapse the empty space between navbar and content --- */
+.bslib-page-navbar,
+.bslib-page-fill,
+.page-navbar{ gap:.35rem !important; }
+.navbar + *{ margin-top:0 !important; }
+.tab-content{ padding-top:0 !important; margin-top:0 !important; }
+.tab-content > .tab-pane{ padding-top:0 !important; }
+main, main > .container-fluid,
+.container-fluid.html-fill-container{ padding-top:.3rem !important;
+  padding-bottom:.3rem !important; }
+.grid-container{ margin:0 !important; }
+
+/* --- Cards: tighter chrome so the workspace grows --- */
+.card-header{ padding:.35rem .7rem !important; font-size:14px !important; min-height:0 !important; }
+.card-body{ padding:.5rem .6rem !important; overflow:auto; }
+
+/* --- Sidebar controls: smaller + closer together --- */
+.shiny-input-container,
+.form-group{ margin-bottom:.4rem !important; }
+.control-label,
+.shiny-input-container > label,
+.shiny-input-container .control-label{ margin-bottom:.12rem !important; font-size:12.5px !important; }
+.btn{ padding:.34rem .55rem !important; font-size:13px !important; }
+.btn + .btn, .action-button{ margin-top:.05rem !important; }
+.form-control, .form-select, .selectize-input{
+  padding:.3rem .5rem !important; font-size:13px !important; min-height:0 !important; }
+.shiny-options-group{ margin-top:.1rem !important; }
+.radio-inline, .checkbox-inline{ margin-right:.55rem !important; }
+hr{ margin:.45rem 0 !important; }
+
+/* --- Date-range input: make both dates legible in the narrower sidebar --- */
+.input-daterange{ display:flex !important; align-items:center; gap:4px; flex-wrap:nowrap; }
+.input-daterange input{ padding:.3rem .3rem !important; font-size:12.5px !important;
+  text-align:center; min-width:0; }
+.input-daterange .input-group-addon,
+.input-daterange .input-group-text{ padding:0 4px !important; font-size:12px !important;
+  background:transparent !important; border:none !important; color:var(--imn-dim) !important; }
+
+/* --- Plot cards: solid dark backing, NO backdrop-blur, so text is sharp --- */
+.card:has(.shiny-plot-output){
+  background:rgba(11,18,38,.74) !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+.shiny-plot-output img{ image-rendering:auto; }
+
+/* --- Sponsor footer: keep it slim so the workspace keeps the height --- */
+.imn-sponsorbar{ padding:5px 16px !important; }
+.imn-sponsor-plate{ padding:5px 20px !important; gap:22px !important; }
+
+/* =========================================================================
+   Tightening v3  (source-order last, wins over v2)
+   - shrink header ~20%
+   - fix illegible light text on WHITE popups (date picker, leaflet control)
+   - tighter sidebar so long panels fit without scrolling
+   - close the gap between content and the sponsor footer
+   ========================================================================= */
+
+/* --- Header ~20% shorter --- */
+.navbar{ padding-top:.14rem !important; padding-bottom:.14rem !important; }
+.imn-logo{ width:31px; height:31px; }
+.imn-brand-title{ font-size:16px; }
+.imn-brand-sub{ font-size:9px; }
+.navbar .nav-link{ padding-top:.28rem !important; padding-bottom:.28rem !important;
+  font-size:13.5px; }
+
+/* --- Date-picker popup: DARK text on its white background --- */
+.datepicker, .datepicker-dropdown{ background:#ffffff !important; }
+.datepicker, .datepicker table, .datepicker td, .datepicker th,
+.datepicker .datepicker-switch, .datepicker .prev, .datepicker .next,
+.datepicker .day, .datepicker .dow, .datepicker .month, .datepicker .year{
+  color:#1b2333 !important; }
+.datepicker td.day:hover, .datepicker .month:hover, .datepicker .year:hover{
+  background:#e8eef7 !important; }
+.datepicker td.active, .datepicker td.active:hover,
+.datepicker td.today, .datepicker .month.active{
+  background:#2f6bd8 !important; color:#ffffff !important; }
+.datepicker td.old, .datepicker td.new{ color:#9aa3b2 !important; }
+
+/* --- Leaflet layer control: DARK text on its white background --- */
+.leaflet-control-layers, .leaflet-control-layers-expanded{
+  background:#ffffff !important; color:#1b2333 !important; }
+.leaflet-control-layers label, .leaflet-control-layers span,
+.leaflet-control-layers-base, .leaflet-control-layers-overlays{
+  color:#1b2333 !important; }
+
+/* --- Sidebar: tighter still so 'Revise treatments' fits --- */
+.shiny-input-container, .form-group{ margin-bottom:.28rem !important; }
+.control-label, .shiny-input-container > label,
+.shiny-input-container .control-label{ margin-bottom:.08rem !important;
+  font-size:12px !important; }
+.form-check, .radio, .checkbox{ margin-bottom:.05rem !important; }
+.card-header{ padding:.3rem .65rem !important; }
+.card-body{ padding:.45rem .55rem !important; }
+.btn{ padding:.3rem .5rem !important; }
+
+/* --- Fill the content down to the footer (kill the empty band) --- */
+.bslib-page-navbar, .bslib-page-fill, .page-navbar{ gap:0 !important; }
+main, main > .container-fluid,
+.container-fluid.html-fill-container{ padding-top:.25rem !important;
+  padding-bottom:0 !important; }
+.tab-content{ display:flex; flex-direction:column; min-height:0; flex:1 1 auto; }
+.tab-content > .tab-pane.active{ flex:1 1 auto; min-height:0; display:flex;
+  flex-direction:column; }
+.tab-content > .tab-pane.active > .grid-container{ flex:1 1 auto;
+  height:auto !important; min-height:0; }
+.imn-sponsorbar{ margin-top:0 !important; }
+
+/* =========================================================================
+   Tightening v4  (source-order last, wins)
+   - kill bslib's flex GAP + margin-auto centering in the sidebar card-body
+     (that gap, not margins, was the real spacing; centering hid the bottom)
+   - scrunch sidebar controls further so 'Revise treatments' is visible
+   - shrink the sponsor footer ~75% to reclaim vertical space
+   ========================================================================= */
+
+/* card-bodies: stop bslib centering their content vertically */
+.card-body{ margin-top:0 !important; margin-bottom:0 !important; }
+
+/* the real inter-control spacing was bslib's flex `gap`, not margins */
+.card-body.bslib-gap-spacing{ gap:.22rem !important; }
+
+/* Sidebar column (named IntELiMonDSS in every tab): top-align + scroll,
+   and pack controls tightly. */
+[data-gridlayout-area="IntELiMonDSS"] > .card-body{
+  justify-content:flex-start !important;
+  overflow-y:auto !important;
+  gap:.18rem !important;
+  padding:.4rem .5rem !important;
+}
+[data-gridlayout-area="IntELiMonDSS"] .form-group,
+[data-gridlayout-area="IntELiMonDSS"] .shiny-input-container{
+  margin-bottom:.06rem !important;
+}
+[data-gridlayout-area="IntELiMonDSS"] .control-label{
+  margin-bottom:.04rem !important; font-size:11.5px !important; line-height:1.15 !important; }
+[data-gridlayout-area="IntELiMonDSS"] .shiny-options-group{ margin-top:0 !important; }
+[data-gridlayout-area="IntELiMonDSS"] .radio-inline{ margin-right:.5rem !important; }
+[data-gridlayout-area="IntELiMonDSS"] .selectize-input,
+[data-gridlayout-area="IntELiMonDSS"] .form-control{
+  padding:.22rem .45rem !important; min-height:0 !important; line-height:1.2 !important; }
+[data-gridlayout-area="IntELiMonDSS"] .btn{ padding:.28rem .5rem !important; }
+
+/* --- Sponsor footer: ~75% smaller --- */
+.imn-sponsorbar{ padding:1px 12px !important; }
+.imn-sponsor-plate{ padding:2px 12px !important; gap:16px !important;
+  border-radius:9px !important; }
+.imn-sponsor{ height:16px !important; }
+.imn-sponsor.usgs{ height:15px !important; }
+.imn-sponsor.bia{ height:20px !important; }
+.imn-sponsor.serdp{ height:14px !important; }
+
+/* =========================================================================
+   Help tab
+   ========================================================================= */
+.imn-help{
+  height:100%; overflow-y:auto; max-width:1020px; margin:0 auto;
+  display:flex; flex-direction:column; gap:12px; padding:2px 4px 8px;
+}
+.imn-help .card{ flex:0 0 auto; }
+.imn-help .card-body{ overflow:visible !important; padding:12px 16px !important; }
+.imn-hexlogo{
+  width:88px; height:88px; object-fit:contain; float:right; margin:0 0 8px 16px;
+  filter:drop-shadow(0 2px 8px rgba(0,0,0,.45));
+}
+.imn-help h2{
+  font-family:'Sora',sans-serif; font-weight:700; font-size:20px;
+  line-height:1.3; margin:.1em 0 .45em; color:var(--imn-text);
+}
+.imn-help p{ color:#cdd6ee; line-height:1.6; font-size:14px; margin:.3em 0; }
+.imn-help .imn-help-intro{ margin-bottom:.6em; }
+.imn-help .imn-help-note{ font-size:12.5px; color:var(--imn-dim); }
+
+.imn-steps{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+.imn-step{
+  background:var(--imn-panel-2); border:1px solid var(--imn-border);
+  border-radius:11px; padding:11px 13px;
+}
+.imn-step b{
+  font-family:'Sora',sans-serif; color:var(--imn-accent);
+  display:block; margin-bottom:4px; font-size:14px;
+}
+.imn-step p{ margin:0; font-size:13px; color:#cdd6ee; }
+
+.imn-tabrow{
+  display:flex; gap:14px; padding:6px 0; border-bottom:1px solid var(--imn-border);
+}
+.imn-tabrow:last-child{ border-bottom:none; }
+.imn-tabname{ flex:0 0 210px; font-weight:600; color:var(--imn-text); font-size:13.5px; }
+.imn-tabdesc{ flex:1; color:#cdd6ee; font-size:13.5px; line-height:1.45; }
+
+@media (max-width:720px){
+  .imn-steps{ grid-template-columns:1fr; }
+  .imn-tabname{ flex-basis:130px; }
+  .imn-hexlogo{ width:64px; height:64px; }
+}
+
+/* =========================================================================
+   Tightening v5
+   - the empty band was the CONTENT not filling down to the footer, not the
+     footer size. Give the active tab's grid a height that fills the viewport
+     (minus navbar + footer), so cards + sidebar grow to meet the banner.
+   - restore the sponsor banner size and enlarge the logos again.
+   - bump the navbar brand logo.
+   ========================================================================= */
+
+/* Fill the content region down to the footer.
+   NOTE: 102px = navbar + footer + a little padding. If a sliver of gap or a
+   slight overlap remains, nudge this one number. The `>` chain keeps the
+   inner 2x2 plot grids (which live inside cards) from being resized. */
+.tab-content > .tab-pane.active > .grid-container,
+.tab-content > .tab-pane.active > div > .grid-container,
+.tab-content > .tab-pane.active > .html-fill-container > .grid-container{
+  height: calc(100vh - 102px) !important;
+  min-height: calc(100vh - 102px) !important;
+}
+.imn-help{ height: calc(100vh - 106px) !important; }
+
+/* Restore the sponsor banner + bigger logos */
+.imn-sponsorbar{ padding:6px 16px !important; }
+.imn-sponsor-plate{ padding:6px 22px !important; gap:22px !important;
+  border-radius:11px !important; }
+.imn-sponsor{ height:30px !important; }
+.imn-sponsor.usgs{ height:28px !important; }
+.imn-sponsor.bia{ height:36px !important; }
+.imn-sponsor.serdp{ height:26px !important; }
+
+/* Brand lockup: sized from the viewport, not fixed pixels.
+   The mark and the wordmark were pinned at 40px / 18px, so on a wide or
+   scaled display the hex shrank against the type it sits next to and the
+   header read as text with a stray icon. Scaling all three from the same vw
+   value keeps their proportions - and the lockup's weight against the
+   sponsor plate in the footer - constant at any resolution; clamp() holds
+   the ends so it neither vanishes on a laptop nor dominates a 4K header. */
+.imn-brand{ gap:clamp(9px, .85vw, 15px) !important; }
+/* The mark links to intelimon.xyz (see app/main.R): give it a click
+   affordance and a visible focus ring, and keep the anchor from adding any
+   line-height of its own to the navbar. */
+.imn-logo-link{
+  display:flex; align-items:center; line-height:0; border-radius:10px;
+  transition:transform .12s ease-out, filter .12s ease-out;
+}
+.imn-logo-link:hover{ transform:scale(1.04); filter:brightness(1.12); }
+.imn-logo-link:focus-visible{
+  outline:2px solid var(--imn-accent); outline-offset:3px;
+}
+@media (prefers-reduced-motion: reduce){
+  .imn-logo-link{ transition:none; }
+  .imn-logo-link:hover{ transform:none; }
+}
+.imn-logo{
+  width:clamp(46px, 3vw, 56px) !important;
+  height:clamp(46px, 3vw, 56px) !important;
+}
+.imn-brand-title{ font-size:clamp(18px, 1.25vw, 23px) !important; }
+.imn-brand-sub{
+  font-size:clamp(9px, .58vw, 11px) !important;
+  letter-spacing:.15em !important;
+}
+
+/* =========================================================================
+   Forestry tool
+   ========================================================================= */
+.imn-fscroll{ height:100%; overflow-y:auto; padding:8px 10px; }
+.imn-fnote{ font-size:11px; color:var(--imn-dim); line-height:1.45; margin-top:6px; }
+
+/* species mix rows: swatch | code | percent */
+.imn-sprow{ display:grid; grid-template-columns:14px 1fr 62px; gap:5px;
+  align-items:center; margin-bottom:2px; }
+.imn-sprow .form-group,
+.imn-sprow .shiny-input-container{ margin:0 !important; width:100% !important; }
+.imn-sprow .form-control{ padding:.2rem .4rem !important; font-size:12px !important; }
+.imn-swatch{ width:12px; height:12px; border-radius:3px; border:1px solid rgba(0,0,0,.4); }
+.imn-sptot{ display:flex; justify-content:space-between; font-size:11px;
+  font-family:'JetBrains Mono',monospace; padding:3px 2px; margin-top:2px;
+  border-top:1px solid var(--imn-border); }
+.imn-sptot b{ color:var(--imn-accent); }
+.imn-sptot.bad b{ color:#ff6b7d; }
+
+/* small key/value readouts (areas, fitted params) */
+.imn-fread{ font-size:11px; margin:3px 0 5px; }
+.imn-fread > div{ display:flex; justify-content:space-between; gap:8px; padding:1.5px 0; }
+.imn-fread span{ color:var(--imn-dim); }
+.imn-fread b{ font-family:'JetBrains Mono',monospace; color:var(--imn-accent2); font-weight:600; }
+
+/* metric tiles */
+.imn-mets{ display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.imn-met{ background:var(--imn-panel-2); border:1px solid var(--imn-border);
+  border-radius:9px; padding:6px 8px; }
+.imn-met .k{ font-size:9px; letter-spacing:.09em; text-transform:uppercase; color:var(--imn-dim); }
+.imn-met .v{ font-family:'JetBrains Mono',monospace; font-weight:600; font-size:15px;
+  color:var(--imn-accent); line-height:1.3; }
+.imn-met .u{ font-size:9px; color:var(--imn-dim); }
+.imn-met.alt .v{ color:var(--imn-accent2); }
+.imn-met.warn .v{ color:#ff6b7d; }
+
+.imn-okbox{ background:rgba(143,240,226,.10); border:1px solid rgba(143,240,226,.32);
+  border-radius:9px; padding:6px 8px; font-size:11px; line-height:1.45; margin-top:7px; }
+.imn-okbox b{ color:var(--imn-accent); }
+.imn-sim-warn{ background:rgba(255,107,125,.12); border:1px solid rgba(255,107,125,.38);
+  border-radius:9px; padding:6px 8px; font-size:10.5px; line-height:1.45; margin:6px 0; }
+.imn-sim-warn b{ color:#ff6b7d; }
+
+/* forestry tables */
+.imn-fscroll table{ width:100%; font-family:'JetBrains Mono',monospace; font-size:11px; }
+.imn-fscroll table th{ color:var(--imn-dim) !important; font-size:9.5px;
+  text-transform:uppercase; letter-spacing:.05em; border-bottom:1px solid var(--imn-border); }
+.imn-fscroll table td{ color:var(--imn-text); border-bottom:1px solid rgba(255,255,255,.09); }
+
+/* pill tabs in the right column */
+.nav-pills{ padding:6px 8px 0; gap:3px; flex-wrap:wrap; }
+.nav-pills .nav-link{ font-size:11px !important; padding:.2rem .5rem !important;
+  color:var(--imn-dim) !important; border-radius:7px; }
+.nav-pills .nav-link.active{ background:rgba(255,255,255,.14) !important;
+  color:var(--imn-text) !important; }
+
+/* =========================================================================
+   v6 — (a) legible tables / verbatim output, (b) resolution-agnostic layout
+   ========================================================================= */
+
+/* ---------- (a) Tables: frosted panel, light text ----------------------
+   Shiny's renderTable emits a Bootstrap .table whose background comes from
+   --bs-table-* variables; setting colours alone leaves a white slab behind
+   the text. Override the variables, not just color/background.            */
+.table, table.shiny-table, .imn-fscroll table{
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--imn-text);
+  --bs-table-striped-bg: rgba(255,255,255,.05);
+  --bs-table-striped-color: var(--imn-text);
+  --bs-table-hover-bg: rgba(255,255,255,.08);
+  --bs-table-hover-color: var(--imn-text);
+  --bs-table-border-color: var(--imn-border);
+  background: transparent !important;
+  color: var(--imn-text) !important;
+  border-color: var(--imn-border) !important;
+}
+.table > :not(caption) > * > *,
+table.shiny-table > :not(caption) > * > *{
+  background-color: transparent !important;
+  color: var(--imn-text) !important;
+  box-shadow: none !important;              /* BS5 paints cell bg via shadow */
+  border-bottom-color: rgba(255,255,255,.10) !important;
+}
+.table thead th, table.shiny-table thead th{
+  color: var(--imn-dim) !important;
+  border-bottom-color: var(--imn-border) !important;
+  background: transparent !important;
+}
+.table tbody tr, table.shiny-table tbody tr{ background: transparent !important; }
+
+/* wrap forestry tables in a frosted panel so they read as a card element */
+.imn-fscroll table{
+  background: rgba(255,255,255,.05) !important;
+  border: 1px solid var(--imn-border) !important;
+  border-radius: 10px;
+  border-collapse: separate !important;
+  border-spacing: 0;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.imn-fscroll table td, .imn-fscroll table th{ padding: 4px 8px !important; }
+
+/* ---------- verbatimTextOutput (FVS preview) --------------------------- */
+pre, pre.shiny-text-output, .shiny-text-output pre{
+  background: rgba(6,11,26,.72) !important;
+  color: #cfe0ff !important;
+  border: 1px solid var(--imn-border) !important;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 9px 11px;
+}
+
+/* ---------- (b) Resolution-agnostic vertical layout --------------------
+   Previous rules pinned content to calc(100vh - <fixed px>), which assumed a
+   specific navbar + footer height and clipped the bottom of cards on taller
+   or higher-DPI displays. Replace the arithmetic with a flex chain: navbar
+   and sponsor bar size themselves, the content region takes whatever is
+   left. No pixel constants, so it holds at any resolution, zoom or browser
+   chrome. 100dvh tracks mobile toolbars that show/hide.                    */
+.tab-content > .tab-pane.active > .grid-container,
+.tab-content > .tab-pane.active > div > .grid-container,
+.tab-content > .tab-pane.active > .html-fill-container > .grid-container,
+.imn-help{
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+html, body{ height: 100%; }
+body{
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 100vh;
+  min-height: 100dvh;                        /* honours mobile browser chrome */
+  overflow: hidden;                          /* inner regions scroll instead */
+}
+
+/* fixed-size bands */
+body > .navbar, .navbar{ flex: 0 0 auto !important; }
+.imn-sponsorbar{ flex: 0 0 auto !important; }
+
+/* everything between them grows; min-height:0 lets children actually shrink */
+body > .container-fluid,
+body > main,
+main,
+main > .container-fluid,
+.container-fluid.html-fill-container,
+.bslib-page-navbar > .tab-content,
+.tab-content{
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+.tab-content > .tab-pane.active{
+  height: 100% !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.tab-content > .tab-pane.active > .grid-container,
+.tab-content > .tab-pane.active > div > .grid-container,
+.tab-content > .tab-pane.active > .html-fill-container > .grid-container{
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+.imn-help{ flex: 1 1 auto !important; overflow-y: auto !important; }
+
+/* cards must be allowed to shrink, and scroll their own overflow */
+.grid-container > .card,
+.grid-container .card{ min-height: 0 !important; }
+.card > .card-body{ min-height: 0 !important; overflow: auto !important; }
+
+/* sidebars keep their own scrollbar rather than pushing the layout taller */
+[data-gridlayout-area="IntELiMonDSS"] > .card-body{
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+/* ---------- Fuel tool: LANDFIRE fuel model card ---------- */
+.imn-fbfm-head{ display:flex; flex-direction:column; gap:1px; padding:2px 0 6px;
+  border-bottom:1px solid var(--imn-border); margin-bottom:6px; }
+.imn-fbfm-head b{ color:var(--imn-accent); font-size:13px; }
+.imn-fbfm-sys{ font-size:10px; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--imn-dim); }
+.imn-fval{ font-family:'JetBrains Mono',monospace; font-size:12px;
+  color:var(--imn-accent2); text-align:right; }
+
+/* ---------- Navbar selection readout ("n scans from n plots selected") ----
+   Sits at the right-hand end of the navbar, past the Help tab. Styled as a
+   readout chip rather than a nav link so it does not look clickable. ------- */
+.imn-scancount{
+  display:flex; align-items:center; white-space:nowrap;
+  height:100%; margin-left:.4rem; padding:.26rem .7rem;
+  background:var(--imn-panel-2); border:1px solid var(--imn-border);
+  border-radius:10px; color:var(--imn-text);
+  font-size:12px; font-weight:600; letter-spacing:.01em;
+}
+.navbar .nav-item:has(.imn-scancount){ display:flex; align-items:center; }
+
+@media (max-width: 900px){
+  .imn-scancount{ font-size:11px; padding:.2rem .5rem; }
+}
+
+/* ---------- Plot card download menu (Direct outputs / Predictive models /
+   rothRmel): a "Download" dropdown offering CSV data, SVG image or PNG image
+   of that card's plot. Like bslib's full-screen control it stays invisible
+   until the card is hovered, so nothing sits on top of the plot while you
+   are reading it - and it takes the lower-RIGHT corner, opposite the expand
+   button (moved to the lower left app-wide by the rule below). ----------- */
+.imn-plot-wrap{ position:relative; width:100%; height:100%; }
+.imn-plot-dl{
+  position:absolute; right:4px; bottom:4px; z-index:5;
+  opacity:0; pointer-events:none; transition:opacity .15s ease-in-out;
+}
+/* Reveal on hover/focus of the plot's OWN card, and hold it visible while its
+   menu is open. The `> .card-body >` steps matter: these cards are nested
+   inside an outer grid card, and a plain descendant selector would light up
+   every plot's menu as soon as the pointer entered any of them. */
+.card:has(> .card-body > .imn-plot-wrap):hover .imn-plot-dl,
+.card:has(> .card-body > .imn-plot-wrap):focus-within .imn-plot-dl,
+.imn-plot-dl.show, .imn-plot-dl:has(.show){ opacity:1; pointer-events:auto; }
+
+/* ---------- Plot card Graph / Statistics toggle -------------------------
+   Upper-left segmented control on each plot card, mirroring the pill tabs on
+   the Forestry tool's right-hand card. It follows the Download menu's hover
+   behaviour so the plot is unobstructed while you read it - except when
+   Statistics is the active view, where the control is the only way back to
+   the graph and therefore stays put. ------------------------------------- */
+.imn-card-view{
+  position:absolute; left:4px; top:4px; z-index:6;
+  opacity:0; pointer-events:none; transition:opacity .15s ease-in-out;
+}
+.card:has(> .card-body > .imn-plot-wrap):hover .imn-card-view,
+.card:has(> .card-body > .imn-plot-wrap):focus-within .imn-card-view,
+.imn-plot-wrap:has(.imn-card-view input[value="stats"]:checked) .imn-card-view{
+  opacity:1; pointer-events:auto;
+}
+/* Shiny renders radioButtons() with Bootstrap 3 markup here
+   (label.radio-inline > input + span), so the segmented control is built on
+   that: the radio itself is hidden and carries the state, the span is the
+   button. The .form-check selectors cover the BS5 markup in case a future
+   bslib version switches. */
+.imn-card-view .control-label{ display:none; }
+/* bslib gives radio groups flex-wrap:wrap and a 16px gap, which breaks the
+   two buttons onto separate lines in a narrow card - hold them on one row. */
+.imn-card-view .shiny-options-group{
+  display:flex; flex-flow:row nowrap; gap:0; margin:0; white-space:nowrap;
+}
+.imn-card-view .radio-inline,
+.imn-card-view .form-check{
+  display:block; margin:0 !important; padding:0; min-height:0;
+}
+.imn-card-view input[type="radio"]{
+  position:absolute; opacity:0; width:0; height:0; margin:0; pointer-events:none;
+}
+.imn-card-view .radio-inline > span,
+.imn-card-view .form-check-label{
+  display:block; cursor:pointer; margin:0;
+  background:rgba(11,18,38,.72); border:1px solid var(--imn-border);
+  color:var(--imn-dim); font-size:11px; font-weight:600; line-height:1.3;
+  padding:.2rem .5rem; opacity:.85;
+}
+.imn-card-view .shiny-options-group > *:first-child > span,
+.imn-card-view .shiny-options-group > *:first-child .form-check-label{
+  border-radius:8px 0 0 8px;
+}
+.imn-card-view .shiny-options-group > *:last-child > span,
+.imn-card-view .shiny-options-group > *:last-child .form-check-label{
+  border-radius:0 8px 8px 0; border-left:none;
+}
+.imn-card-view .radio-inline:hover > span,
+.imn-card-view .form-check-label:hover{ color:var(--imn-text); opacity:1; }
+.imn-card-view .radio-inline:has(input:checked) > span,
+.imn-card-view .form-check:has(input:checked) .form-check-label{
+  background:rgba(143,240,226,.18); color:var(--imn-text); opacity:1;
+}
+.imn-card-view input[type="radio"]:focus-visible + span{
+  outline:2px solid var(--imn-accent); outline-offset:1px;
+}
+
+/* ---------- Plot card Statistics table --------------------------------- */
+.imn-stats{
+  height:100%; overflow:auto; padding:30px 4px 6px;
+}
+.imn-stats-title{
+  font-size:12.5px; font-weight:700; color:var(--imn-text);
+  text-align:center; margin-bottom:6px;
+}
+.imn-stats-table{
+  width:100%; border-collapse:collapse; font-size:12px; color:var(--imn-text);
+}
+.imn-stats-table th{
+  position:sticky; top:0; z-index:1;
+  background:#12203a; color:var(--imn-dim);
+  font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+  text-align:right; padding:4px 6px; border-bottom:1px solid var(--imn-border);
+  white-space:nowrap;
+}
+.imn-stats-table th:first-child{ text-align:left; }
+.imn-stats-table td{
+  padding:3px 6px; border-bottom:1px solid rgba(255,255,255,.06); white-space:nowrap;
+}
+.imn-stats-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+.imn-stats-table td.lab{ text-align:left; color:var(--imn-dim); }
+.imn-stats-table tr:last-child td{ border-bottom:none; }
+.imn-stats-note{
+  font-size:10.5px; color:var(--imn-dim); line-height:1.35; margin-top:8px;
+}
+
+/* Send bslib's full-screen button to the lower LEFT on every card that has
+   one - plot cards, Points2Pano and the selection map alike - so the expand
+   control sits in the same corner everywhere and the plot cards' Download
+   menu has the lower right to itself. */
+.card{
+  --bslib-full-screen-enter-right: auto;
+  --bslib-full-screen-enter-left: 4px;
+}
+.imn-plot-dl .btn{
+  background:rgba(11,18,38,.72) !important; border:1px solid var(--imn-border) !important;
+  color:var(--imn-dim) !important; font-size:11px !important; font-weight:600;
+  padding:.2rem .5rem !important; border-radius:8px !important; opacity:.85;
+}
+.imn-plot-dl .btn:hover, .imn-plot-dl .btn:focus{ color:var(--imn-text) !important; opacity:1; }
+.imn-plot-dl .dropdown-menu{
+  background:#12203a !important; border:1px solid var(--imn-border) !important;
+  border-radius:10px !important; padding:4px !important;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);
+}
+.imn-plot-dl .dropdown-item{
+  color:var(--imn-text) !important; font-size:12.5px; border-radius:6px; padding:.32rem .6rem;
+}
+.imn-plot-dl .dropdown-item:hover, .imn-plot-dl .dropdown-item:focus{
+  background:rgba(143,240,226,.16) !important; color:var(--imn-text) !important;
+}
+
+/* ----------DT - interactive data.tables --------------------------------- */
+/* All DTs in the app */
+table.dataTable tbody tr.selected,
+table.dataTable tbody tr.selected td,
+table.dataTable tbody tr.selected th {
+  background-color: rgba(143,240,226,.35) !important;
+  color: var(--imn-text) !important;
+}
+
+/* Hover on selected rows */
+table.dataTable tbody tr.selected:hover,
+table.dataTable tbody tr.selected:hover td {
+  background-color: rgba(143,240,226,.45) !important;
 }
