@@ -21,17 +21,8 @@ box::use(
   app/logic/dst_state[
     dst_metrics,
     dst_models_wide,
-    dst_scan_calls,
-    dst_treatment_dates
   ],
   app/logic/fire_behavior[scan_fire_behavior],
-  app/view/plotting[
-    metric_series_plot,
-    metric_series_stats,
-    plot_card_ui,
-    register_plot_download,
-    render_plot_stats
-  ],
   app/view/card_metrics,
   app/view/card_points2pano,
   app/view/sidebar_plot_controls[standard_plt_ctrls],

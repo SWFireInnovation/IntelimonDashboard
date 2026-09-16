@@ -114,7 +114,7 @@ axis_fmt <- function(x) {
 #' @export
 y_scale <- function() {
   gplt$scale_y_continuous(n.breaks = 5, labels = axis_fmt,
-                     expand = gplt$expansion(mult = 0.08))
+                          expand = gplt$expansion(mult = 0.08))
 }
 
 aurora_theme <- function(pal = SCREEN_PAL) {
@@ -127,17 +127,17 @@ aurora_theme <- function(pal = SCREEN_PAL) {
       panel.grid.major  = gplt$element_line(color = pal$grid_major, linewidth = 0.4),
       panel.grid.minor  = gplt$element_line(color = pal$grid_minor, linewidth = 0.3),
       text              = gplt$element_text(color = pal$txt, family = PLOT_FONT,
-                                       face = "plain"),
+                                            face = "plain"),
       axis.text         = gplt$element_text(color = pal$axis_text, size = 10.5,
-                                       face = "plain", lineheight = 0.9),
+                                            face = "plain", lineheight = 0.9),
       axis.text.y       = gplt$element_text(margin = gplt$margin(r = 4), hjust = 1),
       axis.text.x       = gplt$element_text(margin = gplt$margin(t = 3)),
       axis.title        = gplt$element_text(color = pal$axis_title, size = 11.5),
       axis.title.y      = gplt$element_text(margin = gplt$margin(r = 6), angle = 90),
       axis.title.x      = gplt$element_text(margin = gplt$margin(t = 5)),
       plot.title        = gplt$element_text(color = pal$title, face = "bold",
-                                       size = 13.5, hjust = 0.5,
-                                       margin = gplt$margin(b = 7)),
+                                            size = 13.5, hjust = 0.5,
+                                            margin = gplt$margin(b = 7)),
       plot.margin       = gplt$margin(t = 6, r = 10, b = 4, l = 4),
       legend.text       = gplt$element_text(color = pal$axis_text, size = 9.5),
       legend.title      = gplt$element_text(color = pal$axis_title, size = 10)
@@ -243,6 +243,8 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
   pct        <- prep$pct
   export_dt  <- .export_table(raw, y_label)
 
+  print("-------------")
+  print(prep$raw)
   tvec <- treat_dates$TreatmentDate
   show_treat <- treatlines_on == "on" && length(tvec) > 0
 
@@ -255,21 +257,21 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
     jw <- max(1, dr / 120)
 
     p <- gplt$ggplot(long, aes(x = scan_date, y = value,
-                                  color = label, group = label))
+                               color = label, group = label))
     if (show_treat) {
       p <- p + gplt$geom_vline(xintercept = tvec, color = pal$treat,
-                                  linetype = "solid", linewidth = TREAT_LW)
+                               linetype = "solid", linewidth = TREAT_LW)
     }
     p +
       gplt$geom_line(linewidth = 0.7, na.rm = TRUE) +
       gplt$geom_point(shape = DIAMOND, size = POINT_SZ, stroke = 0.5,
-                         color = pal$stroke, gplt$aes(fill = label),
-                         position = gplt$position_jitter(width = jw, height = 0, seed = 42),
-                         na.rm = TRUE) +
+                      color = pal$stroke, gplt$aes(fill = label),
+                      position = gplt$position_jitter(width = jw, height = 0, seed = 42),
+                      na.rm = TRUE) +
       gplt$scale_x_date(expand = gplt$expansion(mult = 0.05)) +
       y_scale() +
       gplt$labs(x = "Scan date", y = axis_label, title = y_label,
-           color = "Site / Plot", fill = "Site / Plot") +
+                color = "Site / Plot", fill = "Site / Plot") +
       aurora_theme(pal) +
       gplt$theme(legend.position = "right", legend.key.size = unit(0.9, "lines"))
 
@@ -289,11 +291,11 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
     }
     p +
       gplt$geom_boxplot(fill = pal$boxfill, color = pal$txt_dim, width = 0.6,
-                           outlier.shape = NA, na.rm = TRUE) +
+                        outlier.shape = NA, na.rm = TRUE) +
       gplt$geom_point(shape = DIAMOND, size = POINT_SZ - 0.9, stroke = 0.4,
-                         color = pal$stroke, fill = pal$point,
-                         position = gplt$position_jitter(width = 0.12, height = 0, seed = 42),
-                         na.rm = TRUE) +
+                      color = pal$stroke, fill = pal$point,
+                      position = gplt$position_jitter(width = 0.12, height = 0, seed = 42),
+                      na.rm = TRUE) +
       y_scale() +
       gplt$labs(x = "Scan date (time step)", y = axis_label, title = y_label) +
       aurora_theme(pal) +
@@ -311,13 +313,13 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
       xpos <- .treat_positions(sort(smry$t), tvec)
       if (length(xpos) > 0) {
         p <- p + gplt$geom_vline(xintercept = xpos, color = pal$treat,
-                                    linetype = "solid", linewidth = TREAT_LW)
+                                 linetype = "solid", linewidth = TREAT_LW)
       }
     }
     p <- p + gplt$geom_col(fill = pal$accent, width = 0.7, alpha = 0.85)
     if (errorbars_on == "on") {
       p <- p + gplt$geom_errorbar(gplt$aes(ymin = mean - sd, ymax = mean + sd),
-                                     width = 0.3, color = pal$txt_dim, na.rm = TRUE)
+                                  width = 0.3, color = pal$txt_dim, na.rm = TRUE)
     }
     p +
       y_scale() +
@@ -333,16 +335,16 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
     p <- gplt$ggplot(smry, gplt$aes(x = t, y = mean))
     if (show_treat) {
       p <- p + gplt$geom_vline(xintercept = tvec, color = pal$treat,
-                                  linetype = "solid", linewidth = TREAT_LW)
+                               linetype = "solid", linewidth = TREAT_LW)
     }
     p <- p + gplt$geom_line(color = pal$accent, linewidth = 0.9)
     if (errorbars_on == "on") {
       p <- p + gplt$geom_errorbar(gplt$aes(ymin = mean - sd, ymax = mean + sd),
-                                     width = 5, color = pal$txt_dim, na.rm = TRUE)
+                                  width = 5, color = pal$txt_dim, na.rm = TRUE)
     }
     p +
       gplt$geom_point(shape = DIAMOND, size = POINT_SZ, stroke = 0.6,
-                         color = pal$stroke, fill = pal$point, na.rm = TRUE) +
+                      color = pal$stroke, fill = pal$point, na.rm = TRUE) +
       gplt$scale_x_date(limits = range(smry$t), expand = gplt$expansion(mult = 0.05)) +
       y_scale() +
       gplt$labs(x = "Scan date", y = axis_label, title = y_label) +
@@ -352,7 +354,7 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
   # Percent-change cards get a zero rule: the baseline every series starts at.
   if (pct) {
     plt <- plt + gplt$geom_hline(yintercept = 0, color = pal$txt_dim,
-                                    linetype = "dashed", linewidth = 0.4)
+                                 linetype = "dashed", linewidth = 0.4)
   }
 
   attr(plt, "imn_raw") <- export_dt
