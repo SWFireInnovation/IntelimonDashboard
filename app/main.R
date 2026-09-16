@@ -13,7 +13,6 @@ box::use(
   view/tab_histogram,
   view/tab_load_data,
   view/tab_predictive_models,
-  view/tab_raster,
   view/tab_rothRmel,
   view/tab_selectionMap,
   view/tab_set_trtmt,
@@ -46,7 +45,6 @@ ui <- function(id) {
     tab_set_trtmt$ui(ns("Set Treatments")),
     tab_directOutputs$ui(ns("Standard-outputs")),
     tab_predictive_models$ui(ns("Predictive-models")),
-    tab_raster$ui(ns("Raster products")),
     # These two build input ids dynamically (renderUI) and address them from
     # JS in conditionalPanel, so they take space-free namespace ids rather
     # than the display-name ids used above.
