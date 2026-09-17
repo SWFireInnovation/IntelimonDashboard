@@ -255,7 +255,7 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
     jw <- max(1, dr / 120)
 
     p <- gplt$ggplot(long, gplt$aes(x = scan_date, y = value,
-                               color = label, group = label))
+                                    color = label, group = label))
     if (show_treat) {
       p <- p + gplt$geom_vline(xintercept = tvec, color = pal$treat,
                                linetype = "solid", linewidth = TREAT_LW)
@@ -507,15 +507,15 @@ register_plot_download <- function(output, id, plot_fn, filename_prefix) {
   output[[paste0(id, "_dl_svg")]] <- shiny$downloadHandler(
     filename = function() paste0(filename_prefix, "_", Sys.Date(), ".svg"),
     content  = function(file) {
-      ggsave(file, plot = plot_fn(light = TRUE), device = "svg",
-             width = 9, height = 5.5, bg = "white")
+      gplt$ggsave(file, plot = plot_fn(light = TRUE), device = "svg",
+                  width = 9, height = 5.5, bg = "white")
     }
   )
   output[[paste0(id, "_dl_png")]] <- shiny$downloadHandler(
     filename = function() paste0(filename_prefix, "_", Sys.Date(), ".png"),
     content  = function(file) {
-      ggsave(file, plot = plot_fn(light = TRUE), device = "png",
-             width = 9, height = 5.5, dpi = 200, bg = "white")
+      gplt$ggsave(file, plot = plot_fn(light = TRUE), device = "png",
+                  width = 9, height = 5.5, dpi = 200, bg = "white")
     }
   )
 
