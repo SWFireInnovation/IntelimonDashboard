@@ -2,8 +2,9 @@
 # ---------------------------------------------------------------------------
 # Adapter between this app's `session$userData` store and the data shapes the
 # ported Decision Support Tool modules expect (app/view/tab_fuels.R,
-# app/view/tab_rothRmel.R, and the app/logic/{fuel,fire_behavior,plotting,
-# series}.R modules they sit on).
+# app/view/tab_rothRmel.R, app/view/tab_forestry.R, and the
+# app/logic/{fuel,fire_behavior,forestry,fvs,plotting,series}.R modules they
+# sit on).
 #
 # Those modules came from the standalone IntELiMon DST, where every tab was
 # handed one `state` list of reactiveVals and the identifying columns were
@@ -18,11 +19,12 @@
 #
 # Reactivity: dst_metrics(), dst_treatment_dates() and dst_scan_calls() read
 # reactiveVals, so calling them inside a reactive/observer establishes the
-# usual dependency. dst_models_wide() is the exception - see its comment.
+# usual dependency. dst_tree_inventory() is the exception - see its comment.
 # ---------------------------------------------------------------------------
 box::use(
   dt = data.table,
   shiny[reactiveVal],
+  utils[type.convert],
 )
 
 box::use(
@@ -91,6 +93,46 @@ dst_models_wide <- function(session) {
 
   pvt <- pivot_on_model(models)
   .to_dst_names(pvt)
+}
+
+#' Tree inventory (one row per stem) in DST column naming.
+#'
+#' The API returns every inventory field as a string, plus an unnamed row-index
+#' column that arrives here as `V1`. The DST loader dropped that column and ran
+#' type.convert() so X / Y / H / DBH / BasalA / TreeID are numeric; the same
+#' is done here so app/logic/forestry.R and fvs.R see identical input.
+#'
+#' `session$userData$tree_inv` is a plain field, not a reactiveVal, so the
+#' metrics reactiveVal is read first purely to take a dependency: the Selection
+#' Map's Get Data observer sets metrics and then tree_inv in one go, so by the
+#' time a dependent reactive re-runs, tree_inv is already populated (the same
+#' arrangement dst_models_wide() used to rely on). A reactiveVal is also
+#' accepted, so this keeps working if tree_inv is converted later.
+#'
+#' @param session a shiny session object
+#' @return data.table keyed site_name | plot | date_code | scanner_id, or an
+#'   empty data.table
+#' @export
+dst_tree_inventory <- function(session) {
+  session$userData$metrics()
+
+  trees <- session$userData$tree_inv
+  if (is.function(trees)) {
+    trees <- trees()
+  }
+  if (is.null(trees) || nrow(trees) == 0) {
+    return(dt$data.table())
+  }
+
+  out <- dt$as.data.table(dt$copy(trees))
+  if ("V1" %in% names(out)) {
+    out[, V1 := NULL] # nolint: unused_declared_object_linter.
+  }
+  id_cols <- intersect(c("site", "plot", "date", "scanner_id"), names(out))
+  value_cols <- setdiff(names(out), id_cols)
+  out[, (value_cols) := lapply(.SD, type.convert, as.is = TRUE), .SDcols = value_cols]
+
+  .to_dst_names(out)
 }
 
 #' Treatment dates as the character "YYYYmmdd" vector the series and plotting

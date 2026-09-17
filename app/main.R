@@ -45,11 +45,11 @@ ui <- function(id) {
     tab_set_trtmt$ui(ns("Set Treatments")),
     tab_directOutputs$ui(ns("Standard-outputs")),
     tab_predictive_models$ui(ns("Predictive-models")),
-    # These two build input ids dynamically (renderUI) and address them from
+    # These three build input ids dynamically (renderUI) and address them from
     # JS in conditionalPanel, so they take space-free namespace ids rather
     # than the display-name ids used above.
     tab_fuels$ui(ns("fuels_exports")),
-    tab_forestry$ui(ns("Forestry exports")),
+    tab_forestry$ui(ns("forestry_exports")),
     tab_rothRmel$ui(ns("rothrmel")),
     tab_help$ui(ns("Help"))
   )
@@ -103,6 +103,7 @@ server <- function(id) {
     tab_directOutputs$server("Standard-outputs")
     tab_predictive_models$server("Predictive-models")
     tab_fuels$server("fuels_exports")
+    tab_forestry$server("forestry_exports")
     tab_rothRmel$server("rothrmel")
   })
 }

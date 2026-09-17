@@ -51,5 +51,9 @@ exclusions:
     # calls would fork this code from the DST copy (see app/logic/dst_state.R),
     # so the import-style linters are relaxed for these files only.
     "app/view/tab_rothRmel.R" = list(box_universal_import_linter = Inf),
+    "app/view/tab_forestry.R" = list(
+      box_func_import_count_linter = Inf,
+      box_universal_import_linter = Inf
+    ),
     "app/logic/plotting.R" = list(box_func_import_count_linter = Inf)
   )
