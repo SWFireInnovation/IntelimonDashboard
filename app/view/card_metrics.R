@@ -56,7 +56,7 @@ server <- function(id, session, data_dt, metric_col, errorbars_on, treatlines_on
         label        = if (is.null(label) || is.na(label)) col else label,
         data_type    = data_type(),
         data_dt      = data_dt(),
-        trtmnt_dates    = session$userData$trtmt_dates()
+        trtmt_dates  = session$userData$trtmt_dates()
       )
     })
 

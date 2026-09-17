@@ -283,8 +283,8 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
     if (show_treat) {
       xpos <- .treat_positions(sort(unique(long$gdate)), tvec)
       if (length(xpos) > 0) {
-        p <- p + geom_vline(xintercept = xpos, color = pal$treat,
-                            linetype = "solid", linewidth = TREAT_LW)
+        p <- p + gplt$geom_vline(xintercept = xpos, color = pal$treat,
+                                 linetype = "solid", linewidth = TREAT_LW)
       }
     }
     p +
