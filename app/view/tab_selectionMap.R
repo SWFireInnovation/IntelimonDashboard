@@ -85,12 +85,6 @@ server <- function(id) {
           baseGroups = c("Satellite", "Base Map"),
           options    = leaflet$layersControlOptions(collapsed = FALSE),
           position   = "topright"
-        ) |>
-        # Initial view
-        leaflet$setView(
-          lng = -95,
-          lat = 39,
-          zoom = 4
         )
     })
 
@@ -123,6 +117,7 @@ server <- function(id) {
 
     shiny$observeEvent(filtered_plots(), {
       markers <- filtered_plots()
+      shiny$req(nrow(markers)>0)
       # remove selected plots that do not fit the updated filter
       all_clicks <- session$userData$scan_selection()
       all_clicks <- all_clicks[markers,
@@ -145,10 +140,15 @@ server <- function(id) {
         ) |>
         leaflet$addLegend(
           data = markers,
-          position = "bottomright",
+          position = "bottomleft",
           pal = color_palette,
           values = ~Agency,
           opacity = 0.6
+        )|>
+        leaflet$fitBounds(
+          lng1 = min(markers$Longitude), lat1 = min(markers$Latitude),
+          lng2 = max(markers$Longitude), lat2 = max(markers$Latitude),
+          options = list(padding = c(15, 15))
         )
     })
 

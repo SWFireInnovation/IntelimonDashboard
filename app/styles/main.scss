@@ -95,6 +95,7 @@ body {
   backdrop-filter: var(--imn-blur);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   color: var(--imn-text);
+  overflow: visible;
 }
 
 .card-header {
@@ -175,6 +176,27 @@ input[type="date"] {
 /* stylelint-disable selector-class-pattern */
 .irs--shiny .irs-bar,
 .irs--shiny .irs-handle > i:first-child { background: var(--imn-accent); }
+
+/* pad roughly half the bubble's width */
+.irs {
+  padding-right: 20px;
+  padding-left: 20px;
+}
+
+/* grid text for sliders need to be pinned to the outer edges
+first-of-type and first-child of irs-grid is tick mark, not label
+last-child is text label */
+.irs-grid-text.js-grid-text-0 {
+  text-align: left;
+  margin-left: -5% !important;
+}
+
+/* last child is label */
+.irs-grid-text:last-of-type {
+  left: auto !important;
+  right: 0 !important;
+  text-align: right;
+}
 
 .irs--shiny .irs-min,
 .irs--shiny .irs-max,

@@ -216,7 +216,7 @@ aurora_theme <- function(pal = SCREEN_PAL) {
 #' The returned ggplot carries the raw per-scan rows behind it as the
 #' "imn_raw" attribute; `register_plot_download()` writes that as the CSV.
 #'
-#' @param mode "timeseries" | "inshiny$dividual" | "boxplot" | "bar"
+#' @param mode "timeseries" | "individual" | "boxplot" | "bar"
 #' @param data_type "raw" plots the metric's own units; "percent" plots
 #'   percent change from each site/plot's first scan. The axis, title and CSV
 #'   column all pick up the "(% change)" suffix, and a dashed zero line marks

@@ -105,7 +105,7 @@ map_scan_points <- function(proxy_map,
     leaflet$addLegend(
       layerId = paste0(grp, "_legend"),
       data = pts,
-      position = "bottomright",
+      position = "bottomleft",
       colors = color,
       labels = grp,
       opacity = 0.6
