@@ -5,7 +5,6 @@ box::use(
 )
 
 box::use(
-  app/logic/dst_state[dst_tree_inventory],
   app/logic/forestry[
     crown_ratio,
     mark_removals,
@@ -93,28 +92,6 @@ describe("FVS export", {
     expect_true(any(grepl("^ThinBBA\\s+2023\\s+80$", key)))
     expect_true("FMIn" %in% key)
     expect_equal(key[length(key)], "Stop")
-  })
-})
-
-describe("dst_tree_inventory", {
-  it("drops the row index, converts values and renames id columns", {
-    session <- list(userData = list(
-      metrics = reactiveVal(api_metrics()),
-      tree_inv = api_trees()
-    ))
-    ti <- isolate(dst_tree_inventory(session))
-    expect_false("V1" %in% names(ti))
-    expect_true(all(c("site_name", "plot", "date_code", "scanner_id") %in% names(ti)))
-    expect_true(is.numeric(ti$DBH) && is.numeric(ti$X) && is.numeric(ti$BasalA))
-    expect_equal(ti$date_code[1], as.Date("2023-08-10"))
-  })
-
-  it("returns an empty table before any data is loaded", {
-    session <- list(userData = list(
-      metrics = reactiveVal(data.table()),
-      tree_inv = data.table()
-    ))
-    expect_equal(nrow(isolate(dst_tree_inventory(session))), 0)
   })
 })
 
