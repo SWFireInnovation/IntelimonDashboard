@@ -9,6 +9,16 @@ box::use(
   app/logic/map_fnc,
 )
 
+#' Build a data table of IntELiMon scan locations.
+#'
+#' This function:
+#' 1. queries all scan from the api
+#' 2. queries all plot locations from api
+#' 3. converts coordinates to the standard web reference system and formatting
+#' 4. appends agency name for each scan by querying a list of agencies, then a list of scans for each agency,
+#'    and merging the table.
+#'
+#' Final data.table has the columns: site, plot, date, scanner_id, scanner_name, Longitude, Latitude, Agency
 #' @export
 build_scan_loc_dt <- function() {
   # get list of every scan (uniqueID = site, plot, date)
@@ -131,6 +141,15 @@ get_scans4dwnld <- function(session) {
   selection[!dwnlded, on = .(site, plot, date, scanner_id)]
 }
 
+#' Returns a list of stylized column names for display from a list of actual column names.
+#'
+#' For a list of column names, this function extracts a list of stylized column names for display and returns
+#' them as as list.
+#'
+#' @param col_selection - a list of column names.
+#' @param col_list - a list where data.table column names are the key and the values stored are stylized column
+#'        names.
+#' @return a list of stylized column names.
 #' @export
 get_display_col <- function(col_selection, col_list = COLNAME2LABEL) {
   display_col <- col_list[col_selection]

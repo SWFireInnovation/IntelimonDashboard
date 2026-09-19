@@ -3,6 +3,16 @@ box::use(
   tidyr[separate],
 )
 
+#' Convert api location strings into a latitude and longitude column.
+#'
+#' api /plots returns plot locations in a single string: "POINT(-7638030.938909297 5597680.762257315)"
+#' This function extracts the X and Y location information from the string and stores it as two columns in a
+#' data.table.
+#'
+#' @param plot_dt - a data.table response from app/logic/load_data_api$get_all_plot_loc
+#' @param location_col - string of column name containing location string
+#' @param output_col - list of 2 column names populated with X and Y coordinates in the return data.table.
+#' @return a data.table containing output_col with X and Y coordinates
 #' @export
 extract_lat_long_from_api <- function(plot_dt,
                                       location_col = "location",
@@ -12,6 +22,12 @@ extract_lat_long_from_api <- function(plot_dt,
   plot_dt
 }
 
+#' Define the coordinate system for X and Y coordinates
+#'
+#' @param plot_dt - a data.table containing plot locations.
+#' @param coord_col - a list containing the column names for the X and Y locations in plot_dt.
+#' @param imon_crs - int defining EPSG number of the coordinate reference system to be assigned.
+#' @return a data.table with a defined CRS in a geometry column
 #' @export
 set_crs <- function(plot_dt,
                     coord_col = c("Longitude", "Latitude"),
@@ -22,6 +38,13 @@ set_crs <- function(plot_dt,
   )
 }
 
+#' Convert one Coordinate Reference System (CRS) to another.
+#'
+#' Takes a data.table with column 'geometry' of a known CRS and converts it to a new CRS. If CRS is not
+#' defined for a data.table, first apply `set_crs()` before applying this function.
+#'
+#' @param pts - a data.table containing a geometry column with a defined CRS.
+#' @params target_crs - int defining EPSG number for desired CRS
 #' @export
 convert_crs <- function(pts,
                         target_crs = 4326) {
@@ -29,6 +52,17 @@ convert_crs <- function(pts,
   sf$st_transform(pts, target_crs)
 }
 
+#' Extract locatino information from api return and convert into leaflet mappable points.
+#'
+#' Import a data.table from the api, extract location information, and convert it into the Coordinate Reference
+#' System (CRS) used by leaflet.
+#'
+#' @param plot_dt -  data.table containing X and Y coordinates as a string in the format
+#'        "POINT(-7638030.938909297 5597680.762257315)"
+#' @param location_col - string defining the column that contains the location string in plot_dt.
+#' @param api_crs - int defning the EPSG number of the CRS of coordinates from the api
+#' @param leaflet_crs - in defining the EPSG number of the CRS needed for mapping in the leaflet package.
+#' @return a data.table with Latitude and Longitude columns in leaflet CRS
 #' @export
 convert_api_loc2leaflet <- function(plot_dt,
                                     location_col = "location",

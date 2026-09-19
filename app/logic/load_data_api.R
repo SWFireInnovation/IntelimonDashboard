@@ -7,7 +7,7 @@ box::use(
   app/logic/manage_data[generalize_model_name],
 )
 
-# environment variables are locked on import (whenever bod::use() is called)
+# environment variables are locked on import (whenever box::use() is called)
 #creating a new empty environment allows the variables of that environment to be mutable
 .cache <- new.env(parent = emptyenv())
 #' API server path has been encrypted
@@ -90,14 +90,6 @@ is_request_successful <- function(resp) {
   !httr2$resp_is_error(resp)
 }
 
-#' Convert a REST API response to a data table
-#'
-#' Convert an httr2 API response into a data.table. When httr2 poles an API it creates a response object with
-#' the body
-#' of the response in JSON format.This function converts the json body into a data.table.
-#'
-#' @param httr2 API response
-#' @return data.table
 #' Replace absent fields with NA, one record at a time.
 #'
 #' httr2 maps a JSON `null` to `NULL`, which leaves a zero-length element in
@@ -119,6 +111,14 @@ is_request_successful <- function(resp) {
   })
 }
 
+#' Convert a REST API response to a data table
+#'
+#' Convert an httr2 API response into a data.table. When httr2 poles an API it creates a response object with
+#' the body
+#' of the response in JSON format.This function converts the json body into a data.table.
+#'
+#' @param httr2 API response
+#' @return data.table
 #' @export
 resp2dt <- function(resp) {
   if (!is_request_successful(resp)) {

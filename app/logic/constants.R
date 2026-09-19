@@ -6,10 +6,10 @@
 
 # convert column names from IntELiMon output data to nicely styled labels
 COLNAME2LABEL <- c(
-  mGCvol = "Ground cover volume (mGCvol)",
-  mUSvol = "Understory volume (mUSvol)",
-  mMSvol = "Midstory volume (mMSvol)",
-  mOSvol = "Overstory volume (mOSvol)",
+  mGCvol = "Ground cover volume (0-1m; mGCvol)",
+  mUSvol = "Understory volume (1-3m; mUSvol)",
+  mMSvol = "Midstory volume (3-9m; mMSvol)",
+  mOSvol = "Overstory volume (>9m; mOSvol)",
   Basalarea  = "Basal area (Basalarea)",
   MDBH       = "Mean DBH (MDBH)",
   StemsPacre = "Stems per acre (StemsPacre)",
@@ -20,9 +20,9 @@ COLNAME2LABEL <- c(
   canopyCover = "Canopy cover (canopyCover)",
   gapFraction = "Gap fraction (1 - canopyCover)",
   LAI         = "Leaf area index (LAI)",
-  OLAI        = "Overstory LAI (OLAI)",
-  MLAI        = "Midstory LAI (MLAI)",
-  ULAI        = "Understory LAI (ULAI)",
+  OLAI        = "Overstory (>9m) LAI (OLAI)",
+  MLAI        = "Midstory (3-9m) LAI (MLAI)",
+  ULAI        = "Understory (1-3m) LAI (ULAI)",
   ros_ch_hr     = "Surface rate of spread (ch/hr)",
   ros_m_min     = "Surface rate of spread (m/min)",
   fli_kw_m      = "Surface fireline intensity (kW/m)",
