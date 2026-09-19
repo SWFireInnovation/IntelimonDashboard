@@ -579,7 +579,11 @@ server <- function(id) {
         )
     })
 
+    # must be rendered at startup so the map can update during download
+    outputOptions(output, "aoi_map", suspendWhenHidden = FALSE)
+
     # Center the AOI map on the selected plots when metrics load
+    proxy_map <- leafletProxy("aoi_map", session)
     observeEvent(session$userData$metrics(), {
       m <- fuel_scans()
       if (nrow(m) == 0) {
@@ -589,12 +593,18 @@ server <- function(id) {
       if (nrow(coords) == 0) {
         return()
       }
-      leafletProxy("aoi_map", session) |>
+      proxy_map |>
         fitBounds(
           min(coords$Longitude), min(coords$Latitude),
           max(coords$Longitude), max(coords$Latitude)
         )
     })
+    update_dwnld_scan_points(session, proxy_map, col_names = list(lat = "Latitude", lng = "Longitude"))
+    update_point_labels(input,
+                        proxy_map,
+                        session$userData$scan_selection(),
+                        map_id = "aoi_map",
+                        col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
 
     # Capture drawn/edited features and store as an sf polygon in session state.
     store_aoi_feature <- function(feat) {
