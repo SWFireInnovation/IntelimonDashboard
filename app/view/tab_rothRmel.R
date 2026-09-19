@@ -7,9 +7,7 @@
 # metrics + the wide additional-models table, so treatment-driven changes in
 # fuel and canopy structure show up as trends over time.
 #
-# Ported from the standalone IntELiMon DST. Session data is reached through
-# app/logic/dst_state.R, which presents this app's session$userData in the
-# column naming the fire-behavior and plotting code expects.
+# Ported from the standalone IntELiMon DST.
 # ---------------------------------------------------------------------------
 box::use(
   bslib[card_body, card_header, nav_panel],
@@ -18,11 +16,8 @@ box::use(
 )
 
 box::use(
-  app/logic/dst_state[
-    dst_metrics,
-    dst_models_wide,
-  ],
   app/logic/fire_behavior[scan_fire_behavior],
+  app/logic/manage_data[pivot_on_model],
   app/view/card_metrics,
   app/view/card_points2pano,
   app/view/sidebar_plot_controls[standard_plt_ctrls],
@@ -194,7 +189,7 @@ server <- function(id) {
 
     fire_behavior <- shiny$reactive({
       shiny$validate(shiny$need(
-        nrow(dst_metrics(session)) > 0,
+        nrow(session$userData$metrics()) > 0,
         "No data loaded - press Get Data on the Selection Map tab."
       ))
       if (identical(input$fuel_src, "tool")) {
@@ -206,7 +201,7 @@ server <- function(id) {
           )
         ))
       }
-      scan_fire_behavior(dst_metrics(session), dst_models_wide(session), env())
+      scan_fire_behavior(session$userData$metrics(), pivot_on_model(session$userData$extra_models()), env())
     })
 
     output$fuel_src_note <- shiny$renderUI({

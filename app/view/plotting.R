@@ -146,7 +146,7 @@ aurora_theme <- function(pal = SCREEN_PAL) {
 
 # Add a chronological time-step factor (labelled by the step's mean date).
 .add_step_factor <- function(long) {
-  long[, "gdate" := mean(scan_date), by = grp]
+  long[, "gdate" := mean(date), by = grp]
   labs_chr <- format(long$gdate, "%Y-%m-%d")
   long[, grp_lab := factor(labs_chr,
                            levels = unique(labs_chr[order(long$gdate)]))]
@@ -169,7 +169,7 @@ aurora_theme <- function(pal = SCREEN_PAL) {
 # value column is named for the metric so the file says what it holds.
 .export_table <- function(long, y_label) {
   if (nrow(long) == 0) return(long)
-  out <- long[, list(site_name, plot, scan_date, time_step = grp, value)]
+  out <- long[, list(site, plot, date, time_step = grp, value)]
   setnames(out, "value", y_label)
   out[]
 }
@@ -251,10 +251,10 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
     long <- raw
     shiny$validate(shiny$need(nrow(long) > 0, "No valid values for this metric in the loaded scans."))
 
-    dr <- as.numeric(diff(range(long$scan_date)))
+    dr <- as.numeric(diff(range(long$date)))
     jw <- max(1, dr / 120)
 
-    p <- gplt$ggplot(long, gplt$aes(x = scan_date, y = value,
+    p <- gplt$ggplot(long, gplt$aes(x = date, y = value,
                                     color = label, group = label))
     if (show_treat) {
       p <- p + gplt$geom_vline(xintercept = tvec, color = pal$treat,

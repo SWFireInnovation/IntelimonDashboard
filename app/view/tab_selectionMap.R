@@ -117,7 +117,7 @@ server <- function(id) {
 
     shiny$observeEvent(filtered_plots(), {
       markers <- filtered_plots()
-      shiny$req(nrow(markers)>0)
+      shiny$req(nrow(markers) > 0)
       # remove selected plots that do not fit the updated filter
       all_clicks <- session$userData$scan_selection()
       all_clicks <- all_clicks[markers,
@@ -144,7 +144,7 @@ server <- function(id) {
           pal = color_palette,
           values = ~Agency,
           opacity = 0.6
-        )|>
+        ) |>
         leaflet$fitBounds(
           lng1 = min(markers$Longitude), lat1 = min(markers$Latitude),
           lng2 = max(markers$Longitude), lat2 = max(markers$Latitude),

@@ -4,7 +4,7 @@ box::use(
 )
 
 box::use(
-  app/logic/map_fnc[get_plots_in_view],
+  app/logic/map_fnc[get_metric_loc, get_plots_in_view],
 )
 
 #' Add labels to mapped points based on zoom level and bounding box. This function uses a shiny$observeEvent()
@@ -156,7 +156,7 @@ update_dwnld_scan_points <- function(session,
         return()
       }
 
-      loc <- scans[metrics, on = .(site, plot, date, scanner_id), nomatch = 0, .SD]
+      loc <- get_metric_loc(metrics, scans)
 
       # can be changed by `filtered_plots()` or by `input$map_marker_click`
       map_scan_points(proxy_map, loc, col_names, color = "blue", grp = "Downloaded")

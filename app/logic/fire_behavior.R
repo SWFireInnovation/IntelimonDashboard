@@ -378,7 +378,7 @@ scan_fire_behavior <- function(metrics_dt, models_wide_dt, env) {
     return(data.table())
   }
 
-  key <- c("site_name", "plot", "date_code", "scanner_id")
+  key <- c("site", "plot", "date", "scanner_id")
   m <- as.data.table(metrics_dt)
 
   # Bring in the model columns (fuel loads, depth) if present

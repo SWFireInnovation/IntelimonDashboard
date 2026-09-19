@@ -40,30 +40,30 @@ parse_treatment_dates <- function(txt) {
 assign_time_steps <- function(metrics_dt, metric_col, treat_dates,
                               transform = identity) {
   df <- data.table(
-    site_name = as.character(metrics_dt$site),
+    site = as.character(metrics_dt$site),
     plot      = as.character(metrics_dt$plot),
-    scan_date = metrics_dt$date,
+    date = metrics_dt$date,
     value     = transform(
       suppressWarnings(as.numeric(metrics_dt[[metric_col]]))
     )
   )
-  df[, combo := paste(site_name, plot, sep = "||")]
-  df[, label := paste(site_name, plot, sep = " / ")]
-  df <- df[!is.na(scan_date) & !is.na(value)]
+  df[, combo := paste(site, plot, sep = "||")]
+  df[, label := paste(site, plot, sep = " / ")]
+  df <- df[!is.na(date) & !is.na(value)]
   if (nrow(df) == 0) return(df)
-  setorder(df, scan_date)
+  setorder(df, date)
 
   tvec <- sort(treat_dates$TreatmentDate)
   tvec <- tvec[!is.na(tvec)]
 
   # Walk unique dates in order, assigning each date to a time-step group
-  dates    <- sort(unique(df$scan_date))
+  dates    <- sort(unique(df$date))
   date_grp <- integer(length(dates))
   seen     <- character()   # site/plot combos already in the current step
   g        <- 1L
 
   for (k in seq_along(dates)) {
-    combos_today <- unique(df[scan_date == dates[k], combo])
+    combos_today <- unique(df[date == dates[k], combo])
 
     if (k > 1) {
       treat_between <- length(tvec) > 0 &&
@@ -81,7 +81,7 @@ assign_time_steps <- function(metrics_dt, metric_col, treat_dates,
     seen <- union(seen, combos_today)
   }
 
-  df[, grp := date_grp[match(scan_date, dates)]]
+  df[, grp := date_grp[match(date, dates)]]
   df[]
 }
 
@@ -111,7 +111,7 @@ percent_change_series <- function(long) {
 
   df[, value := (value - base) / abs(base) * 100]
   df[, base := NULL]
-  setorder(df, scan_date)
+  setorder(df, date)
   df[]
 }
 
@@ -121,7 +121,7 @@ aggregate_time_steps <- function(df) {
   if (nrow(df) == 0) return(df)
 
   df[, .(
-    t    = mean(scan_date),
+    t    = mean(date),
     mean = mean(value),
     sd   = sd(value),      # NA when a step holds a single scan
     n    = .N
@@ -156,7 +156,7 @@ describe_time_steps <- function(long) {
   if (nrow(long) == 0) return(data.table())
 
   long[, .(
-    date   = mean(scan_date),
+    date   = mean(date),
     n      = .N,
     min    = min(value),
     max    = max(value),

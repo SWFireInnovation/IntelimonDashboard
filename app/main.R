@@ -5,7 +5,6 @@ box::use(
 )
 
 box::use(
-  app/logic/dst_state[init_dst_slots],
   view/tab_directOutputs,
   view/tab_forestry,
   view/tab_fuels,
@@ -89,11 +88,8 @@ server <- function(id) {
         TreatmentDate = as.Date(character())
       )
     )
-
-    # Fuel bed submitted from Fuels exports, and the AOI polygon drawn there.
-    # Kept in app/logic/dst_state.R alongside the readers that translate this
-    # store into the column naming the ported DST modules expect.
-    init_dst_slots(session)
+    # selected fuel information
+    session$userData$fuel_tool_values <- reactiveVal(NULL)
 
     # -------Tab Servers ------------------------
     data_dir <- tab_load_data$server("Load Data")

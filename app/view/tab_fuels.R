@@ -35,7 +35,6 @@ box::use(
 )
 
 box::use(
-  app/logic/dst_state[dst_metrics, dst_models_wide, dst_plot_coords],
   app/logic/fuel[
     BROWN_CLASSES,
     CANOPY_FUEL_ROWS,
@@ -45,6 +44,9 @@ box::use(
     brown_class_load
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup],
+  app/logic/manage_data[pivot_on_model],
+  app/view/map_controls[update_dwnld_scan_points, update_point_labels],
+  app/logic/map_fnc[get_metric_loc],
 )
 
 #' @export
@@ -101,29 +103,29 @@ ui <- function(id) {
         card_body(
           grid_container(
             layout = c(
-              "surfaceFuel canopyFuel",
-              "timelagFuel emptyCard "
+              "surfaceFuelGridArea canopyFuelGridArea",
+              "timelagFuelGridArea mapGridArea"
             ),
             row_sizes = c("1fr", "1fr"),
             col_sizes = c("1fr", "1fr"),
             gap_size = "10px",
             grid_card(
-              area = "surfaceFuel", class = "fuel-card",
+              area = "surfaceFuelGridArea", class = "fuel-card",
               card_header("Surface fuel models"),
               card_body(uiOutput(ns("surface_fuel_ui")))
             ),
             grid_card(
-              area = "canopyFuel", class = "fuel-card",
+              area = "canopyFuelGridArea", class = "fuel-card",
               card_header("Canopy fuels"),
               card_body(uiOutput(ns("canopy_fuel_ui")))
             ),
             grid_card(
-              area = "timelagFuel", class = "fuel-card",
+              area = "timelagFuelGridArea", class = "fuel-card",
               card_header("Time lag fuels"),
               card_body(uiOutput(ns("timelag_fuel_ui")))
             ),
             grid_card(
-              area = "emptyCard", class = "fuel-card",
+              area = "mapGridArea", class = "fuel-card",
               card_body(
                 div(
                   style = "display:flex; height:100%; gap:10px;",
@@ -160,19 +162,17 @@ server <- function(id) {
       }
       m <- as.data.table(copy(src))
       if (input$fuel_agg == "recent") {
-        m[, .d := as.Date(date_code, format = "%Y%m%d")]
-        setorder(m, site_name, plot, -.d)
-        m <- m[, .SD[1], by = list(site_name, plot)]
-        m[, .d := NULL]
+        setorder(m, site, plot, -date)
+        m <- m[, .SD[1], by = list(site, plot)]
       }
       m
     }
 
     fuel_scans <- reactive({
-      aggregate_scans(dst_metrics(session))
+      aggregate_scans(session$userData$metrics())
     })
     fuel_models <- reactive({
-      aggregate_scans(dst_models_wide(session))
+      aggregate_scans(pivot_on_model(session$userData$extra_models()))
     })
 
     # Mean of a column, looked up in whichever table holds it. Direct scan
@@ -561,6 +561,8 @@ server <- function(id) {
     })
 
     # ---- AOI draw map ----
+    aoi_polygon <- reactiveVal(NULL)
+
     output$aoi_map <- renderLeaflet({
       leaflet(options = leafletOptions(preferCanvas = TRUE)) |>
         addProviderTiles(providers$Esri.WorldImagery) |>
@@ -583,10 +585,7 @@ server <- function(id) {
       if (nrow(m) == 0) {
         return()
       }
-      coords <- dst_plot_coords(session)[
-        paste(site_name, plot) %in% unique(paste(m$site_name, m$plot)),
-        list(Longitude, Latitude)
-      ]
+      coords <- get_metric_loc(session$userData$metrics(), session$userData$scan_selection())
       if (nrow(coords) == 0) {
         return()
       }
@@ -600,7 +599,7 @@ server <- function(id) {
     # Capture drawn/edited features and store as an sf polygon in session state.
     store_aoi_feature <- function(feat) {
       if (is.null(feat)) {
-        session$userData$aoi_polygon(NULL)
+        aoi_polygon(NULL)
         return(invisible())
       }
 
@@ -611,7 +610,7 @@ server <- function(id) {
       poly <- st_sf(
         geometry = st_sfc(st_polygon(list(ring)), crs = 4326)
       )
-      session$userData$aoi_polygon(poly)
+      aoi_polygon(poly)
 
       area_ha <- as.numeric(st_area(st_transform(poly, 5070)))/1e4
       showNotification(
@@ -630,7 +629,7 @@ server <- function(id) {
       }
     })
     observeEvent(input$aoi_map_draw_deleted_features, {
-      session$userData$aoi_polygon(NULL)
+      aoi_polygon(NULL)
       showNotification("AOI cleared.", type = "message", duration = 3)
     })
   })

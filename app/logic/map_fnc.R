@@ -54,8 +54,8 @@ convert_crs <- function(pts,
 
 #' Extract locatino information from api return and convert into leaflet mappable points.
 #'
-#' Import a data.table from the api, extract location information, and convert it into the Coordinate Reference
-#' System (CRS) used by leaflet.
+#' Import a data.table from the api, extract location information, and convert it into the Coordinate
+#' Reference System (CRS) used by leaflet.
 #'
 #' @param plot_dt -  data.table containing X and Y coordinates as a string in the format
 #'        "POINT(-7638030.938909297 5597680.762257315)"
@@ -120,4 +120,20 @@ parse_click_id <- function(click, sep = "-", labels = c("site", "plot")) {
     names(part_list) <- labels
     part_list
   }
+}
+
+#' Return  location information for scans in the metrics data.table
+#'
+#' Location information is only stored in session$userData$scan_selection. This function takes a data.table
+#' with output data, such as metrics, and returns the corresponding locatoin information based on site,
+#' plot, date, and scanner_id.
+#'
+#' @param metric_dt - a data.table with measurement data and columns with unique site, plot, date,
+#'        scanner_id's
+#' @param scan_dt - a data.table from sessoin$userData$scan_selection
+#' @return a data.table from sessoin$userData$scan_selection including lattitude and longitude columns in
+#'         leaflet CRS.
+#' @export
+get_metric_loc <- function(metric_dt, scan_dt) {
+  scan_dt[metric_dt, on = .(site, plot, date, scanner_id), nomatch = 0, .SD]
 }

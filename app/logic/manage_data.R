@@ -147,8 +147,8 @@ get_scans4dwnld <- function(session) {
 #' them as as list.
 #'
 #' @param col_selection - a list of column names.
-#' @param col_list - a list where data.table column names are the key and the values stored are stylized column
-#'        names.
+#' @param col_list - a list where data.table column names are the key and the values stored are stylized
+#'        column names.
 #' @return a list of stylized column names.
 #' @export
 get_display_col <- function(col_selection, col_list = COLNAME2LABEL) {

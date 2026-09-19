@@ -54,6 +54,5 @@ exclusions:
     "app/view/tab_forestry.R" = list(
       box_func_import_count_linter = Inf,
       box_universal_import_linter = Inf
-    ),
-    "app/logic/plotting.R" = list(box_func_import_count_linter = Inf)
+    )
   )

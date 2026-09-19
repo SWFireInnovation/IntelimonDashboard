@@ -9,10 +9,8 @@
 # Per-area values divide by nonocarea (occlusion-corrected) by default; the
 # full plot area is available only as a comparison.
 #
-# Ported from the standalone IntELiMon DST's Forestry tool tab. Tree
-# inventories and metrics are read through app/logic/dst_state.R, which
-# presents session$userData in the DST column naming. Dynamic input ids built
-# inside renderUI are namespaced with session$ns.
+# Ported from the standalone IntELiMon DST's Forestry tool tab.
+# Dynamic input ids built inside renderUI are namespaced with session$ns.
 # ---------------------------------------------------------------------------
 box::use(
   bslib[card_body, card_header, nav_panel],
@@ -24,7 +22,6 @@ box::use(
 )
 
 box::use(
-  app/logic/dst_state[dst_metrics, dst_tree_inventory],
   app/logic/forestry[
     assign_species,
     crown_ratio,
@@ -41,8 +38,8 @@ box::use(
 
 # Rows of `tbl` belonging to the scan identified by one-row table `key`.
 scan_rows <- function(tbl, key) {
-  tbl$site_name == key$site_name & tbl$plot == key$plot &
-    tbl$date_code == key$date_code & tbl$scanner_id == key$scanner_id
+  tbl$site == key$site & tbl$plot == key$plot &
+    tbl$date == key$date & tbl$scanner_id == key$scanner_id
 }
 
 SPECIES_COLS <- c("#8ff0e2", "#ffd29b", "#a78bfa", "#7ec8ff", "#ff9f6b", "#9ae66e")
@@ -284,9 +281,11 @@ server <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    # Shared data, in DST column naming (see app/logic/dst_state.R)
-    tree_inventory <- reactive(dst_tree_inventory(session))
-    metrics <- reactive(dst_metrics(session))
+    metrics <- session$userData$metrics
+    tree_inventory <- reactive({
+      metrics()
+      session$userData$tree_inv
+    })
 
     scan_idx <- reactiveVal(1L)
     sim_seed <- reactiveVal(7L)
@@ -300,7 +299,7 @@ server <- function(id) {
       if (nrow(ti) == 0) {
         return(data.table())
       }
-      unique(ti[, list(site_name, plot, date_code, scanner_id)])
+      unique(ti[, list(site, plot, date, scanner_id)])
     })
 
     observeEvent(tree_inventory(), {
@@ -330,8 +329,8 @@ server <- function(id) {
         div(
           class = "pano-info", style = "flex:1; text-align:center;",
           sprintf(
-            "%s / %s  %s", cs$site_name, cs$plot,
-            format(as.Date(cs$date_code, "%Y%m%d"), "%Y-%m-%d")
+            "%s / %s  %s", cs$site, cs$plot,
+            format(as.Date(cs$date, "%Y%m%d"), "%Y-%m-%d")
           )
         ),
         actionButton(ns("next_scan"), "\u25B6", class = "btn-sm")
@@ -556,7 +555,7 @@ server <- function(id) {
       w <- fit_weibull(d)
       # occlusion-corrected density: pool each scan by its own nonocarea
       mt <- metrics()
-      keys <- unique(t[, list(site_name, plot, date_code, scanner_id)])
+      keys <- unique(t[, list(site, plot, date, scanner_id)])
       tot_area <- 0
       tot_n <- 0
       for (i in seq_len(nrow(keys))) {
@@ -959,9 +958,9 @@ server <- function(id) {
       }
       keep <- t[rm == FALSE]
       if (nrow(keep) == 0) keep <- t[0]
-      sid <- sprintf("%s_%s", cs$site_name, cs$plot)
+      sid <- sprintf("%s_%s", cs$site, cs$plot)
       m <- stand_metrics(if (nrow(keep) > 0) keep else t, scale_area())
-      yr <- as.integer(substr(cs$date_code, 1, 4))
+      yr <- as.integer(substr(cs$date, 1, 4))
 
       tr <- build_treeinit(keep, sid, m$ef_tpa, isTRUE(input$use_cr))
       st <- build_standinit(
