@@ -104,7 +104,7 @@ percent_change_series <- function(long) {
   if (nrow(long) == 0) return(long)
 
   df <- copy(long)
-  setorder(df, combo, scan_date)
+  setorder(df, combo, date)
   df[, base := value[1L], by = combo]
   df <- df[is.finite(base) & base != 0]
   if (nrow(df) == 0) return(df)

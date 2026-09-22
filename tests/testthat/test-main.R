@@ -4,6 +4,7 @@ box::use(
 )
 
 box::use(
+  app/logic/init_session_userData[init_session_userdata],
   app/main[server],
   app/view/tab_histogram[histogram_server = server],
   app/view/tab_load_data[load_data_server = server],
@@ -112,12 +113,14 @@ describe("tab_histogram server", {
 describe("tab_selectionMap server", {
   it("renders the leaflet map output", {
     testServer(selection_map_server, {
+      init_session_userdata(session)
       expect_true(!is.null(output$map))
     })
   })
 
   it("selected_dates updates when the date range input changes", {
     testServer(selection_map_server, {
+      init_session_userdata(session)
       session$setInputs(ui_select_date_range = c(as.Date("2024-01-01"), as.Date("2024-12-31")))
       session$flushReact()
       first <- input$ui_select_date_range[1]

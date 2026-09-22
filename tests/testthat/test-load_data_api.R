@@ -1,4 +1,5 @@
 box::use(
+  here[here],
   testthat[expect_error, expect_identical, expect_true, skip_if_not, test_that],
 )
 
@@ -14,7 +15,7 @@ impl <- attr(api, "namespace")
 # get_api_base_url() is lazy, so importing the module above always
 # succeeds regardless of whether a key is configured - only tests that
 # actually call it need to skip when no key is available.
-has_key <- nzchar(Sys.getenv("API_PATH_KEY")) || file.exists(".env")
+has_key <- nzchar(Sys.getenv("API_PATH_KEY")) || file.exists(here(".env"))
 
 test_that("get_api_base_url() decrypts to a well-formed URL", {
   skip_if_not(has_key, "No API_PATH_KEY / .env available locally or in CI.")

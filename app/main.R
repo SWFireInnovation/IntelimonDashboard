@@ -1,10 +1,11 @@
 box::use(
   bslib[bs_theme, navbar_options, page_navbar],
   dt = data.table,
-  shiny[NS, includeCSS, moduleServer, reactiveVal, tags],
+  shiny[NS, includeCSS, moduleServer, tags],
 )
 
 box::use(
+  logic/init_session_userData[init_session_userdata],
   view/tab_directOutputs,
   view/tab_forestry,
   view/tab_fuels,
@@ -59,37 +60,7 @@ ui <- function(id) {
 server <- function(id) {
   moduleServer(id, function(input, output, session) {
     # --------Shared User Data-------------------
-    # User selected scans for anaylysis
-    session$userData$scan_selection <- reactiveVal(
-      dt$data.table(
-        id = character(),
-        site = character(),
-        plot = character(),
-        date = as.Date(character()),
-        scanner_id = integer(),
-        scanner_name = character(),
-        Longitude = numeric(),
-        Latitude = numeric(),
-        Agency = character(),
-        Unit = character(),
-        Remeasurement = integer()
-      )
-    )
-
-    # IntELiMon metrics for selected scans
-    session$userData$metrics <- reactiveVal(dt$data.table())
-    # IntELiMon identified tree inventory for scans
-    session$userData$tree_inv <- dt$data.table()
-    # IntELiMon identified extra models for scans
-    session$userData$extra_models <- reactiveVal(dt$data.table())
-    # User defined treatment dates
-    session$userData$trtmt_dates <- reactiveVal(
-      dt$data.table(
-        TreatmentDate = as.Date(character())
-      )
-    )
-    # selected fuel information
-    session$userData$fuel_tool_values <- reactiveVal(NULL)
+    init_session_userdata(session)
 
     # -------Tab Servers ------------------------
     data_dir <- tab_load_data$server("Load Data")

@@ -281,9 +281,8 @@ server <- function(id) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    metrics <- session$userData$metrics
     tree_inventory <- reactive({
-      metrics()
+      session$userData$metrics()
       session$userData$tree_inv
     })
 
@@ -377,7 +376,7 @@ server <- function(id) {
 
     scan_metrics_row <- reactive({
       cs <- current_scan()
-      mt <- metrics()
+      mt <- session$userData$metrics()
       if (is.null(cs) || nrow(mt) == 0) {
         return(NULL)
       }
@@ -554,7 +553,7 @@ server <- function(id) {
       d <- suppressWarnings(as.numeric(t$DBH))
       w <- fit_weibull(d)
       # occlusion-corrected density: pool each scan by its own nonocarea
-      mt <- metrics()
+      mt <- session$userData$metrics()
       keys <- unique(t[, list(site, plot, date, scanner_id)])
       tot_area <- 0
       tot_n <- 0

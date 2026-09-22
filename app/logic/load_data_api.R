@@ -1,5 +1,6 @@
 box::use(
   dt = data.table,
+  here[here],
   httr2,
 )
 
@@ -19,8 +20,10 @@ box::use(
 #' @export
 get_api_base_url <- function(apikey = "API_PATH_KEY") {
   if (is.null(.cache$.api_base_url)) {
-    if (!nzchar(Sys.getenv(apikey)) && file.exists(".env")) {
-      readRenviron(".env")
+    # make sure to check in the parent directory, not the local directory
+    env_file <- here(".env")
+    if (!nzchar(Sys.getenv(apikey)) && file.exists(env_file)) {
+      readRenviron(env_file)
     }
 
     # catches if file did not exist, or variable was named wrong in file

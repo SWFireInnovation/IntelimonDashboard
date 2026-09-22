@@ -1,7 +1,7 @@
 box::use(
   data.table[data.table],
-  shiny[isolate, reactiveVal, testServer],
-  testthat[describe, expect_equal, expect_false, expect_match, expect_named, expect_true, it],
+  shiny[reactiveVal, testServer],
+  testthat[describe, expect_equal, expect_match, expect_named, expect_true, it],
 )
 
 box::use(
