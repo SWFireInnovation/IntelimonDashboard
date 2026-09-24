@@ -1576,3 +1576,64 @@ table.dataTable tbody tr.selected:hover td {
   background-color: rgba(143, 240, 226, 0.45) !important;
 }
 /* stylelint-enable selector-class-pattern */
+
+/* ----------shinyFiles File/directory upload --------------------------------- */
+
+/* shinyFiles (sF) directory navigation background is white by default, so all text styling is invisible
+ backgroudn must be recast DARK so that buttons and other formatting stay visible */
+// stylelint-disable selector-class-pattern
+.modal-content:has(.sF-navigation) {
+  background: #131c30 !important;
+  border-color: var(--imn-border) !important;
+
+  // catch every descendant's text color in one go, instead of chasing
+  // individual Bootstrap classes (.btn, .form-control, .dropdown-menu,
+  // .dropdown-item...) one at a time as they keep turning up
+  &,
+  & * {
+    color: var(--imn-text) !important;
+  }
+
+  // Bootstrap 5 positions open dropdowns via Popper.js from a data-bs-toggle attribute.
+  // shinyFiles predates Bootstrap 5 and references a data-toggle attribute that
+  // So Bootsrap 5 doesn't see it and therfore Propper.js can't anchor it.
+  .dropdown { position: relative; }
+
+  .dropdown-menu {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    transform: none !important;
+    z-index: 1060 !important;
+
+    /* contrast highlighting color with background */
+    background: #12203a !important;
+    border-color: var(--imn-border) !important;
+
+    li > a:hover,
+    li > a:focus {
+      background: rgba(143, 240, 226, 0.18) !important;
+    }
+  }
+
+  // roots selection is not part of the dropdown, but has the same background issue
+  .sF-breadcrumps {
+    width: auto !important;
+    text-overflow: ellipsis;
+  }
+
+  .sF-breadcrumps option,
+  .sF-breadcrumps optgroup {
+    background: #12203a !important;
+    border-color: var(--imn-border) !important;
+  }
+
+  // stylelint-enable selector-class-pattern
+
+  .close {
+    color: var(--imn-text) !important;
+    opacity: 1 !important;
+    background: transparent !important;
+    border: 2px solid var(--imn-border) !important;
+  }
+}

@@ -38,7 +38,7 @@ ui <- function(id) {
     # exports and rothRmel cards are built against.
     header = tags$head(includeCSS("app/static/styles.css")),
     if (!file.exists("../data_loc.yaml")) {
-      tab_load_data$ui(ns("Load Data"))
+      tab_load_data$ui(ns("Load-Data"))
     },
     tab_histogram$ui(ns("Histogram")),
     tab_selectionMap$ui(ns("Selection Map")),
@@ -63,7 +63,7 @@ server <- function(id) {
     init_session_userdata(session)
 
     # -------Tab Servers ------------------------
-    data_dir <- tab_load_data$server("Load Data")
+    data_dir <- tab_load_data$server("Load-Data")
     tab_histogram$server("Histogram", data_dir = data_dir)
     tab_selectionMap$server("Selection Map")
     tab_set_trtmt$server("Set Treatments")
