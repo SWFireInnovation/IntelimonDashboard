@@ -41,7 +41,6 @@ ui <- function(id) {
               c("Basalarea",
                 "MDBH",
                 "StemsPacre",
-                "TreesN",
                 "MeanTH",
                 "MaxTH"
               ),

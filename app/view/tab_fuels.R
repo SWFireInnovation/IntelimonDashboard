@@ -13,22 +13,6 @@ box::use(
   bslib[card_body, card_header, nav_panel],
   data.table[.SD, as.data.table, copy, data.table, setorder],
   gridlayout[grid_card, grid_container],
-  leaflet[
-    addProviderTiles,
-    fitBounds,
-    leaflet,
-    leafletOptions,
-    leafletOutput,
-    leafletProxy,
-    providers,
-    renderLeaflet
-  ],
-  leaflet.extras[
-    addDrawToolbar,
-    drawPolygonOptions,
-    drawRectangleOptions,
-    editToolbarOptions
-  ],
   sf[st_area, st_polygon, st_sf, st_sfc, st_transform],
   shiny[...],
   stats[setNames],
@@ -45,8 +29,8 @@ box::use(
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup],
   app/logic/manage_data[pivot_on_model],
+  app/view/card_mapLeaflet,
   app/view/map_controls[update_dwnld_scan_points, update_point_labels],
-  app/logic/map_fnc[get_metric_loc],
 )
 
 #' @export
@@ -125,13 +109,14 @@ ui <- function(id) {
               card_body(uiOutput(ns("timelag_fuel_ui")))
             ),
             grid_card(
-              area = "mapGridArea", class = "fuel-card",
+              area = "mapGridArea", class = "fuel-card", full_screen = TRUE,
               card_body(
+                fill = TRUE,
                 div(
-                  style = "display:flex; height:100%; gap:10px;",
+                  style = "display:flex; gap:10px; height:100%;",
                   div(
-                    style = "flex:1; min-width:0;",
-                    leafletOutput(ns("aoi_map"), height = "100%")
+                    style = "flex:1; min-width:0; min-height:200px; height:100%;",
+                    card_mapLeaflet$ui(ns("aoi_map"))
                   ),
                   div(
                     style = "width:150px; flex:none; display:flex;
@@ -563,47 +548,24 @@ server <- function(id) {
     # ---- AOI draw map ----
     aoi_polygon <- reactiveVal(NULL)
 
-    output$aoi_map <- renderLeaflet({
-      leaflet(options = leafletOptions(preferCanvas = TRUE)) |>
-        addProviderTiles(providers$Esri.WorldImagery) |>
-        fitBounds(-125, 24, -66, 50) |> # CONUS default
-        addDrawToolbar(
-          targetGroup = "aoi",
-          polygonOptions = drawPolygonOptions(),
-          rectangleOptions = drawRectangleOptions(),
-          polylineOptions = FALSE,
-          circleOptions = FALSE,
-          markerOptions = FALSE,
-          circleMarkerOptions = FALSE,
-          editOptions = editToolbarOptions(edit = TRUE, remove = TRUE)
-        )
-    })
-
-    # must be rendered at startup so the map can update during download
-    outputOptions(output, "aoi_map", suspendWhenHidden = FALSE)
+    map <- card_mapLeaflet$server("aoi_map",
+                                  fit2pts =  session$userData$scan_selection,
+                                  col_names = list(lat = "Latitude", lng = "Longitude"))
+    proxy_map <- map$proxy
 
     # Center the AOI map on the selected plots when metrics load
-    proxy_map <- leafletProxy("aoi_map", session)
     observeEvent(session$userData$metrics(), {
       m <- fuel_scans()
       if (nrow(m) == 0) {
         return()
       }
-      coords <- get_metric_loc(session$userData$metrics(), session$userData$scan_selection())
-      if (nrow(coords) == 0) {
-        return()
-      }
-      proxy_map |>
-        fitBounds(
-          min(coords$Longitude), min(coords$Latitude),
-          max(coords$Longitude), max(coords$Latitude)
-        )
     })
     update_dwnld_scan_points(session, proxy_map, col_names = list(lat = "Latitude", lng = "Longitude"))
-    update_point_labels(input,
+    update_point_labels(map$input,
                         proxy_map,
                         session$userData$scan_selection(),
-                        map_id = "aoi_map",
+                        # this is the ID used by the leaflet (app/view/card_mapLeaflet)
+                        map_id = "map",
                         col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
 
     # Capture drawn/edited features and store as an sf polygon in session state.
@@ -629,16 +591,16 @@ server <- function(id) {
       )
     }
 
-    observeEvent(input$aoi_map_draw_new_feature, {
-      store_aoi_feature(input$aoi_map_draw_new_feature)
+    observeEvent(map$input$map_draw_new_feature, {
+      store_aoi_feature(map$input$map_draw_new_feature)
     })
-    observeEvent(input$aoi_map_draw_edited_features, {
-      f <- input$aoi_map_draw_edited_features
+    observeEvent(map$input$map_draw_edited_features, {
+      f <- map$input$map_draw_edited_features
       if (!is.null(f$features) && length(f$features) > 0) {
         store_aoi_feature(f$features[[length(f$features)]])
       }
     })
-    observeEvent(input$aoi_map_draw_deleted_features, {
+    observeEvent(map$input$map_draw_deleted_features, {
       aoi_polygon(NULL)
       showNotification("AOI cleared.", type = "message", duration = 3)
     })
