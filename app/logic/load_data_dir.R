@@ -17,7 +17,7 @@ get_data_path <- function(yaml_path = "../data_loc.yaml") {
 
 #' @export
 list_plot_files <- function(data_dir) {
-  file_names <- list.files(data_dir, pattern = "\\.csv$")
+  file_names <- list.files(data_dir, recursive = TRUE, full.names = TRUE, pattern = "\\.csv$")
   plot_names <- file_path_sans_ext(file_names)
   names(file_names) <- plot_names
   file_names

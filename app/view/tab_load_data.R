@@ -4,10 +4,6 @@ box::use(
   shinyFiles,
 )
 
-box::use(
-  app/logic/load_data_dir[get_data_path],
-)
-
 #' @export
 ui <- function(id) {
   ns <- shiny$NS(id)
@@ -18,7 +14,7 @@ ui <- function(id) {
     # -- Process .PTX files ------------------------------------------
     bslib$card(
       bslib$card_header("Process .PTX files"),
-      shiny$tags$label("Select folders:"),
+      shiny$tags$label("1. Select folders:"),
       bslib$layout_columns(
         shinyFiles$shinyDirButton(
           id = ns("ui_btn_dir_ptx"),
@@ -27,8 +23,12 @@ ui <- function(id) {
         ),
         shiny$div(
           class = "intelimon-path-display",
-          shiny$textOutput(ns("ui_txt_dir_ptx"), inline = TRUE),
+          shiny$textOutput(ns("ui_txt_dir_ptx"), inline = TRUE)
         )
+      ),
+      shiny$tags$div(
+        style = "text-align:center; font-size:20px; margin:4px 0;",
+        "\u2193" # ↓
       ),
       bslib$layout_columns(
         shinyFiles$shinyDirButton(
@@ -38,11 +38,16 @@ ui <- function(id) {
         ),
         shiny$div(
           class = "intelimon-path-display",
-          shiny$textOutput(ns("ui_txt_dir_metrics_write"), inline = TRUE),
+          shiny$textOutput(ns("ui_txt_dir_metrics_write"), inline = TRUE)
         )
       ),
-      shiny$h6("Calculate metrics:"),
+      shiny$h6("2. Calculate metrics:"),
       shiny$actionButton(ns("ui_btn_run_intelimon"), "Run IntELiMon", class = "btn-primary"),
+      shiny$tags$div(
+        style = "text-align:center; font-size:20px; margin:4px 0;",
+        "\u2193" # ↓
+      ),
+      shiny$actionButton(ns("ui_btn_run_points2pano"), "Run Points2Pano", class = "btn-primary"),
       shiny$helpText("Calculate IntELiMon metrics from TLS point clouds.")
     ),
     # -- Upload files ------------------------------------------
@@ -68,40 +73,73 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
-    roots <- shinyFiles$getVolumes()()
 
-    # -- Process .PTX files ------------------------------------------
-    shinyFiles$shinyDirChoose(
-      input,
-      "ui_btn_dir_ptx",
-      session = session,
-      roots = roots,
-      allowDirCreate = FALSE
-    )
-    dir_ptx <- shiny$reactive({shinyFiles$parseDirPath(roots, input$ui_btn_dir_ptx)})
-    output$ui_txt_dir_ptx <- shiny$renderText({dir_ptx()})
-
-    shinyFiles$shinyDirChoose(
-      input,
-      "ui_btn_dir_metrics_write",
-      session = session,
-      roots = roots,
-      allowDirCreate = FALSE
-    )
-    dir_metrics_write <- shiny$reactive({shinyFiles$parseDirPath(roots, input$ui_btn_dir_metrics_write)})
-    output$ui_txt_dir_metrics_write <- shiny$renderText({dir_metrics_write()})
-
-    # -- Upload metrics ------------------------------------------
-    shiny$observeEvent({input$ui_btn_dir_metrics_read
-                       dir_metrics_write()}, {
+    # shinyFiles$shinyDirChoose must be re-registered whenver roots changes
+    # i.e. if a thumb drive is plugged in or unplugged.
+    register_shinyDirChooser <- function(id, rts, default_rt = NULL) { # nolint: object_name_linter
       shinyFiles$shinyDirChoose(
         input,
-        "ui_btn_dir_metrics_read",
+        id,
         session = session,
-        roots = c(metrics = dir_metrics_write(), roots),
+        roots = rts,
+        defaultRoot = default_rt,
         allowDirCreate = FALSE
       )
+    }
+
+    roots <- shiny$reactiveVal(shinyFiles$getVolumes()())
+
+    # check if any new drives have been plugged/unplugged when opening each pop-up window
+    shiny$observeEvent({
+      input$ui_btn_dir_ptx
+      input$ui_btn_dir_metrics_write
+      input$ui_btn_dir_metrics_read
+    },
+    {
+      new_roots <- shinyFiles$getVolumes()()
+      if (!identical(names(new_roots), names(roots()))) {
+        roots(new_roots)
+      }
     })
-    dir_metrics_read <- shiny$reactive({shinyFiles$parseDirPath(roots, input$ui_btn_dir_metrics_read)})
+
+    # -- Process .PTX files ------------------------------------------
+    # if the root drive list has changed, re-initialize the shinyDirChooser
+    shiny$observe({
+      new_root <- roots()
+      register_shinyDirChooser("ui_btn_dir_ptx", new_root, default_rt = NULL)
+      register_shinyDirChooser("ui_btn_dir_metrics_write", new_root, default_rt = NULL)
+    })
+
+    dir_ptx <- shiny$reactive({
+                               shinyFiles$parseDirPath(roots(), input$ui_btn_dir_ptx)})
+    output$ui_txt_dir_ptx <- shiny$renderText({
+                                               dir_ptx()})
+
+    dir_metrics_write <- shiny$reactive({
+                                         shinyFiles$parseDirPath(roots(), input$ui_btn_dir_metrics_write)})
+    output$ui_txt_dir_metrics_write <- shiny$renderText({
+                                                         dir_metrics_write()})
+
+    # -- Upload metrics ------------------------------------------
+    # if the root drive list has changed or a new metrics output folder is chosen:
+    # re-initialize the shinyDirChooser
+    shiny$observe({
+      dir_metrics_w <- dir_metrics_write()
+      rt <- roots()
+      has_write_dir <- "fs_path" %in% class(dir_metrics_w)
+
+      if (has_write_dir) {
+        new_rts <- c(metrics_output = dir_metrics_w, rt)
+      } else {
+        new_rts <- c(metrics_output = rt[[1]], rt)
+      }
+
+      register_shinyDirChooser("ui_btn_dir_metrics_read",
+                               new_rts,
+                               default_rt = if (has_write_dir) "metrics_output" else rt[[1]])
+    })
+
+    dir_metrics_read <- shiny$reactive({
+                                        shinyFiles$parseDirPath(dwnld_rts(), input$ui_btn_dir_metrics_read)})
   })
 }
