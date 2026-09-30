@@ -10,7 +10,7 @@
 #                 (canopy cover, stand height, canopy base height) in a disc
 #                 around each plot. Bands 1-4 (elevation, slope, aspect, fuel
 #                 model) and 8 (canopy bulk density) stay LANDFIRE derived.
-#   4. write    - convert the stack to a binary .LCP with GDAL's LCP driver
+#   4. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
 #   5. bundle   - zip the .lcp with its .prj so the projection travels with it
 #
 # Units: LANDFIRE already stores every layer in the LCP convention, so the
@@ -23,10 +23,13 @@
 box::use(
   data.table[as.data.table, setorder],
   rlandfire[landfireAPIv2],
-  sf[gdal_utils],
   terra,
   utils[unzip],
   zip[zip],
+)
+
+box::use(
+  app/logic/lcp_format[write_esri_prj, write_lcp_binary],
 )
 
 #' LCP band spec, in the order the LCP format stores them.
@@ -209,8 +212,11 @@ burn_lidar_canopy <- function(stack, metrics_dt, plots_dt, plot_radius_m = 30) {
 
 #' Write the 8-band stack to a binary FlamMap .LCP.
 #'
-#' Units are stated explicitly rather than relying on GDAL defaults. Cells
-#' LANDFIRE leaves empty (open ocean) are written as water (see LCP_BANDS).
+#' The file is written in R (app/logic/lcp_format.R) rather than with GDAL's
+#' LCP driver, which crashes on negative values before GDAL 3.6.4. Units:
+#' elevation m, slope degrees, aspect azimuth degrees, cover %, heights
+#' m x 10, CBD kg/m^3 x 100. Cells LANDFIRE leaves empty (open ocean) are
+#' written as water (see LCP_BANDS). A .prj is written alongside.
 #' @param stack 8-band stack in LCP band order, projected in meters
 #' @param lcp_path output .lcp file
 #' @export
@@ -223,28 +229,19 @@ write_lcp <- function(stack, lcp_path) {
   wgs84 <- terra$project(terra$ext(stack), from = terra$crs(stack), to = "EPSG:4326")
   latitude <- round((wgs84$ymin + wgs84$ymax) / 2)
 
-  stack <- round(stack)
+  values <- round(terra$values(stack))
   for (i in seq_along(LCP_BANDS)) {
-    stack[[i]] <- terra$subst(stack[[i]], NA, LCP_BANDS[[i]]$water)
+    values[is.na(values[, i]), i] <- LCP_BANDS[[i]]$water
   }
-  tif <- tempfile(fileext = ".tif")
-  terra$writeRaster(stack, tif, datatype = "INT2S", overwrite = TRUE)
+  values <- pmin(pmax(values, -32768), 32767)
 
-  if (file.exists(lcp_path)) file.remove(lcp_path)
-  gdal_utils("translate", tif, lcp_path, options = c(
-    "-of", "LCP", "-ot", "Int16",
-    "-co", paste0("LATITUDE=", latitude),
-    "-co", "LINEAR_UNIT=METER",
-    "-co", "ELEVATION_UNIT=METERS",
-    "-co", "SLOPE_UNIT=DEGREES",
-    "-co", "ASPECT_UNIT=AZIMUTH_DEGREES",
-    "-co", "FUEL_MODEL_OPTION=NO_CUSTOM_AND_NO_FILE",
-    "-co", "CANOPY_COV_UNIT=PERCENT",
-    "-co", "CANOPY_HT_UNIT=METERS_X_10",
-    "-co", "CBH_UNIT=METERS_X_10",
-    "-co", "CBD_UNIT=KG_PER_CUBIC_METER_X_100"
-  ))
-  unlink(tif)
+  write_lcp_binary(
+    lcp_path, values,
+    ncol = terra$ncol(stack), nrow = terra$nrow(stack),
+    extent = as.vector(terra$ext(stack)), resolution = terra$res(stack),
+    latitude = latitude
+  )
+  write_esri_prj(terra$crs(stack), sub("\\.lcp$", ".prj", lcp_path))
   lcp_path
 }
 
