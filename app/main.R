@@ -6,6 +6,7 @@ box::use(
 
 box::use(
   logic/init_session_userData[init_session_userdata],
+  view/email_prompt,
   view/tab_directOutputs,
   view/tab_forestry,
   view/tab_fuels,
@@ -61,6 +62,8 @@ server <- function(id) {
   moduleServer(id, function(input, output, session) {
     # --------Shared User Data-------------------
     init_session_userdata(session)
+    # app-wide "Email address required" popup (session$userData$request_email)
+    email_prompt$server("email_prompt")
 
     # -------Tab Servers ------------------------
     data_dir <- tab_load_data$server("Load Data")

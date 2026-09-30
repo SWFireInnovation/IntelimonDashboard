@@ -36,4 +36,6 @@ init_session_userdata <- function(session) {
   )
   # selected fuel information
   session$userData$fuel_tool_values <- reactiveVal(NULL)
+  # contact email for external services, set via app/view/email_prompt
+  session$userData$user_email <- reactiveVal(NULL)
 }

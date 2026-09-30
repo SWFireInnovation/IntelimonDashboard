@@ -47,6 +47,10 @@ h1,h2,h3,h4,h5,h6,label,p,.form-label,.control-label,.shiny-input-container{ col
 .selectize-dropdown{ background:#12203a !important; color:var(--imn-text) !important;
   border:1px solid var(--imn-border) !important; }
 .selectize-dropdown .active{ background:rgba(143,240,226,.18) !important; color:var(--imn-text) !important; }
+/* Shiny modals (e.g. the email prompt): Bootstrap's white panel hides the theme's light text */
+.modal-content{ background:#131c30 !important; color:var(--imn-text); border:1px solid var(--imn-border) !important; }
+.modal-header, .modal-footer{ border-color:var(--imn-border) !important; }
+.modal-content .help-block, .modal-content .form-text{ color:var(--imn-dim); }
 .btn{ background:rgba(255,255,255,.16) !important; color:var(--imn-text) !important;
   border:1px solid var(--imn-border) !important; border-radius:10px !important; font-weight:600; }
 .btn:hover{ background:rgba(255,255,255,.24) !important; }

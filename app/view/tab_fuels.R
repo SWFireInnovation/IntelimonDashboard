@@ -13,6 +13,7 @@ box::use(
   bslib[card_body, card_header, nav_panel],
   data.table[.SD, as.data.table, copy, data.table, setorder],
   gridlayout[grid_card, grid_container],
+  mirai[mirai],
   sf[st_area, st_polygon, st_sf, st_sfc, st_transform],
   shiny[...],
   stats[setNames],
@@ -28,6 +29,7 @@ box::use(
     brown_class_load
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup],
+  app/logic/lcp[build_flammap_lcp],
   app/logic/manage_data[pivot_on_model],
   app/view/card_mapLeaflet,
   app/view/map_controls[update_dwnld_scan_points, update_point_labels],
@@ -121,7 +123,7 @@ ui <- function(id) {
                   div(
                     style = "width:150px; flex:none; display:flex;
                              flex-direction:column; gap:6px;",
-                    actionButton(ns("btn_fuel_dud1"), "Download LCP", width = "100%"),
+                    actionButton(ns("btn_download_lcp"), "Download LCP", width = "100%"),
                     actionButton(ns("btn_fuel_dud2"), "Download FastFuels", width = "100%"),
                     actionButton(ns("btn_fuel_dud3"), "Download fuel report", width = "100%"),
                     actionButton(ns("btn_fuel_dud4"), "Download FCCS", width = "100%")
@@ -604,5 +606,91 @@ server <- function(id) {
       aoi_polygon(NULL)
       showNotification("AOI cleared.", type = "message", duration = 3)
     })
+
+    # ---- LCP export ----
+    # LANDFIRE layers for a buffered box around the selected plots, with the
+    # lidar canopy metrics burned into bands 5-7 (see app/logic/lcp.R).
+    # LANDFIRE needs a contact email, collected by the app-wide email prompt.
+    # The build runs in a separate R process (mirai) so the LANDFIRE download
+    # doesn't block the session; the result is a .zip with the .lcp and .prj.
+    lcp_file <- reactiveVal(NULL)
+
+    lcp_task <- ExtendedTask$new(function(metrics, plots, email, zip_path, name) {
+      mirai(
+        {
+          # the worker starts without the project's .Rprofile, so point it at
+          # the app's (renv) library and box path explicitly
+          .libPaths(lib_paths)
+          options(box.path = project_dir)
+          box::use(app/logic/lcp[build_flammap_lcp], )
+          build_flammap_lcp(
+            metrics, plots,
+            email = email, zip_path = zip_path, name = name, progress = function(msg) NULL
+          )
+        },
+        lib_paths = .libPaths(), project_dir = getwd(),
+        metrics = metrics, plots = plots, email = email, zip_path = zip_path, name = name
+      )
+    })
+
+    start_lcp_build <- function(email) {
+      name <- paste0("intelimon_", format(Sys.Date(), "%Y%m%d"))
+      lcp_task$invoke(
+        session$userData$metrics(),
+        session$userData$scan_selection(),
+        email = email,
+        zip_path = tempfile(fileext = ".zip"),
+        name = name
+      )
+      showNotification(
+        "Building the LCP in the background. LANDFIRE can take a few minutes; the app stays usable.",
+        id = session$ns("lcp_building"), type = "message", duration = NULL, closeButton = FALSE
+      )
+    }
+
+    observeEvent(input$btn_download_lcp, {
+      if (lcp_task$status() == "running") {
+        showNotification("An LCP is already being built.", type = "warning")
+        return()
+      }
+      if (nrow(session$userData$metrics()) == 0) {
+        showNotification("Load scans before building an LCP.", type = "warning")
+        return()
+      }
+      session$userData$request_email(
+        start_lcp_build,
+        reason = "LANDFIRE requires a contact email to build the landscape (LCP) file."
+      )
+    })
+
+    observeEvent(lcp_task$status(), ignoreInit = TRUE, {
+      status <- lcp_task$status()
+      if (status == "running") {
+        return()
+      }
+      removeNotification(session$ns("lcp_building"))
+
+      if (status == "error") {
+        msg <- tryCatch(lcp_task$result(), error = conditionMessage)
+        showNotification(paste("LCP build failed:", msg), type = "error", duration = NULL)
+        return()
+      }
+      lcp_file(lcp_task$result())
+      showModal(modalDialog(
+        title = "LCP ready",
+        p("Landscape built from LANDFIRE with lidar canopy cover, stand height and",
+          "canopy base height at the selected plots. The .zip holds the .lcp and its .prj."),
+        footer = tagList(
+          modalButton("Close"),
+          downloadButton(session$ns("lcp_download"), "Save LCP (.zip)", class = "btn-primary")
+        ),
+        easyClose = TRUE
+      ))
+    })
+
+    output$lcp_download <- downloadHandler(
+      filename = function() paste0("intelimon_", format(Sys.Date(), "%Y%m%d"), "_lcp.zip"),
+      content = function(file) file.copy(lcp_file(), file, overwrite = TRUE)
+    )
   })
 }
