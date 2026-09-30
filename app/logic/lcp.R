@@ -6,8 +6,9 @@
 #   1. AOI      - buffered bounding box (WGS84) around the selected plots
 #   2. LANDFIRE - request the 8 LCP layers from the LANDFIRE Product Service
 #                 (LFPS) and read them back as a single 8-band stack
-#   3. CBH      - correct the LANDFIRE canopy base height (band 7) across the
-#                 AOI toward the scans' CBH (rules in app/logic/lcp_cbh.R)
+#   3. canopy   - correct the LANDFIRE canopy cover (band 5) and canopy base
+#                 height (band 7) across the AOI toward the scans' values
+#                 (rules in app/logic/lcp_canopy.R)
 #   4. lidar    - burn the plot-level lidar canopy metrics into bands 5-7
 #                 (canopy cover, stand height, canopy base height) in a disc
 #                 around each plot. Bands 1-4 (elevation, slope, aspect, fuel
@@ -32,7 +33,7 @@ box::use(
 )
 
 box::use(
-  app/logic/lcp_cbh[correct_landfire_cbh],
+  app/logic/lcp_canopy[correct_landfire_canopy],
   app/logic/lcp_format[write_esri_prj, write_lcp_binary],
 )
 
@@ -257,12 +258,15 @@ write_lcp <- function(stack, lcp_path) {
 #' @param zip_path output .zip holding `{name}.lcp` and `{name}.prj`
 #' @param name base file name used inside the zip
 #' @param aoi optional sf polygon drawn by the user; the landscape is widened
-#'   to cover it and the CBH correction is limited to it
+#'   to cover it and the canopy corrections are limited to it
 #' @param cbh_m optional user-submitted CBH (m); the scans' CBH values are
 #'   shifted so their mean matches it
+#' @param cover_pct optional user-submitted canopy cover (%); the scans' cover
+#'   values are shifted so their mean matches it
 #' @param progress function(message) called at each step
-#' @return zip_path, with the CBH correction details (see app/logic/lcp_cbh.R)
-#'   in attr(, "cbh_correction")
+#' @return zip_path, with the canopy correction details (see
+#'   app/logic/lcp_canopy.R) in attr(, "canopy_corrections"), a list with
+#'   one entry per corrected band
 #' @export
 build_flammap_lcp <- function(metrics_dt,
                               plots_dt,
@@ -271,6 +275,7 @@ build_flammap_lcp <- function(metrics_dt,
                               name = "intelimon",
                               aoi = NULL,
                               cbh_m = NULL,
+                              cover_pct = NULL,
                               buffer_m = 2000,
                               plot_radius_m = 30,
                               version = "LF2024",
@@ -287,17 +292,26 @@ build_flammap_lcp <- function(metrics_dt,
     )
   }
 
-  # a user-submitted CBH moves the scans' mean CBH onto it, keeping their spread
-  if (!is.null(cbh_m) && !is.na(cbh_m) && any(!is.na(plots$CBH))) {
-    plots$CBH <- plots$CBH + (cbh_m - mean(plots$CBH, na.rm = TRUE))
+  # a user-submitted value moves the scans' mean onto it, keeping their spread
+  user_mean <- function(x, target) {
+    if (is.null(target) || is.na(target) || all(is.na(x))) x else x + (target - mean(x, na.rm = TRUE))
   }
+  plots$CBH <- user_mean(plots$CBH, cbh_m)
+  cover_target <- if (is.null(cover_pct)) NULL else cover_pct / 100 # scans store cover as 0-1
+  plots$canopyCover <- user_mean(plots$canopyCover, cover_target)
 
   progress("Requesting LANDFIRE layers...")
   stack <- fetch_landfire_stack(extent, email = email, version = version)
 
-  progress("Correcting LANDFIRE canopy base height (band 7)...")
-  corrected <- correct_landfire_cbh(stack, plots[, .(Longitude, Latitude, cbh_m = CBH)], aoi = aoi)
-  stack <- corrected$stack
+  progress("Correcting LANDFIRE canopy cover and base height (bands 5, 7)...")
+  corrections <- list()
+  for (b in Filter(function(b) b$name %in% c("canopy_cover", "canopy_base"), LCP_BANDS)) {
+    obs <- plots[, .(Longitude, Latitude)]
+    obs$value <- b$to_lcp(as.numeric(plots[[b$metric]]))
+    corrected <- correct_landfire_canopy(stack, obs, band = b$name, aoi = aoi)
+    stack <- corrected$stack
+    corrections[[b$name]] <- corrected$info
+  }
 
   progress("Burning lidar canopy metrics into bands 5-7...")
   stack <- burn_lidar_canopy(stack, plots, plots, plot_radius_m = plot_radius_m)
@@ -306,7 +320,7 @@ build_flammap_lcp <- function(metrics_dt,
   lcp_path <- write_lcp(stack, tempfile(fileext = ".lcp"))
   on.exit(unlink(sub("\\.lcp$", ".*", lcp_path)), add = TRUE)
   out <- bundle_lcp(lcp_path, zip_path, name = name)
-  attr(out, "cbh_correction") <- corrected$info
+  attr(out, "canopy_corrections") <- corrections
   out
 }
 
