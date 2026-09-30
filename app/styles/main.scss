@@ -1576,3 +1576,41 @@ table.dataTable tbody tr.selected:hover td {
   background-color: rgba(143, 240, 226, 0.45) !important;
 }
 /* stylelint-enable selector-class-pattern */
+
+/* ---------- Reclaim vertical space for the workspace --------------------
+   Brand, tab labels and sponsor logos keep their sizes; only dead space goes.
+   - .navbar-brand is inline in bslib; the block lockup inside an inline box
+     picks up extra line-box height (the header was 86px for a 56px mark) and
+     pins the mark to the top. A flex box sizes to the mark and centres it.
+   - bslib pads each tab pane 1.5rem at the bottom and the grid adds 10px on
+     top of that, leaving a ~34px band above the sponsor footer.
+   - the sponsor bar and plate each carried 6px of vertical padding.       */
+.navbar .navbar-brand {
+  display: flex !important;
+  align-items: center;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 1;
+}
+
+.navbar .navbar-header {
+  display: flex;
+  align-items: center;
+}
+
+.bslib-page-navbar > .tab-content > .tab-pane,
+.tab-content > .tab-pane.active { padding-bottom: 6px !important; }
+
+.tab-content > .tab-pane.active > .grid-container,
+.tab-content > .tab-pane.active > div > .grid-container,
+.tab-content > .tab-pane.active > .html-fill-container > .grid-container {
+  padding-bottom: 0 !important;
+}
+
+/* `body` outranks the same rules in app/static/styles.css, which is inlined
+   after this stylesheet and would otherwise win on source order. */
+body .imn-sponsorbar { padding: 3px 16px !important; }
+body .imn-sponsor-plate {
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+}

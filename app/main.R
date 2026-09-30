@@ -6,6 +6,7 @@ box::use(
 
 box::use(
   logic/init_session_userData[init_session_userdata],
+  view/brand[brand_title, sponsor_footer],
   view/email_prompt,
   view/tab_directOutputs,
   view/tab_forestry,
@@ -24,8 +25,9 @@ box::use(
 ui <- function(id) {
   ns <- NS(id)
   page_navbar(
-    # Application title
-    title = "IntELiMon Dashboard",
+    # IntELiMon mark (links to intelimon.xyz) + wordmark; see app/view/brand.R
+    title = brand_title(),
+    window_title = "IntELiMon Decision Support Tool",
     selected = "Selection Map",
     # bslib 0.9.0 consolidated the loose navbar arguments (collapsible, bg,
     # position, underline) into this one argument; passing `collapsible`
@@ -38,6 +40,7 @@ ui <- function(id) {
     # place. app/static/styles.css carries the Aurora Glass theme the Fuels
     # exports and rothRmel cards are built against.
     header = tags$head(includeCSS("app/static/styles.css")),
+    footer = sponsor_footer(),
     if (!file.exists("../data_loc.yaml")) {
       tab_load_data$ui(ns("Load Data"))
     },

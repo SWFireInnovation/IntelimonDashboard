@@ -125,3 +125,6 @@ Thumbs.db
 **log
 **logs
 **bin/
+
+# Branding images served by the app (see app/view/brand.R)
+!app/static/images/*.png
