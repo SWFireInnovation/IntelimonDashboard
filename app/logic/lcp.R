@@ -6,12 +6,14 @@
 #   1. AOI      - buffered bounding box (WGS84) around the selected plots
 #   2. LANDFIRE - request the 8 LCP layers from the LANDFIRE Product Service
 #                 (LFPS) and read them back as a single 8-band stack
-#   3. lidar    - burn the plot-level lidar canopy metrics into bands 5-7
+#   3. CBH      - correct the LANDFIRE canopy base height (band 7) across the
+#                 AOI toward the scans' CBH (rules in app/logic/lcp_cbh.R)
+#   4. lidar    - burn the plot-level lidar canopy metrics into bands 5-7
 #                 (canopy cover, stand height, canopy base height) in a disc
 #                 around each plot. Bands 1-4 (elevation, slope, aspect, fuel
 #                 model) and 8 (canopy bulk density) stay LANDFIRE derived.
-#   4. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
-#   5. bundle   - zip the .lcp with its .prj so the projection travels with it
+#   5. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
+#   6. bundle   - zip the .lcp with its .prj so the projection travels with it
 #
 # Units: LANDFIRE already stores every layer in the LCP convention, so the
 # LANDFIRE bands pass through unchanged. The lidar metrics are converted:
@@ -23,12 +25,14 @@
 box::use(
   data.table[as.data.table, setorder],
   rlandfire[landfireAPIv2],
+  sf[st_bbox, st_transform],
   terra,
   utils[unzip],
   zip[zip],
 )
 
 box::use(
+  app/logic/lcp_cbh[correct_landfire_cbh],
   app/logic/lcp_format[write_esri_prj, write_lcp_binary],
 )
 
@@ -252,14 +256,21 @@ write_lcp <- function(stack, lcp_path) {
 #' @param email LFPS contact email
 #' @param zip_path output .zip holding `{name}.lcp` and `{name}.prj`
 #' @param name base file name used inside the zip
+#' @param aoi optional sf polygon drawn by the user; the landscape is widened
+#'   to cover it and the CBH correction is limited to it
+#' @param cbh_m optional user-submitted CBH (m); the scans' CBH values are
+#'   shifted so their mean matches it
 #' @param progress function(message) called at each step
-#' @return zip_path
+#' @return zip_path, with the CBH correction details (see app/logic/lcp_cbh.R)
+#'   in attr(, "cbh_correction")
 #' @export
 build_flammap_lcp <- function(metrics_dt,
                               plots_dt,
                               email,
                               zip_path = tempfile(fileext = ".zip"),
                               name = "intelimon",
+                              aoi = NULL,
+                              cbh_m = NULL,
                               buffer_m = 2000,
                               plot_radius_m = 30,
                               version = "LF2024",
@@ -267,18 +278,36 @@ build_flammap_lcp <- function(metrics_dt,
   progress("Building AOI from selected plots...")
   plots <- latest_plot_metrics(metrics_dt, plots_dt)
   if (nrow(plots) == 0) stop("No plot coordinates match the metrics table.")
-  aoi <- build_lcp_aoi(plots, buffer_m = buffer_m)
+  extent <- build_lcp_aoi(plots, buffer_m = buffer_m)
+  if (!is.null(aoi)) {
+    drawn <- st_bbox(st_transform(aoi, 4326))
+    extent <- c(
+      min(extent[1], drawn[["xmin"]]), min(extent[2], drawn[["ymin"]]),
+      max(extent[3], drawn[["xmax"]]), max(extent[4], drawn[["ymax"]])
+    )
+  }
+
+  # a user-submitted CBH moves the scans' mean CBH onto it, keeping their spread
+  if (!is.null(cbh_m) && !is.na(cbh_m) && any(!is.na(plots$CBH))) {
+    plots$CBH <- plots$CBH + (cbh_m - mean(plots$CBH, na.rm = TRUE))
+  }
 
   progress("Requesting LANDFIRE layers...")
-  stack <- fetch_landfire_stack(aoi, email = email, version = version)
+  stack <- fetch_landfire_stack(extent, email = email, version = version)
+
+  progress("Correcting LANDFIRE canopy base height (band 7)...")
+  corrected <- correct_landfire_cbh(stack, plots[, .(Longitude, Latitude, cbh_m = CBH)], aoi = aoi)
+  stack <- corrected$stack
 
   progress("Burning lidar canopy metrics into bands 5-7...")
-  stack <- burn_lidar_canopy(stack, metrics_dt, plots_dt, plot_radius_m = plot_radius_m)
+  stack <- burn_lidar_canopy(stack, plots, plots, plot_radius_m = plot_radius_m)
 
   progress("Writing .LCP...")
   lcp_path <- write_lcp(stack, tempfile(fileext = ".lcp"))
   on.exit(unlink(sub("\\.lcp$", ".*", lcp_path)), add = TRUE)
-  bundle_lcp(lcp_path, zip_path, name = name)
+  out <- bundle_lcp(lcp_path, zip_path, name = name)
+  attr(out, "cbh_correction") <- corrected$info
+  out
 }
 
 #' Zip an .lcp with the .prj GDAL writes alongside it.

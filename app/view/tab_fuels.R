@@ -30,6 +30,7 @@ box::use(
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup],
   app/logic/lcp[build_flammap_lcp],
+  app/logic/lcp_cbh[describe_cbh_correction],
   app/logic/manage_data[pivot_on_model],
   app/view/card_mapLeaflet,
   app/view/map_controls[update_dwnld_scan_points, update_point_labels],
@@ -608,14 +609,16 @@ server <- function(id) {
     })
 
     # ---- LCP export ----
-    # LANDFIRE layers for a buffered box around the selected plots, with the
+    # LANDFIRE layers for a buffered box around the selected plots (widened to
+    # any AOI drawn on the map), with the LANDFIRE canopy base height corrected
+    # toward the scans' CBH (or the CBH submitted from the canopy card) and the
     # lidar canopy metrics burned into bands 5-7 (see app/logic/lcp.R).
     # LANDFIRE needs a contact email, collected by the app-wide email prompt.
     # The build runs in a separate R process (mirai) so the LANDFIRE download
     # doesn't block the session; the result is a .zip with the .lcp and .prj.
     lcp_file <- reactiveVal(NULL)
 
-    lcp_task <- ExtendedTask$new(function(metrics, plots, email, zip_path, name) {
+    lcp_task <- ExtendedTask$new(function(metrics, plots, email, zip_path, name, aoi, cbh_m) {
       mirai(
         {
           # the worker starts without the project's .Rprofile, so point it at
@@ -625,11 +628,13 @@ server <- function(id) {
           box::use(app/logic/lcp[build_flammap_lcp], )
           build_flammap_lcp(
             metrics, plots,
-            email = email, zip_path = zip_path, name = name, progress = function(msg) NULL
+            email = email, zip_path = zip_path, name = name, aoi = aoi, cbh_m = cbh_m,
+            progress = function(msg) NULL
           )
         },
         lib_paths = .libPaths(), project_dir = getwd(),
-        metrics = metrics, plots = plots, email = email, zip_path = zip_path, name = name
+        metrics = metrics, plots = plots, email = email, zip_path = zip_path, name = name,
+        aoi = aoi, cbh_m = cbh_m
       )
     })
 
@@ -640,7 +645,10 @@ server <- function(id) {
         session$userData$scan_selection(),
         email = email,
         zip_path = tempfile(fileext = ".zip"),
-        name = name
+        name = name,
+        aoi = aoi_polygon(),
+        # CBH submitted from the canopy card, if any
+        cbh_m = session$userData$fuel_tool_values()$cbh_m
       )
       showNotification(
         "Building the LCP in the background. LANDFIRE can take a few minutes; the app stays usable.",
@@ -675,11 +683,13 @@ server <- function(id) {
         showNotification(paste("LCP build failed:", msg), type = "error", duration = NULL)
         return()
       }
-      lcp_file(lcp_task$result())
+      zip_path <- lcp_task$result()
+      lcp_file(zip_path)
       showModal(modalDialog(
         title = "LCP ready",
         p("Landscape built from LANDFIRE with lidar canopy cover, stand height and",
           "canopy base height at the selected plots. The .zip holds the .lcp and its .prj."),
+        p(describe_cbh_correction(attr(zip_path, "cbh_correction"))),
         footer = tagList(
           modalButton("Close"),
           downloadButton(session$ns("lcp_download"), "Save LCP (.zip)", class = "btn-primary")
