@@ -35,39 +35,42 @@ box::use(
 #' `metric` is the lidar column burned into that band; NA keeps LANDFIRE.
 #' `to_lcp` converts the lidar metric into the band's LCP unit.
 #' `range` is the plausible range of the LCP values, used to check band order.
+#' `water` is the value written where LANDFIRE has no data (open ocean): the
+#' same values LANDFIRE uses for inland water, i.e. flat, fuel model 98 (NB8).
 #' @export
 LCP_BANDS <- list(
   list(
     name = "elevation", product = "LF2020_Elev", metric = NA_character_,
-    to_lcp = identity, range = c(-100, 6200)
+    to_lcp = identity, range = c(-100, 6200), water = 0
   ),
   list(
     name = "slope", product = "LF2020_SlpD", metric = NA_character_,
-    to_lcp = identity, range = c(0, 90)
+    to_lcp = identity, range = c(0, 90), water = 0
   ),
   list(
     name = "aspect", product = "LF2020_Asp", metric = NA_character_,
-    to_lcp = identity, range = c(-1, 360)
+    to_lcp = identity, range = c(-1, 360), water = -1
   ),
   list(
     name = "fuel", product = "{version}_FBFM40", metric = NA_character_,
-    to_lcp = identity, range = c(91, 204)
+    to_lcp = identity, range = c(91, 204), water = 98
   ),
   list(
     name = "canopy_cover", product = "{version}_CC", metric = "canopyCover",
-    to_lcp = function(x) pmin(pmax(round(x * 100), 0), 100), range = c(0, 100)
+    to_lcp = function(x) pmin(pmax(round(x * 100), 0), 100), range = c(0, 100),
+    water = 0
   ),
   list(
     name = "stand_height", product = "{version}_CH", metric = "MaxTH",
-    to_lcp = function(x) round(x * 10), range = c(0, 1500)
+    to_lcp = function(x) round(x * 10), range = c(0, 1500), water = 0
   ),
   list(
     name = "canopy_base", product = "{version}_CBH", metric = "CBH",
-    to_lcp = function(x) round(x * 10), range = c(0, 1000)
+    to_lcp = function(x) round(x * 10), range = c(0, 1000), water = 0
   ),
   list(
     name = "canopy_bulk", product = "{version}_CBD", metric = NA_character_,
-    to_lcp = identity, range = c(0, 100)
+    to_lcp = identity, range = c(0, 100), water = 0
   )
 )
 
@@ -206,8 +209,8 @@ burn_lidar_canopy <- function(stack, metrics_dt, plots_dt, plot_radius_m = 30) {
 
 #' Write the 8-band stack to a binary FlamMap .LCP.
 #'
-#' Units are stated explicitly rather than relying on GDAL defaults. Missing
-#' cells are written as -9999, FlamMap's no-data value.
+#' Units are stated explicitly rather than relying on GDAL defaults. Cells
+#' LANDFIRE leaves empty (open ocean) are written as water (see LCP_BANDS).
 #' @param stack 8-band stack in LCP band order, projected in meters
 #' @param lcp_path output .lcp file
 #' @export
@@ -220,7 +223,10 @@ write_lcp <- function(stack, lcp_path) {
   wgs84 <- terra$project(terra$ext(stack), from = terra$crs(stack), to = "EPSG:4326")
   latitude <- round((wgs84$ymin + wgs84$ymax) / 2)
 
-  stack <- terra$subst(round(stack), NA, -9999)
+  stack <- round(stack)
+  for (i in seq_along(LCP_BANDS)) {
+    stack[[i]] <- terra$subst(stack[[i]], NA, LCP_BANDS[[i]]$water)
+  }
   tif <- tempfile(fileext = ".tif")
   terra$writeRaster(stack, tif, datatype = "INT2S", overwrite = TRUE)
 

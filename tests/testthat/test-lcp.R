@@ -119,14 +119,12 @@ describe("burn_lidar_canopy", {
 describe("write_lcp", {
   it("writes an 8-band LCP that reads back with the same values and units", {
     s <- lcp$burn_lidar_canopy(fake_stack(), metrics, plots)
-    s[["fuel"]][1] <- NA
     path <- lcp$write_lcp(s, tempfile(fileext = ".lcp"))
     back <- terra$rast(path)
 
     expect_equal(terra$nlyr(back), 8)
     expect_equal(unname(unlist(terra$extract(back, plot_xy, ID = FALSE))),
                  c(2000, 10, 180, 165, 55, 169, 34, 10))
-    expect_equal(terra$values(back[[4]], mat = FALSE)[1], -9999)
 
     info <- paste(terra$describe(path), collapse = "\n")
     expect_true(grepl("CANOPY_COV_UNIT_NAME=Percent", info, fixed = TRUE))
@@ -134,6 +132,17 @@ describe("write_lcp", {
     expect_true(grepl("CBH_UNIT_NAME=Meters x 10", info, fixed = TRUE))
     expect_true(grepl("CBD_UNIT_NAME=kg/m^3 x 100", info, fixed = TRUE))
     expect_true(grepl("LATITUDE=36", info, fixed = TRUE))
+  })
+
+  it("writes cells LANDFIRE leaves empty (open ocean) as flat water, fuel model 98", {
+    s <- fake_stack()
+    s[1] <- NA
+    back <- terra$rast(lcp$write_lcp(s, tempfile(fileext = ".lcp")))
+
+    expect_equal(unname(unlist(back[1])), c(0, 0, -1, 98, 0, 0, 0, 0))
+    expect_equal(sum(terra$values(back) == -9999), 0)
+    # cells with data are untouched
+    expect_equal(unname(unlist(back[2])), c(2000, 10, 180, 165, 40, 150, 20, 10))
   })
 
   it("bundles the .lcp and .prj into a zip under one name", {
