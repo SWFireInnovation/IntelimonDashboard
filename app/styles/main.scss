@@ -1610,6 +1610,7 @@ table.dataTable tbody tr.selected:hover td {
 /* `body` outranks the same rules in app/static/styles.css, which is inlined
    after this stylesheet and would otherwise win on source order. */
 body .imn-sponsorbar { padding: 3px 16px !important; }
+
 body .imn-sponsor-plate {
   padding-top: 3px !important;
   padding-bottom: 3px !important;
