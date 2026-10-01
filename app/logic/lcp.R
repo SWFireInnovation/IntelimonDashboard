@@ -18,6 +18,8 @@
 #                 lowered
 #   6. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
 #   7. bundle   - zip the .lcp with its .prj so the projection travels with it
+#   8. IFTDSS   - optionally write the same landscape as the 8-band GeoTIFF
+#                 IFTDSS accepts as a custom landscape (write_iftdss_tif)
 #
 # Units: LANDFIRE already stores every layer in the LCP convention, so the
 # LANDFIRE bands pass through unchanged. The lidar metrics are converted:
@@ -253,6 +255,83 @@ write_lcp <- function(stack, lcp_path) {
   lcp_path
 }
 
+# IFTDSS custom landscape limits that are tighter than the LCP's (see
+# https://iftdss.firenet.gov/firenetHelp/help/pageHelp/content/20-landscapes/lcpuploadrequirements.htm)
+IFTDSS_MAX_HEIGHT <- 1200 # stand height, m x 10
+IFTDSS_MAX_CBD <- 50 # kg/m^3 x 100
+IFTDSS_MAX_NODATA <- 0.5 # share of NoData cells IFTDSS accepts
+IFTDSS_NODATA <- -9999
+
+#' Write the 8-band stack as the GeoTIFF IFTDSS accepts as a custom landscape.
+#'
+#' Same bands, order and units as the LCP, as 16-bit integers with -9999 for
+#' cells LANDFIRE leaves empty. Values are held to IFTDSS's limits: stand
+#' height at most 120 m, CBH at most the stand height in every cell, CBD at
+#' most 0.50 kg/m^3.
+#' @param stack 8-band stack in LCP band order, projected in meters
+#' @param tif_path output .tif; IFTDSS rejects names with other "." in them
+#' @return tif_path, with the cells changed per band in attr(, "clamped") and
+#'   the share of NoData cells in attr(, "nodata_share")
+#' @export
+write_iftdss_tif <- function(stack, tif_path) {
+  if (terra$nlyr(stack) != length(LCP_BANDS)) {
+    stop("IFTDSS needs ", length(LCP_BANDS), " bands; got ", terra$nlyr(stack), ".")
+  }
+  if (abs(diff(terra$res(stack))) > 1e-6) stop("IFTDSS needs square cells.")
+
+  values <- round(terra$values(stack))
+  colnames(values) <- band_names()
+  h <- values[, "stand_height"]
+  over_h <- !is.na(h) & h > IFTDSS_MAX_HEIGHT
+  h[over_h] <- IFTDSS_MAX_HEIGHT
+  cbh <- values[, "canopy_base"]
+  over_cbh <- !is.na(cbh) & !is.na(h) & cbh > h
+  cbh[over_cbh] <- h[over_cbh]
+  cbd <- values[, "canopy_bulk"]
+  over_cbd <- !is.na(cbd) & cbd > IFTDSS_MAX_CBD
+  cbd[over_cbd] <- IFTDSS_MAX_CBD
+  values[, "stand_height"] <- h
+  values[, "canopy_base"] <- cbh
+  values[, "canopy_bulk"] <- cbd
+
+  out <- terra$setValues(stack, values)
+  names(out) <- band_names()
+  dir.create(dirname(tif_path), recursive = TRUE, showWarnings = FALSE)
+  terra$writeRaster(
+    out, tif_path,
+    datatype = "INT2S", NAflag = IFTDSS_NODATA, overwrite = TRUE, gdal = "COMPRESS=DEFLATE"
+  )
+  attr(tif_path, "clamped") <- c(
+    stand_height = sum(over_h), canopy_base = sum(over_cbh), canopy_bulk = sum(over_cbd)
+  )
+  attr(tif_path, "nodata_share") <- mean(rowSums(is.na(values)) > 0)
+  tif_path
+}
+
+#' One-line description of the IFTDSS GeoTIFF, for notifications.
+#' @export
+describe_iftdss_tif <- function(tif) {
+  if (is.null(tif)) {
+    return("")
+  }
+  clamped <- attr(tif, "clamped")
+  msg <- sprintf(
+    paste(
+      "IFTDSS GeoTIFF: %d cells' stand height capped at 120 m, %d cells' CBH capped at",
+      "stand height, %d cells' CBD capped at 0.50 kg/m^3."
+    ),
+    clamped[["stand_height"]], clamped[["canopy_base"]], clamped[["canopy_bulk"]]
+  )
+  share <- attr(tif, "nodata_share")
+  if (share > IFTDSS_MAX_NODATA) {
+    msg <- sprintf(
+      "%s %.0f%% of the cells have no LANDFIRE data; IFTDSS rejects more than %.0f%%.",
+      msg, share * 100, IFTDSS_MAX_NODATA * 100
+    )
+  }
+  msg
+}
+
 #' Build a FlamMap .LCP for the plots in `metrics_dt`.
 #'
 #' @param metrics_dt scan metrics (site, plot, date, canopyCover, MaxTH, CBH)
@@ -268,8 +347,10 @@ write_lcp <- function(stack, lcp_path) {
 #'   values are shifted so their mean matches it
 #' @param height_m optional user-submitted stand height (m); the scans' MaxTH
 #'   values are shifted so their mean matches it
+#' @param tif_path optional output .tif; when given, the same landscape is also
+#'   written as an IFTDSS GeoTIFF (see write_iftdss_tif())
 #' @param progress function(message) called at each step
-#' @return zip_path, with the canopy correction details (see
+#' @return zip_path, with the IFTDSS GeoTIFF path in attr(, "iftdss_tif"), the canopy correction details (see
 #'   app/logic/lcp_canopy.R) in attr(, "canopy_corrections"), a list with
 #'   one entry per corrected band, and the crown check counts in
 #'   attr(, "crown_check")
@@ -286,6 +367,7 @@ build_flammap_lcp <- function(metrics_dt,
                               buffer_m = 2000,
                               plot_radius_m = 30,
                               version = "LF2024",
+                              tif_path = NULL,
                               progress = message) {
   progress("Building AOI from selected plots...")
   plots <- latest_plot_metrics(metrics_dt, plots_dt)
@@ -337,6 +419,10 @@ build_flammap_lcp <- function(metrics_dt,
   lcp_path <- write_lcp(stack, tempfile(fileext = ".lcp"))
   on.exit(unlink(sub("\\.lcp$", ".*", lcp_path)), add = TRUE)
   out <- bundle_lcp(lcp_path, zip_path, name = name)
+  if (!is.null(tif_path)) {
+    progress("Writing IFTDSS GeoTIFF...")
+    attr(out, "iftdss_tif") <- write_iftdss_tif(stack, tif_path)
+  }
   attr(out, "canopy_corrections") <- corrections
   attr(out, "crown_check") <- crown$info
   out

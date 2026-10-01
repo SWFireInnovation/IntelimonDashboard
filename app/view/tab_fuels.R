@@ -29,7 +29,7 @@ box::use(
     brown_class_load
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup],
-  app/logic/lcp[build_flammap_lcp],
+  app/logic/lcp[build_flammap_lcp, describe_iftdss_tif],
   app/logic/lcp_canopy[describe_canopy_correction, describe_crown_check],
   app/logic/manage_data[pivot_on_model],
   app/view/card_mapLeaflet,
@@ -126,7 +126,7 @@ ui <- function(id) {
                              flex-direction:column; gap:6px;",
                     actionButton(ns("btn_download_lcp"), "Download LCP", width = "100%"),
                     actionButton(ns("btn_fuel_dud2"), "Download FastFuels", width = "100%"),
-                    actionButton(ns("btn_fuel_dud3"), "Download fuel report", width = "100%"),
+                    actionButton(ns("btn_download_iftdss"), "Download IFTDSS", width = "100%"),
                     actionButton(ns("btn_fuel_dud4"), "Download FCCS", width = "100%")
                   )
                 )
@@ -617,11 +617,14 @@ server <- function(id) {
     # app/logic/lcp.R).
     # LANDFIRE needs a contact email, collected by the app-wide email prompt.
     # The build runs in a separate R process (mirai) so the LANDFIRE download
-    # doesn't block the session; the result is a .zip with the .lcp and .prj.
+    # doesn't block the session; the result is a .zip with the .lcp and .prj,
+    # plus the same landscape as an IFTDSS GeoTIFF. Both download buttons run
+    # this one build; the one pressed decides which file the dialog offers first.
     lcp_file <- reactiveVal(NULL)
+    lcp_format <- reactiveVal("lcp")
 
     lcp_task <- ExtendedTask$new(function(metrics, plots, email, zip_path, name, aoi, cbh_m,
-                                          cover_pct, height_m) {
+                                          cover_pct, height_m, tif_path) {
       mirai(
         {
           # the worker starts without the project's .Rprofile, so point it at
@@ -632,12 +635,14 @@ server <- function(id) {
           build_flammap_lcp(
             metrics, plots,
             email = email, zip_path = zip_path, name = name, aoi = aoi, cbh_m = cbh_m,
-            cover_pct = cover_pct, height_m = height_m, progress = function(msg) NULL
+            cover_pct = cover_pct, height_m = height_m, tif_path = tif_path,
+            progress = function(msg) NULL
           )
         },
         lib_paths = .libPaths(), project_dir = getwd(),
         metrics = metrics, plots = plots, email = email, zip_path = zip_path, name = name,
-        aoi = aoi, cbh_m = cbh_m, cover_pct = cover_pct, height_m = height_m
+        aoi = aoi, cbh_m = cbh_m, cover_pct = cover_pct, height_m = height_m,
+        tif_path = tif_path
       )
     })
 
@@ -653,28 +658,37 @@ server <- function(id) {
         # CBH, canopy cover and stand height submitted from the canopy card, if any
         cbh_m = session$userData$fuel_tool_values()$cbh_m,
         cover_pct = session$userData$fuel_tool_values()$canopy_cover_pct,
-        height_m = session$userData$fuel_tool_values()$stand_height_m
+        height_m = session$userData$fuel_tool_values()$stand_height_m,
+        # IFTDSS rejects file names with a "." besides the extension's
+        tif_path = file.path(tempfile("iftdss_"), paste0(name, ".tif"))
       )
       showNotification(
-        "Building the LCP in the background. LANDFIRE can take a few minutes; the app stays usable.",
+        paste(
+          "Building the landscape in the background. LANDFIRE can take a few minutes;",
+          "the app stays usable."
+        ),
         id = session$ns("lcp_building"), type = "message", duration = NULL, closeButton = FALSE
       )
     }
 
-    observeEvent(input$btn_download_lcp, {
+    request_lcp_build <- function(format) {
       if (lcp_task$status() == "running") {
-        showNotification("An LCP is already being built.", type = "warning")
+        showNotification("A landscape is already being built.", type = "warning")
         return()
       }
       if (nrow(session$userData$metrics()) == 0) {
-        showNotification("Load scans before building an LCP.", type = "warning")
+        showNotification("Load scans before building a landscape.", type = "warning")
         return()
       }
+      lcp_format(format)
       session$userData$request_email(
         start_lcp_build,
-        reason = "LANDFIRE requires a contact email to build the landscape (LCP) file."
+        reason = "LANDFIRE requires a contact email to build the landscape file."
       )
-    })
+    }
+
+    observeEvent(input$btn_download_lcp, request_lcp_build("lcp"))
+    observeEvent(input$btn_download_iftdss, request_lcp_build("iftdss"))
 
     observeEvent(lcp_task$status(), ignoreInit = TRUE, {
       status <- lcp_task$status()
@@ -685,21 +699,33 @@ server <- function(id) {
 
       if (status == "error") {
         msg <- tryCatch(lcp_task$result(), error = conditionMessage)
-        showNotification(paste("LCP build failed:", msg), type = "error", duration = NULL)
+        showNotification(paste("Landscape build failed:", msg), type = "error", duration = NULL)
         return()
       }
       zip_path <- lcp_task$result()
       lcp_file(zip_path)
+      iftdss <- identical(lcp_format(), "iftdss")
+      save_lcp <- downloadButton(
+        session$ns("lcp_download"), "Save LCP (.zip)",
+        class = if (iftdss) "btn-secondary" else "btn-primary"
+      )
+      save_tif <- downloadButton(
+        session$ns("iftdss_download"), "Save IFTDSS (.tif)",
+        class = if (iftdss) "btn-primary" else "btn-secondary"
+      )
       showModal(modalDialog(
-        title = "LCP ready",
+        title = if (iftdss) "IFTDSS landscape ready" else "LCP ready",
         p("Landscape built from LANDFIRE with lidar canopy cover, stand height and",
-          "canopy base height at the selected plots. The .zip holds the .lcp and its .prj."),
+          "canopy base height at the selected plots. The LCP .zip holds the .lcp and its",
+          ".prj for FlamMap; the .tif uploads to IFTDSS as a custom landscape (unzipped)."),
         lapply(attr(zip_path, "canopy_corrections"), function(x) p(describe_canopy_correction(x))),
         p(describe_crown_check(attr(zip_path, "crown_check"))),
-        footer = tagList(
-          modalButton("Close"),
-          downloadButton(session$ns("lcp_download"), "Save LCP (.zip)", class = "btn-primary")
-        ),
+        p(describe_iftdss_tif(attr(zip_path, "iftdss_tif"))),
+        footer = if (iftdss) {
+          tagList(modalButton("Close"), save_lcp, save_tif)
+        } else {
+          tagList(modalButton("Close"), save_tif, save_lcp)
+        },
         easyClose = TRUE
       ))
     })
@@ -707,6 +733,11 @@ server <- function(id) {
     output$lcp_download <- downloadHandler(
       filename = function() paste0("intelimon_", format(Sys.Date(), "%Y%m%d"), "_lcp.zip"),
       content = function(file) file.copy(lcp_file(), file, overwrite = TRUE)
+    )
+
+    output$iftdss_download <- downloadHandler(
+      filename = function() paste0("intelimon_", format(Sys.Date(), "%Y%m%d"), "_iftdss.tif"),
+      content = function(file) file.copy(attr(lcp_file(), "iftdss_tif"), file, overwrite = TRUE)
     )
   })
 }

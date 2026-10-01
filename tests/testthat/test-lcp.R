@@ -161,3 +161,55 @@ describe("write_lcp", {
     expect_error(lcp$write_lcp(fake_stack()[[1:5]], tempfile(fileext = ".lcp")), "8 bands")
   })
 })
+
+describe("write_iftdss_tif", {
+  it("writes an 8-band 16-bit GeoTIFF with the LCP values and -9999 NoData", {
+    s <- lcp$burn_lidar_canopy(fake_stack(), metrics, plots)
+    s[1] <- NA
+    path <- lcp$write_iftdss_tif(s, tempfile(fileext = ".tif"))
+    back <- terra$rast(path)
+
+    expect_equal(terra$nlyr(back), 8)
+    expect_equal(names(back), impl$band_names())
+    expect_equal(unname(unlist(terra$extract(back, plot_xy, ID = FALSE))),
+                 c(2000, 10, 180, 165, 55, 169, 34, 10))
+    expect_true(all(is.na(unlist(back[1]))))
+    expect_equal(attr(path, "nodata_share"), 1 / terra$ncell(s))
+
+    info <- paste(terra$describe(path), collapse = "\n")
+    expect_true(grepl("Type=Int16", info, fixed = TRUE))
+    expect_true(grepl("NoData Value=-9999", info, fixed = TRUE))
+    expect_true(grepl("Albers", terra$crs(back, describe = TRUE)$name))
+  })
+
+  it("holds stand height, CBH and CBD to IFTDSS's limits", {
+    s <- fake_stack()
+    v <- terra$values(s)
+    v[1, c(6, 7, 8)] <- c(1400, 1300, 60) # too tall, CBH above the capped height, CBD high
+    v[2, c(6, 7)] <- c(150, 200) # LANDFIRE CBH above stand height
+    s <- terra$setValues(s, v)
+    path <- lcp$write_iftdss_tif(s, tempfile(fileext = ".tif"))
+    back <- terra$rast(path)
+
+    expect_equal(unname(unlist(back[1]))[6:8], c(1200, 1200, 50))
+    expect_equal(unname(unlist(back[2]))[6:7], c(150, 150))
+    expect_equal(unname(unlist(back[3])), c(2000, 10, 180, 165, 40, 150, 20, 10))
+    expect_equal(attr(path, "clamped"), c(stand_height = 1, canopy_base = 2, canopy_bulk = 1))
+    expect_true(grepl("1 cells' stand height capped", lcp$describe_iftdss_tif(path)))
+  })
+
+  it("flags a landscape IFTDSS would reject for too much NoData", {
+    s <- fake_stack()
+    v <- terra$values(s)
+    v[seq_len(ceiling(0.6 * nrow(v))), ] <- NA
+    path <- lcp$write_iftdss_tif(terra$setValues(s, v), tempfile(fileext = ".tif"))
+
+    expect_true(grepl("IFTDSS rejects more than 50%", lcp$describe_iftdss_tif(path)))
+  })
+
+  it("refuses rectangular cells", {
+    s <- terra$rast(nrows = 10, ncols = 10, xmin = 0, xmax = 300, ymin = 0, ymax = 600,
+                    crs = "EPSG:5070", nlyrs = 8)
+    expect_error(lcp$write_iftdss_tif(s, tempfile(fileext = ".tif")), "square")
+  })
+})
