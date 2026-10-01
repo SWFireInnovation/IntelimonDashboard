@@ -6,15 +6,18 @@
 #   1. AOI      - buffered bounding box (WGS84) around the selected plots
 #   2. LANDFIRE - request the 8 LCP layers from the LANDFIRE Product Service
 #                 (LFPS) and read them back as a single 8-band stack
-#   3. canopy   - correct the LANDFIRE canopy cover (band 5) and canopy base
-#                 height (band 7) across the AOI toward the scans' values
-#                 (rules in app/logic/lcp_canopy.R)
+#   3. canopy   - correct the LANDFIRE canopy cover (band 5), stand height
+#                 (band 6) and canopy base height (band 7) across the AOI
+#                 toward the scans' values (rules in app/logic/lcp_canopy.R)
 #   4. lidar    - burn the plot-level lidar canopy metrics into bands 5-7
 #                 (canopy cover, stand height, canopy base height) in a disc
 #                 around each plot. Bands 1-4 (elevation, slope, aspect, fuel
 #                 model) and 8 (canopy bulk density) stay LANDFIRE derived.
-#   5. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
-#   6. bundle   - zip the .lcp with its .prj so the projection travels with it
+#   5. crown    - keep CBH at most 90% of stand height inside the AOI and on
+#                 the plots, scaling LANDFIRE CBH down where stand height was
+#                 lowered
+#   6. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
+#   7. bundle   - zip the .lcp with its .prj so the projection travels with it
 #
 # Units: LANDFIRE already stores every layer in the LCP convention, so the
 # LANDFIRE bands pass through unchanged. The lidar metrics are converted:
@@ -33,7 +36,7 @@ box::use(
 )
 
 box::use(
-  app/logic/lcp_canopy[correct_landfire_canopy],
+  app/logic/lcp_canopy[CANOPY_CORRECTIONS, check_crown_length, correct_landfire_canopy],
   app/logic/lcp_format[write_esri_prj, write_lcp_binary],
 )
 
@@ -263,10 +266,13 @@ write_lcp <- function(stack, lcp_path) {
 #'   shifted so their mean matches it
 #' @param cover_pct optional user-submitted canopy cover (%); the scans' cover
 #'   values are shifted so their mean matches it
+#' @param height_m optional user-submitted stand height (m); the scans' MaxTH
+#'   values are shifted so their mean matches it
 #' @param progress function(message) called at each step
 #' @return zip_path, with the canopy correction details (see
 #'   app/logic/lcp_canopy.R) in attr(, "canopy_corrections"), a list with
-#'   one entry per corrected band
+#'   one entry per corrected band, and the crown check counts in
+#'   attr(, "crown_check")
 #' @export
 build_flammap_lcp <- function(metrics_dt,
                               plots_dt,
@@ -276,6 +282,7 @@ build_flammap_lcp <- function(metrics_dt,
                               aoi = NULL,
                               cbh_m = NULL,
                               cover_pct = NULL,
+                              height_m = NULL,
                               buffer_m = 2000,
                               plot_radius_m = 30,
                               version = "LF2024",
@@ -299,13 +306,16 @@ build_flammap_lcp <- function(metrics_dt,
   plots$CBH <- user_mean(plots$CBH, cbh_m)
   cover_target <- if (is.null(cover_pct)) NULL else cover_pct / 100 # scans store cover as 0-1
   plots$canopyCover <- user_mean(plots$canopyCover, cover_target)
+  plots$MaxTH <- user_mean(plots$MaxTH, height_m)
 
   progress("Requesting LANDFIRE layers...")
   stack <- fetch_landfire_stack(extent, email = email, version = version)
+  landfire <- stack[[c("stand_height", "canopy_base")]]
 
-  progress("Correcting LANDFIRE canopy cover and base height (bands 5, 7)...")
+  # LCP order puts stand height before CBH, so CBH is capped at the corrected height
+  progress("Correcting LANDFIRE canopy cover, stand height and base height (bands 5-7)...")
   corrections <- list()
-  for (b in Filter(function(b) b$name %in% c("canopy_cover", "canopy_base"), LCP_BANDS)) {
+  for (b in Filter(function(b) b$name %in% names(CANOPY_CORRECTIONS), LCP_BANDS)) {
     obs <- plots[, .(Longitude, Latitude)]
     obs$value <- b$to_lcp(as.numeric(plots[[b$metric]]))
     corrected <- correct_landfire_canopy(stack, obs, band = b$name, aoi = aoi)
@@ -316,11 +326,19 @@ build_flammap_lcp <- function(metrics_dt,
   progress("Burning lidar canopy metrics into bands 5-7...")
   stack <- burn_lidar_canopy(stack, plots, plots, plot_radius_m = plot_radius_m)
 
+  progress("Checking canopy base height against stand height...")
+  crown <- check_crown_length(
+    stack, landfire,
+    aoi = aoi, rescale = identical(corrections$canopy_base$rule, "none")
+  )
+  stack <- crown$stack
+
   progress("Writing .LCP...")
   lcp_path <- write_lcp(stack, tempfile(fileext = ".lcp"))
   on.exit(unlink(sub("\\.lcp$", ".*", lcp_path)), add = TRUE)
   out <- bundle_lcp(lcp_path, zip_path, name = name)
   attr(out, "canopy_corrections") <- corrections
+  attr(out, "crown_check") <- crown$info
   out
 }
 
