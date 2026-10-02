@@ -7,6 +7,7 @@ box::use(
 
 box::use(
   app/logic/manage_data,
+  app/view/widget_datatable,
 )
 
 #' @export
@@ -84,18 +85,7 @@ ui <- function(id) {
           )
         )
       ),
-      shiny$div(
-        style = "text-align:right;",
-        shiny$actionLink(
-          ns("btn_clear_selection"),
-          label = "Clear selection",
-          icon = shiny$icon("xmark")
-        )
-      ),
-      DT$DTOutput(
-        ns("tbl_selected_scans"),
-        height = "100%"
-      )
+      widget_datatable$ui_DT(ns("tbl_selected_scans"))
     )
   )
 }
@@ -168,7 +158,7 @@ server <- function(id) {
     #------Assign Unit or Remeasurement----------
     shiny$observeEvent(input$btn_assign, {
       # always initializes as NULL
-      selected_rows <- input$tbl_selected_scans_rows_selected
+      selected_rows <- tbl_DT$input$dt_rows_selected
       if (is.null(selected_rows)) {
         shiny$showNotification(
           "No scans selected. Click on the desired rows in the the table to the left",
@@ -177,19 +167,12 @@ server <- function(id) {
         )
       }
 
-      # get the row for the original sorting (this always seems to be the same as selected_rows)
-      orig_display_row <- input$tbl_selected_scans_rows_all[selected_rows]
-
-      # get the data.table with the original sorting
-      displayed_scans <- dt$copy(session$userData$scan_selection())
-      displayed_scans <- displayed_scans[order(plot, site, -date)]
-
       if (nzchar(input$ui_enter_unit)) {
-        displayed_scans[orig_display_row, "Unit" := as.character(input$ui_enter_unit)] # nolint: object_name_linter
+        displayed_scans[selected_rows, "Unit" := as.character(input$ui_enter_unit)] # nolint: object_name_linter
       }
 
       if (nzchar(input$ui_enter_remeas)) {
-        displayed_scans[orig_display_row, "Remeasurement" := as.integer(input$ui_enter_remeas)] # nolint: object_name_linter
+        displayed_scans[selected_rows, "Remeasurement" := as.integer(input$ui_enter_remeas)] # nolint: object_name_linter
       }
 
       session$userData$scan_selection(displayed_scans)
@@ -197,61 +180,21 @@ server <- function(id) {
 
     #---Data Table-------------------------------
     columns <- c("site", "plot", "date", "scanner_id", "Unit", "Remeasurement")
-
-    output$tbl_selected_scans <- DT$renderDT({
-      selected_scans <- session$userData$scan_selection()
-      dwnlded_scans <- session$userData$metrics()
-
-      nscans <- nrow(selected_scans)
-      ndwnld <- nrow(dwnlded_scans)
-      metrics_msg <- "Selected scans have not been downloaded! Return to Selection Map tab."
-      shiny$validate(
-        shiny$need(
-          nscans > 0,
-          "No scans selected. Return to Selection Map tab."
-        ),
-        shiny$need(
-          !is.null(dwnlded_scans),
-          metrics_msg
-        ),
-        shiny$need(
-          ndwnld == nscans,
-          paste(metrics_msg, "\nScans downloaded: ", ndwnld, "\nScans selected: ", nscans)
-        )
-      )
-
-      # set the default table sorting
-      selected_scans <- selected_scans[order(plot, site, -date)]
-
-      DT$datatable(
-        selected_scans[, ..columns],
-        filter = "top",
-        rownames = FALSE,
-        selection = "multiple",
-        # make site, plot, date, scanner_id ReadOnly, but allow unit and remeasurement to be changed
-        editable = list(target = "cell", disable = list(columns = c(0, 1, 2, 3))),
-        options = list(
-          pageLength = 50,
-          ordering = TRUE,
-          paging = FALSE,
-          # sort by date, then site w/in each date, then plot w/in each site
-          order = list(list(2, "asc"), list(0, "asc"), list(1, "asc"))
-        )
-      )
+    selected_scans <- shiny$reactive({
+      session$userData$scan_selection()[order(plot, site, -date)]
     })
 
-    proxy <- DT$dataTableProxy(
-      "tbl_selected_scans",
-      session = session
+    tbl_DT <- widget_datatable$server_DT("tbl_selected_scans",
+                                         selected_scans,
+                                         columns,
+                                         sort_order = list(list(2, "asc"), list(0, "asc"), list(1, "asc")),
+                                         # make site, plot, date, scanner_id ReadOnly, but allow unit and remeasurement to be changed
+                                         edit_options = list(target = "cell", disable = list(columns = c(0, 1, 2, 3)))
     )
 
-    shiny$observeEvent(input$btn_clear_selection, {
-      DT$selectRows(proxy, NULL)
-    })
-
     # allow the user to change table values
-    shiny$observeEvent(input$tbl_selected_scans_cell_edit, {
-      changes <- input$tbl_selected_scans_cell_edit
+    shiny$observeEvent(tbl_DT$input$dt_cell_edit, {
+      changes <- tbl_DT$input$dt_cell_edit
 
       selected_scans <- session$userData$scan_selection()
       displayed_scans <- selected_scans[, ..columns]
