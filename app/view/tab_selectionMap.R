@@ -1,5 +1,5 @@
 box::use(
-  bslib[card_body, card_header, nav_panel],
+  bslib[bs_theme, card_body, card_header, navbar_options, nav_panel, page_navbar],
   grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
@@ -8,13 +8,11 @@ box::use(
 
 box::use(
   api = app/logic/load_data_api,
-  app/logic/manage_data[build_scan_loc_dt, get_scans4dwnld, set_remeas_by_yr],
+  app/logic/manage_data[get_scans4dwnld, set_remeas_by_yr],
   app/logic/map_fnc[parse_click_id],
   app/view/map_controls[update_dwnld_scan_points, update_point_labels, update_selected_scan_points],
+  wDT = app/view/widget_datatable,
 )
-
-# load all plot locations
-plots <- build_scan_loc_dt()
 
 #' @export
 ui <- function(id) {
@@ -24,7 +22,7 @@ ui <- function(id) {
     title = "Selection Map",
     grid_container(
       layout = c(
-        "IntELiMonDSS leaflet_map"
+        "IntELiMonDSS selection"
       ),
       row_sizes = c(
         "1fr"
@@ -45,10 +43,18 @@ ui <- function(id) {
         )
       ),
       grid_card(
-        area = "leaflet_map",
+        area = "selection",
         full_screen = TRUE,
-        card_header("IntELiMon Plot Locations"),
-        leaflet$leafletOutput(ns("map"), height = 400)
+        # card_header("IntELiMon Plots"),
+        page_navbar(
+          title = "IntELiMon Plots",
+          selected = "Location Map",
+          navbar_options = navbar_options(collapsible = TRUE),
+          theme = bs_theme(),
+          header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
+          nav_panel(title = "Location Map", leaflet$leafletOutput(ns("map"))),
+          nav_panel(title = "Table", wDT$ui_DT(ns("tbl_scan_filter")))
+        )
       )
     )
   )
@@ -97,14 +103,18 @@ server <- function(id) {
     # the order given, so de-duplicating in place preserves the existing
     # agency-to-colour assignment. Sorting them would keep the same nine
     # colours but shuffle which agency gets which.
-    agency_levels <- unique(plots$Agency)
-    color_palette <- leaflet$colorFactor(
-      hcl.colors(length(agency_levels), "Dark 2"),
-      levels = agency_levels
-    )
+    color_palette <- shiny$reactive({
+      agency_levels <- unique(session$userData$all_scans()$Agency)
+
+      leaflet$colorFactor(
+        hcl.colors(length(agency_levels), "Dark 2"),
+        levels = agency_levels
+      )
+    })
 
     # make reactive markers
     filtered_plots <- shiny$reactive({
+      plots <- session$userData$all_scans()
       filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
       if (is.null(input$ui_select_agency) ||
             length(input$ui_select_agency) == 0) {
@@ -135,13 +145,13 @@ server <- function(id) {
           layerId = ~ paste(site, plot, sep = "-"),
           lng = ~Longitude,
           lat = ~Latitude,
-          color = ~ color_palette(Agency),
+          color = ~ color_palette()(Agency),
           radius = 4
         ) |>
         leaflet$addLegend(
           data = markers,
           position = "bottomleft",
-          pal = color_palette,
+          pal = color_palette(),
           values = ~Agency,
           opacity = 0.6
         ) |>
@@ -158,6 +168,14 @@ server <- function(id) {
                         filtered_plots(),
                         map_id = "map",
                         col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
+
+    #----Plots table-----------------------------
+    columns <- c("site", "plot", "date", "scanner_id", "Latitude", "Longitude")
+    tbl_DT <- wDT$server_DT("tbl_scan_filter",
+                            filtered_plots,
+                            columns,
+                            list(list(0, "asc"), list(1, "asc"), list(2, "asc")),
+                            edit_options = FALSE)
 
     #----Select plots----------------------------
     shiny$observeEvent(input$map_marker_click, {
@@ -260,6 +278,7 @@ server <- function(id) {
     })
 
     output$ui_select_date_range <- shiny$renderUI({
+      plots <- session$userData$all_scans()
       min_yr <- min(plots$date)
       max_yr <- max(plots$date)
       shiny$sliderInput(

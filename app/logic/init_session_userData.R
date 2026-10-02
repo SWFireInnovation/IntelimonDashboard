@@ -3,8 +3,15 @@ box::use(
   shiny[reactiveVal],
 )
 
+box::use(
+  app/logic/manage_data[build_scan_loc_dt],
+)
+
 init_session_userdata <- function(session) {
   # --------Shared User Data-------------------
+  session$userData$all_scans <- reactiveVal(
+    build_scan_loc_dt()
+  )
   # User selected scans for anaylysis
   session$userData$scan_selection <- reactiveVal(
     data.table(

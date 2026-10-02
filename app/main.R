@@ -10,7 +10,6 @@ box::use(
   view/tab_forestry,
   view/tab_fuels,
   view/tab_help,
-  view/tab_histogram,
   view/tab_load_data,
   view/tab_predictive_models,
   view/tab_rothRmel,
