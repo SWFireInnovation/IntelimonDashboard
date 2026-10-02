@@ -40,7 +40,6 @@ ui <- function(id) {
     if (!file.exists("../data_loc.yaml")) {
       tab_load_data$ui(ns("Load-Data"))
     },
-    tab_histogram$ui(ns("Histogram")),
     tab_selectionMap$ui(ns("Selection Map")),
     tab_set_trtmt$ui(ns("Set Treatments")),
     tab_directOutputs$ui(ns("Standard-outputs")),
@@ -64,7 +63,6 @@ server <- function(id) {
 
     # -------Tab Servers ------------------------
     data_dir <- tab_load_data$server("Load-Data")
-    tab_histogram$server("Histogram", data_dir = data_dir)
     tab_selectionMap$server("Selection Map")
     tab_set_trtmt$server("Set Treatments")
     tab_directOutputs$server("Standard-outputs")

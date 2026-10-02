@@ -129,13 +129,13 @@ which_scan_files <- function(path_list, csv_type = "metrics.csv", subdir_type = 
 #' @return boolean list indexing which rows have scan files of type "metrics"
 #' @export
 which_metrics_files <- function(path_list) {
-  get_scan_files(path_list, subdir_type = "metrics", csv_type = "metrics.csv")
+  which_scan_files(path_list, subdir_type = "metrics", csv_type = "metrics.csv")
 }
 
 #' @inheritParams get_metrics_files
 #' @export
 which_treeinv_files <- function(path_list) {
-  get_scan_files(path_list, subdir_type = "Inventory", csv_type = "inv.csv")
+  which_scan_files(path_list, subdir_type = "Inventory", csv_type = "inv.csv")
 }
 
 #' Get a data.table of all zip files and their contents in a parent directory.
