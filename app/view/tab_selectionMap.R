@@ -1,5 +1,5 @@
 box::use(
-  bslib[bs_theme, card_body, card_header, navbar_options, nav_panel, page_navbar],
+  bslib[bs_theme, card_body, card_header, nav_panel, navbar_options, page_navbar],
   grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
@@ -53,7 +53,7 @@ ui <- function(id) {
           theme = bs_theme(),
           header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
           nav_panel(title = "Location Map", leaflet$leafletOutput(ns("map"))),
-          nav_panel(title = "Table", wDT$ui_DT(ns("tbl_scan_filter")))
+          nav_panel(title = "Table", wDT$ui(ns("tbl_scan_filter")))
         )
       )
     )
@@ -171,7 +171,7 @@ server <- function(id) {
 
     #----Plots table-----------------------------
     columns <- c("site", "plot", "date", "scanner_id", "Latitude", "Longitude")
-    tbl_DT <- wDT$server_DT("tbl_scan_filter",
+    tbl_dt <- wDT$server("tbl_scan_filter",
                             filtered_plots,
                             columns,
                             list(list(0, "asc"), list(1, "asc"), list(2, "asc")),

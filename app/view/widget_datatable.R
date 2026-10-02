@@ -4,7 +4,7 @@ box::use(
 )
 
 #' @export
-ui_DT <- function(id) {
+ui <- function(id) {
   ns <- shiny$NS(id)
 
   shiny$tagList(
@@ -17,8 +17,8 @@ ui_DT <- function(id) {
       )
     ),
     DT$DTOutput(
-          ns("dt"),
-          height = "100%"
+      ns("dt"),
+      height = "100%"
     )
   )
 }
@@ -31,7 +31,7 @@ ui_DT <- function(id) {
 #' @return - list with names proxy, containing a proxy of the widget, and input, that contains the input for
 #'         the server with the approriate name space.
 #' @export
-server_DT <- function(id, data_reactive, columns, sort_order, edit_options = FALSE) {
+server <- function(id, data_reactive, columns, sort_order, edit_options = FALSE) {
   shiny$moduleServer(id, function(input, output, session) {
 
     output$dt <- DT$renderDT({
@@ -61,8 +61,8 @@ server_DT <- function(id, data_reactive, columns, sort_order, edit_options = FAL
     })
 
     proxy <- DT$dataTableProxy(
-        "dt",
-        session = session
+      "dt",
+      session = session
     )
 
     shiny$observeEvent(input$btn_clear_selection, {
