@@ -1,5 +1,5 @@
 box::use(
-  bslib[bs_theme, card_body, card_header, nav_panel, navbar_options, page_navbar],
+  bslib[bs_theme, card_body, card_header, nav_panel, navbar_options, navset_pill, page_navbar],
   grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
@@ -10,7 +10,11 @@ box::use(
   api = app/logic/load_data_api,
   app/logic/manage_data[get_scans4dwnld, set_remeas_by_yr],
   app/logic/map_fnc[parse_click_id],
-  app/view/map_controls[update_dwnld_scan_points, update_point_labels, update_selected_scan_points],
+  app/view/card_mapLeaflet,
+  app/view/map_controls[map_scan_points,
+                        update_dwnld_scan_points,
+                        update_point_labels,
+                        update_selected_scan_points],
   wDT = app/view/widget_datatable,
 )
 
@@ -45,14 +49,18 @@ ui <- function(id) {
       grid_card(
         area = "selection",
         full_screen = TRUE,
-        # card_header("IntELiMon Plots"),
-        page_navbar(
-          title = "IntELiMon Plots",
+        navset_pill(
+          #title = "IntELiMon Plots",
           selected = "Location Map",
-          navbar_options = navbar_options(collapsible = TRUE),
-          theme = bs_theme(),
-          header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
-          nav_panel(title = "Location Map", leaflet$leafletOutput(ns("map"))),
+          #navbar_options = navbar_options(collapsible = TRUE),
+          #theme = bs_theme(),
+          #header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
+          nav_panel(title = "Location Map",
+                    shiny$div(
+                                  style = "height: 600px;",
+                                  card_mapLeaflet$ui(ns("map"))
+                    )
+          ),
           nav_panel(title = "Table", wDT$ui(ns("tbl_scan_filter")))
         )
       )
@@ -63,36 +71,22 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
-    #-----Base Map-------------------------------
-    output$map <- leaflet$renderLeaflet({
-      leaflet$leaflet(
-        options = leaflet$leafletOptions(
-          crs = leaflet$leafletCRS(
-            crsClass = "L.CRS.EPSG3857",
-            code = "EPSG:3857",
-            proj4def = "+proj=merc +lon_0=0 +k=1 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs",
-            resolutions = NULL
-          )
-        )
-      ) |>
-        # Esri World Imagery (satellite basemap)
-        leaflet$addProviderTiles(
-          leaflet$providers$Esri.WorldImagery,
-          options = leaflet$providerTileOptions(maxZoom = 20),
-          group = "Satellite"
-        ) |>
-        # Esri World Imagery (political basemap)
-        leaflet$addProviderTiles(
-          leaflet$providers$Esri.WorldGrayCanvas,
-          options = leaflet$providerTileOptions(maxZoom = 20),
-          group = "Base Map"
-        ) |>
-        leaflet$addLayersControl(
-          baseGroups = c("Satellite", "Base Map"),
-          options    = leaflet$layersControlOptions(collapsed = FALSE),
-          position   = "topright"
-        )
+    # make reactive markers
+    filtered_plots <- shiny$reactive({
+      plots <- session$userData$all_scans()
+      shiny$req(input$ui_select_date_range)
+      filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
+      if (is.null(input$ui_select_agency) ||
+            length(input$ui_select_agency) == 0) {
+        return(filter_plots)
+      }
+      filter_plots[Agency %in% input$ui_select_agency]
     })
+
+    map <- card_mapLeaflet$server("map",
+                                  fit2pts =  filtered_plots,
+                                  col_names = list(lat = "Latitude", lng = "Longitude"))
+    proxy_map <- map$proxy
 
     #-----Map plot locations---------------------
     # Discrete palette for plot mapping. `levels` is the set of distinct
@@ -103,31 +97,18 @@ server <- function(id) {
     # the order given, so de-duplicating in place preserves the existing
     # agency-to-colour assignment. Sorting them would keep the same nine
     # colours but shuffle which agency gets which.
+    agency_levels <- shiny$reactive({
+      unique(session$userData$all_scans()$Agency)
+    })
     color_palette <- shiny$reactive({
-      agency_levels <- unique(session$userData$all_scans()$Agency)
-
       leaflet$colorFactor(
-        hcl.colors(length(agency_levels), "Dark 2"),
-        levels = agency_levels
+        hcl.colors(length(agency_levels()), "Dark 2"),
+        levels = agency_levels()
       )
     })
 
-    # make reactive markers
-    filtered_plots <- shiny$reactive({
-      plots <- session$userData$all_scans()
-      filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
-      if (is.null(input$ui_select_agency) ||
-            length(input$ui_select_agency) == 0) {
-        return(filter_plots)
-      }
-      filter_plots[Agency %in% input$ui_select_agency]
-    })
-
-    proxy_map <- leaflet$leafletProxy("map", session)
-
     shiny$observeEvent(filtered_plots(), {
       markers <- filtered_plots()
-      shiny$req(nrow(markers) > 0)
       # remove selected plots that do not fit the updated filter
       all_clicks <- session$userData$scan_selection()
       all_clicks <- all_clicks[markers,
@@ -137,33 +118,20 @@ server <- function(id) {
       ]
       session$userData$scan_selection(all_clicks)
 
-      proxy_map |>
-        leaflet$clearMarkers() |>
-        leaflet$clearControls() |>
-        leaflet$addCircleMarkers(
-          data = markers,
-          layerId = ~ paste(site, plot, sep = "-"),
-          lng = ~Longitude,
-          lat = ~Latitude,
-          color = ~ color_palette()(Agency),
-          radius = 4
-        ) |>
-        leaflet$addLegend(
-          data = markers,
-          position = "bottomleft",
-          pal = color_palette(),
-          values = ~Agency,
-          opacity = 0.6
-        ) |>
-        leaflet$fitBounds(
-          lng1 = min(markers$Longitude), lat1 = min(markers$Latitude),
-          lng2 = max(markers$Longitude), lat2 = max(markers$Latitude),
-          options = list(padding = c(15, 15))
-        )
+      map_scan_points(proxy_map,
+        markers,
+        col_names = list(lat = "Latitude", lng = "Longitude"),
+        color = ~color_palette()(Agency),
+        lgnd_colors = color_palette()(agency_levels()),
+        lgnd_labels = agency_levels(),
+        lyr_id = ~paste(site, plot, sep = "-"),
+        grp = "filtered",
+        clickble = TRUE
+      )
     })
 
     #-----Show labels once zoomed in-------------
-    update_point_labels(input,
+    update_point_labels(map$input,
                         proxy_map,
                         filtered_plots(),
                         map_id = "map",
@@ -178,9 +146,8 @@ server <- function(id) {
                             edit_options = FALSE)
 
     #----Select plots----------------------------
-    shiny$observeEvent(input$map_marker_click, {
-      click <- input$map_marker_click
-
+    shiny$observeEvent(map$input$map_marker_click, {
+      click <- map$input$map_marker_click
       markers <- filtered_plots()
       all_clicks <- session$userData$scan_selection()
 
@@ -207,8 +174,12 @@ server <- function(id) {
       session$userData$scan_selection(all_clicks)
     })
 
-    update_selected_scan_points(session, proxy_map, col_names = list(lat = "Latitude", lng = "Longitude"))
-    update_dwnld_scan_points(session, proxy_map, col_names = list(lat = "Latitude", lng = "Longitude"))
+    update_selected_scan_points(session, proxy_map,
+                                col_names = list(lat = "Latitude", lng = "Longitude"),
+                                lyrid = ~paste(site, plot, sep = "-"))
+    update_dwnld_scan_points(session, proxy_map,
+                             col_names = list(lat = "Latitude", lng = "Longitude"),
+                             lyrid = ~paste(site, plot, sep = "-"))
 
     shiny$observeEvent(input$btn_clear, {
       current <- session$userData$scan_selection()
