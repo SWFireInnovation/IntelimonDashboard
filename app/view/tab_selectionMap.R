@@ -1,5 +1,5 @@
 box::use(
-  bslib[bs_theme, card_body, card_header, nav_panel, navbar_options, navset_pill, page_navbar],
+  bslib[card_body, card_header, nav_panel, navset_pill],
   grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
@@ -56,10 +56,10 @@ ui <- function(id) {
           #theme = bs_theme(),
           #header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
           nav_panel(title = "Location Map",
-                    shiny$div(
-                                  style = "height: 600px;",
-                                  card_mapLeaflet$ui(ns("map"))
-                    )
+            shiny$div(
+              style = "height: 600px;",
+              card_mapLeaflet$ui(ns("map"))
+            )
           ),
           nav_panel(title = "Table", wDT$ui(ns("tbl_scan_filter")))
         )
@@ -140,10 +140,10 @@ server <- function(id) {
     #----Plots table-----------------------------
     columns <- c("site", "plot", "date", "scanner_id", "Latitude", "Longitude")
     tbl_dt <- wDT$server("tbl_scan_filter",
-                            filtered_plots,
-                            columns,
-                            list(list(0, "asc"), list(1, "asc"), list(2, "asc")),
-                            edit_options = FALSE)
+                         filtered_plots,
+                         columns,
+                         list(list(0, "asc"), list(1, "asc"), list(2, "asc")),
+                         edit_options = FALSE)
 
     #----Select plots----------------------------
     shiny$observeEvent(map$input$map_marker_click, {

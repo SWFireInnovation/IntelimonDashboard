@@ -184,7 +184,7 @@ server <- function(id) {
       session$userData$scan_selection()[order(plot, site, -date)]
     })
 
-    tbl_dt <- wDT$server_DT("tbl_selected_scans",
+    tbl_dt <- wDT$server("tbl_selected_scans",
       selected_scans,
       columns,
       sort_order = list(list(2, "asc"), list(0, "asc"), list(1, "asc")),

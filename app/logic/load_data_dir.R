@@ -2,10 +2,8 @@ box::use(
   archive,
   datasets[state.abb],
   fs,
-  purrr[map_df],
   tools[file_path_sans_ext],
-  utils[read.csv],
-  yaml[read_yaml],
+  utils[read.csv2],
 )
 
 #' @export
@@ -59,7 +57,7 @@ is_date <- function(test_str)  !is.na(as.Date(test_str, "%Y%m%d")) && nchar(test
 #' @export
 is_plot <- function(test_str) {
   has_4_dig <- nchar(test_str) == 4
-  is_digit <- grepl("^\\d+$",test_str)
+  is_digit <- grepl("^\\d+$", test_str)
 
   has_4_dig && is_digit
 }
@@ -149,7 +147,7 @@ which_treeinv_files <- function(path_list) {
 #' @export
 get_zip_contents <- function(path, ext = ".zip") {
 
-  if (!startsWith(ext, ".")){
+  if (!startsWith(ext, ".")) {
     ext <- paste0(".", ext)
   }
 
@@ -164,9 +162,9 @@ get_zip_contents <- function(path, ext = ".zip") {
   zip_contents <- lapply(zip_files[is_scan], function(file) {
     contents <- archive$archive(file)
     data.frame(
-        csv_path = contents$path,
-        zip_path = file,
-        stringsAsFactors = FALSE
+      csv_path = contents$path,
+      zip_path = file,
+      stringsAsFactors = FALSE
     )
   })
 
@@ -176,8 +174,8 @@ get_zip_contents <- function(path, ext = ".zip") {
 #' Get a data.table of all csv files in a parent directory.
 #'
 #' Reutrns a data.table with 2 columns, csv_path listing the path to all csv files in the parent directory and
-#' zip_path, which will be NA for all rows in the data.table. For csv files that could be inside of a zip file,
-#' see get_zip_contents.
+#' zip_path, which will be NA for all rows in the data.table. For csv files that could be inside of a zip
+#' file, see get_zip_contents.
 #'
 #' @param path - str. A valid directory to search for csv files
 #' @return a data.table with the path to all csv files in the parent directory.
