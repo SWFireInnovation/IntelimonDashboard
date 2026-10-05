@@ -18,8 +18,10 @@
 #                 lowered
 #   6. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
 #   7. bundle   - zip the .lcp with its .prj so the projection travels with it
-#   8. IFTDSS   - optionally write the same landscape as the 8-band GeoTIFF
-#                 IFTDSS accepts as a custom landscape (write_iftdss_tif)
+#   8. IFTDSS   - optionally write the same landscape as the GeoTIFF IFTDSS
+#                 accepts as a custom landscape (write_iftdss_tif): the 8 LCP
+#                 bands plus LANDFIRE FCCS fuelbeds and map zones as bands
+#                 9-10, the layout IFTDSS uses since version 3.12
 #
 # Units: LANDFIRE already stores every layer in the LCP convention, so the
 # LANDFIRE bands pass through unchanged. The lidar metrics are converted:
@@ -89,6 +91,17 @@ LCP_BANDS <- list(
 
 band_names <- function() vapply(LCP_BANDS, `[[`, character(1), "name")
 
+#' LANDFIRE layers IFTDSS (version 3.12 on) stores after the 8 LCP bands.
+#'
+#' They are categorical and pass through uncorrected. LANDFIRE publishes FCCS
+#' fuelbeds for LF2023 and LF2025 but not LF2024; LF2023 sits closest to the
+#' LF2024 fuel layers.
+#' @export
+IFTDSS_EXTRA_BANDS <- list(
+  list(name = "fccs", product = "LF2023_FCCS"),
+  list(name = "map_zone", product = "map_zones")
+)
+
 #' LFPS layer names for the LCP bands, in LCP order.
 #'
 #' Topography is only published as LF2020; `version` selects the fuel and
@@ -131,24 +144,50 @@ check_band_ranges <- function(stack) {
   ok
 }
 
-#' Download the 8 LCP layers from LFPS and read them as a named stack.
+#' Read the LFPS GeoTIFF as a named stack: the 8 LCP bands, then `extra_bands`.
+#'
+#' @param tif the multiband GeoTIFF LFPS returns
+#' @param extra_bands entries of IFTDSS_EXTRA_BANDS requested after the LCP layers
+#' @export
+read_landfire_stack <- function(tif, extra_bands = list()) {
+  stack <- terra$rast(tif)
+  expected <- length(LCP_BANDS) + length(extra_bands)
+  if (terra$nlyr(stack) != expected) {
+    stop("LANDFIRE returned ", terra$nlyr(stack), " bands; expected ", expected, ".")
+  }
+  names(stack) <- c(band_names(), vapply(extra_bands, `[[`, character(1), "name"))
+
+  in_range <- check_band_ranges(stack[[seq_along(LCP_BANDS)]])
+  if (!all(in_range)) {
+    stop(
+      "LANDFIRE bands out of their expected range (wrong order?): ",
+      paste(names(in_range)[!in_range], collapse = ", ")
+    )
+  }
+  stack
+}
+
+#' Download the 8 LCP layers (and any extra layers) from LFPS as a named stack.
 #'
 #' @param aoi c(xmin, ymin, xmax, ymax) in WGS84
 #' @param email LFPS contact email
 #' @param version LANDFIRE release for the fuel and canopy layers
+#' @param extra_bands entries of IFTDSS_EXTRA_BANDS to request after the LCP layers
 #' @param out_dir directory the LFPS zip is downloaded and unpacked into
 #' @param max_time seconds to wait for the LFPS job before giving up
 #' @export
 fetch_landfire_stack <- function(aoi,
                                  email,
                                  version = "LF2024",
+                                 extra_bands = list(),
                                  out_dir = tempfile("landfire_"),
                                  max_time = 900) {
   dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
   zip_path <- file.path(out_dir, "landfire.zip")
 
+  products <- c(lcp_products(version), vapply(extra_bands, `[[`, character(1), "product"))
   job <- landfireAPIv2(
-    products = lcp_products(version), aoi = aoi, email = email,
+    products = products, aoi = aoi, email = email,
     projection = 5070, path = zip_path, max_time = max_time,
     method = "libcurl", verbose = FALSE
   )
@@ -161,21 +200,7 @@ fetch_landfire_stack <- function(aoi,
   if (length(tif) != 1) {
     stop("Expected one GeoTIFF from LANDFIRE, found ", length(tif), ".")
   }
-
-  stack <- terra$rast(tif)
-  if (terra$nlyr(stack) != length(LCP_BANDS)) {
-    stop("LANDFIRE returned ", terra$nlyr(stack), " bands; expected ", length(LCP_BANDS), ".")
-  }
-  names(stack) <- band_names()
-
-  in_range <- check_band_ranges(stack)
-  if (!all(in_range)) {
-    stop(
-      "LANDFIRE bands out of their expected range (wrong order?): ",
-      paste(names(in_range)[!in_range], collapse = ", ")
-    )
-  }
-  stack
+  read_landfire_stack(tif, extra_bands)
 }
 
 #' Latest scan per plot with its coordinates and lidar canopy metrics.
@@ -262,25 +287,34 @@ IFTDSS_MAX_CBD <- 50 # kg/m^3 x 100
 IFTDSS_MAX_NODATA <- 0.5 # share of NoData cells IFTDSS accepts
 IFTDSS_NODATA <- -9999
 
-#' Write the 8-band stack as the GeoTIFF IFTDSS accepts as a custom landscape.
+#' Write the stack as the GeoTIFF IFTDSS accepts as a custom landscape.
 #'
-#' Same bands, order and units as the LCP, as 16-bit integers with -9999 for
-#' cells LANDFIRE leaves empty. Values are held to IFTDSS's limits: stand
-#' height at most 120 m, CBH at most the stand height in every cell, CBD at
-#' most 0.50 kg/m^3.
-#' @param stack 8-band stack in LCP band order, projected in meters
+#' The 8 LCP bands (same order and units as the LCP), followed by FCCS
+#' fuelbeds and map zones as bands 9-10 when the stack carries them
+#' (IFTDSS_EXTRA_BANDS), as 32-bit integers with -9999 for cells LANDFIRE
+#' leaves empty. 32 bits because LANDFIRE codes a disturbed FCCS fuelbed as
+#' fuelbed * 10000 + disturbance (e.g. 5310122), past the 16-bit limit.
+#' Values are held to IFTDSS's limits: stand height at most 120 m, CBH at
+#' most the stand height in every cell, CBD at most 0.50 kg/m^3.
+#' @param stack 8-band stack in LCP band order, or 10 bands with
+#'   IFTDSS_EXTRA_BANDS after them, projected in meters
 #' @param tif_path output .tif; IFTDSS rejects names with other "." in them
 #' @return tif_path, with the cells changed per band in attr(, "clamped") and
 #'   the share of NoData cells in attr(, "nodata_share")
 #' @export
 write_iftdss_tif <- function(stack, tif_path) {
-  if (terra$nlyr(stack) != length(LCP_BANDS)) {
-    stop("IFTDSS needs ", length(LCP_BANDS), " bands; got ", terra$nlyr(stack), ".")
+  layer_names <- c(band_names(), vapply(IFTDSS_EXTRA_BANDS, `[[`, character(1), "name"))
+  n_bands <- terra$nlyr(stack)
+  if (!n_bands %in% c(length(LCP_BANDS), length(layer_names))) {
+    stop(
+      "IFTDSS needs ", length(LCP_BANDS), " or ", length(layer_names), " bands; got ",
+      n_bands, "."
+    )
   }
   if (abs(diff(terra$res(stack))) > 1e-6) stop("IFTDSS needs square cells.")
 
   values <- round(terra$values(stack))
-  colnames(values) <- band_names()
+  colnames(values) <- layer_names[seq_len(n_bands)]
   h <- values[, "stand_height"]
   over_h <- !is.na(h) & h > IFTDSS_MAX_HEIGHT
   h[over_h] <- IFTDSS_MAX_HEIGHT
@@ -294,17 +328,22 @@ write_iftdss_tif <- function(stack, tif_path) {
   values[, "canopy_base"] <- cbh
   values[, "canopy_bulk"] <- cbd
 
+  if (any(abs(values) > .Machine$integer.max, na.rm = TRUE)) {
+    stop("A landscape value does not fit in a 32-bit integer.")
+  }
   out <- terra$setValues(stack, values)
-  names(out) <- band_names()
+  names(out) <- colnames(values)
   dir.create(dirname(tif_path), recursive = TRUE, showWarnings = FALSE)
   terra$writeRaster(
     out, tif_path,
-    datatype = "INT2S", NAflag = IFTDSS_NODATA, overwrite = TRUE, gdal = "COMPRESS=DEFLATE"
+    datatype = "INT4S", NAflag = IFTDSS_NODATA, overwrite = TRUE, gdal = "COMPRESS=DEFLATE"
   )
   attr(tif_path, "clamped") <- c(
     stand_height = sum(over_h), canopy_base = sum(over_cbh), canopy_bulk = sum(over_cbd)
   )
-  attr(tif_path, "nodata_share") <- mean(rowSums(is.na(values)) > 0)
+  # NoData share over the LCP bands; FCCS has gaps of its own (e.g. water)
+  attr(tif_path, "nodata_share") <- mean(rowSums(is.na(values[, band_names()])) > 0)
+  attr(tif_path, "bands") <- n_bands
   tif_path
 }
 
@@ -322,6 +361,12 @@ describe_iftdss_tif <- function(tif) {
     ),
     clamped[["stand_height"]], clamped[["canopy_base"]], clamped[["canopy_bulk"]]
   )
+  if (attr(tif, "bands") == length(LCP_BANDS)) {
+    msg <- paste(
+      msg, "LANDFIRE could not supply FCCS fuelbeds and map zones, so the file has the",
+      "8 LCP bands only."
+    )
+  }
   share <- attr(tif, "nodata_share")
   if (share > IFTDSS_MAX_NODATA) {
     msg <- sprintf(
@@ -391,7 +436,17 @@ build_flammap_lcp <- function(metrics_dt,
   plots$MaxTH <- user_mean(plots$MaxTH, height_m)
 
   progress("Requesting LANDFIRE layers...")
-  stack <- fetch_landfire_stack(extent, email = email, version = version)
+  # the IFTDSS GeoTIFF also carries FCCS fuelbeds and map zones; if LANDFIRE
+  # can't supply them, build the landscape without them rather than fail
+  extra <- if (is.null(tif_path)) list() else IFTDSS_EXTRA_BANDS
+  stack <- tryCatch(
+    fetch_landfire_stack(extent, email = email, version = version, extra_bands = extra),
+    error = function(e) {
+      if (length(extra) == 0) stop(e)
+      progress("Retrying LANDFIRE without the FCCS and map zone layers...")
+      fetch_landfire_stack(extent, email = email, version = version)
+    }
+  )
   landfire <- stack[[c("stand_height", "canopy_base")]]
 
   # LCP order puts stand height before CBH, so CBH is capped at the corrected height
@@ -416,7 +471,7 @@ build_flammap_lcp <- function(metrics_dt,
   stack <- crown$stack
 
   progress("Writing .LCP...")
-  lcp_path <- write_lcp(stack, tempfile(fileext = ".lcp"))
+  lcp_path <- write_lcp(stack[[seq_along(LCP_BANDS)]], tempfile(fileext = ".lcp"))
   on.exit(unlink(sub("\\.lcp$", ".*", lcp_path)), add = TRUE)
   out <- bundle_lcp(lcp_path, zip_path, name = name)
   if (!is.null(tif_path)) {

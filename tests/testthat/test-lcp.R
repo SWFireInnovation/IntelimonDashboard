@@ -1,7 +1,7 @@
 box::use(
   data.table[copy, data.table],
   terra,
-  testthat[describe, expect_equal, expect_error, expect_true, it],
+  testthat[describe, expect_equal, expect_error, expect_false, expect_true, it],
   utils[unzip],
 )
 
@@ -44,6 +44,43 @@ describe("lcp_products", {
         "LF2024_CC", "LF2024_CH", "LF2024_CBH", "LF2024_CBD"
       )
     )
+  })
+})
+
+describe("read_landfire_stack", {
+  # an LFPS-style GeoTIFF: the 8 LCP layers, then FCCS fuelbeds and map zones
+  lfps_tif <- function(n_extra = 2) {
+    s <- fake_stack()
+    if (n_extra > 0) {
+      extra <- terra$rast(s[[1:n_extra]])
+      extra <- terra$setValues(extra, rep(c(1203, 15)[seq_len(n_extra)], each = terra$ncell(s)))
+      s <- c(s, extra)
+    }
+    names(s) <- paste0("US_", seq_len(terra$nlyr(s)))
+    path <- tempfile(fileext = ".tif")
+    terra$writeRaster(s, path)
+    path
+  }
+
+  it("names the 8 LCP bands and the IFTDSS extras in request order", {
+    s <- lcp$read_landfire_stack(lfps_tif(), lcp$IFTDSS_EXTRA_BANDS)
+    expect_equal(names(s), c(impl$band_names(), "fccs", "map_zone"))
+    expect_equal(unname(unlist(s[1])), c(2000, 10, 180, 165, 40, 150, 20, 10, 1203, 15))
+  })
+
+  it("reads the 8 LCP bands alone when no extras were requested", {
+    expect_equal(names(lcp$read_landfire_stack(lfps_tif(0))), impl$band_names())
+  })
+
+  it("refuses a band count that does not match the request", {
+    expect_error(lcp$read_landfire_stack(lfps_tif(0), lcp$IFTDSS_EXTRA_BANDS), "expected 10")
+  })
+})
+
+describe("IFTDSS_EXTRA_BANDS", {
+  it("requests FCCS fuelbeds and map zones, the IFTDSS 3.12 bands 9-10", {
+    products <- vapply(lcp$IFTDSS_EXTRA_BANDS, `[[`, character(1), "product")
+    expect_equal(products, c("LF2023_FCCS", "map_zones"))
   })
 })
 
@@ -163,7 +200,7 @@ describe("write_lcp", {
 })
 
 describe("write_iftdss_tif", {
-  it("writes an 8-band 16-bit GeoTIFF with the LCP values and -9999 NoData", {
+  it("writes an 8-band 32-bit integer GeoTIFF with the LCP values and -9999 NoData", {
     s <- lcp$burn_lidar_canopy(fake_stack(), metrics, plots)
     s[1] <- NA
     path <- lcp$write_iftdss_tif(s, tempfile(fileext = ".tif"))
@@ -177,7 +214,7 @@ describe("write_iftdss_tif", {
     expect_equal(attr(path, "nodata_share"), 1 / terra$ncell(s))
 
     info <- paste(terra$describe(path), collapse = "\n")
-    expect_true(grepl("Type=Int16", info, fixed = TRUE))
+    expect_true(grepl("Type=Int32", info, fixed = TRUE))
     expect_true(grepl("NoData Value=-9999", info, fixed = TRUE))
     expect_true(grepl("Albers", terra$crs(back, describe = TRUE)$name))
   })
@@ -196,6 +233,32 @@ describe("write_iftdss_tif", {
     expect_equal(unname(unlist(back[3])), c(2000, 10, 180, 165, 40, 150, 20, 10))
     expect_equal(attr(path, "clamped"), c(stand_height = 1, canopy_base = 2, canopy_bulk = 1))
     expect_true(grepl("1 cells' stand height capped", lcp$describe_iftdss_tif(path)))
+  })
+
+  it("writes FCCS fuelbeds and map zones as bands 9-10, uncorrected", {
+    s <- fake_stack()
+    # a disturbed fuelbed: 531 * 10000 + disturbance 122, past the 16-bit limit
+    extra <- terra$setValues(s[[1:2]], rep(c(5310122, 15), each = terra$ncell(s)))
+    s <- c(s, extra)
+    names(s) <- c(impl$band_names(), "fccs", "map_zone")
+    v <- terra$values(s)
+    v[1, 9] <- NA # FCCS gap (e.g. water) is not counted as landscape NoData
+    s <- terra$setValues(s, v)
+    path <- lcp$write_iftdss_tif(s, tempfile(fileext = ".tif"))
+    back <- terra$rast(path)
+
+    expect_equal(terra$nlyr(back), 10)
+    expect_equal(names(back)[9:10], c("fccs", "map_zone"))
+    expect_equal(unname(unlist(back[2])), c(2000, 10, 180, 165, 40, 150, 20, 10, 5310122, 15))
+    expect_true(is.na(unlist(back[1])[[9]]))
+    expect_equal(attr(path, "bands"), 10)
+    expect_equal(attr(path, "nodata_share"), 0)
+    expect_false(grepl("8 LCP bands only", lcp$describe_iftdss_tif(path)))
+  })
+
+  it("notes when the GeoTIFF has the 8 LCP bands only", {
+    path <- lcp$write_iftdss_tif(fake_stack(), tempfile(fileext = ".tif"))
+    expect_true(grepl("8 LCP bands only", lcp$describe_iftdss_tif(path)))
   })
 
   it("flags a landscape IFTDSS would reject for too much NoData", {
