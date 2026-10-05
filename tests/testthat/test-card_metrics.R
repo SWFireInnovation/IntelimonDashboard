@@ -24,7 +24,7 @@ card_args <- function(plot_type) {
     session = NULL,
     data_dt = reactive(scans),
     metric_col = reactive("MDBH"),
-    errorbars_on = reactive("on"),
+    errorbars_on = reactive("sd"),
     treatlines_on = reactive("on"),
     plot_type = reactive(plot_type),
     data_type = reactive("raw")

@@ -27,10 +27,11 @@ standard_plt_ctrls <- function(ns) {
       inline = TRUE,
       width = "100%"
     ),
+    # SD: spread of the plots in a time step; SE (SD / sqrt(n)): precision of its mean
     shiny$radioButtons(ns("ui_btn_show_errorbars"),
       "Error bars",
-      choices = list("On" = "on", "Off" = "off"),
-      selected = "on",
+      choices = list("SD" = "sd", "SE" = "se", "Off" = "off"),
+      selected = "sd",
       inline = TRUE,
       width = "100%"
     )

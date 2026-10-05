@@ -4,11 +4,13 @@
 # passed in explicitly.
 #
 # Four plot modes (chosen from the dropdown at the top of each tab's sidebar):
-#   "timeseries" - aggregated mean +/- sd per time step, connected line
+#   "timeseries" - aggregated mean per time step, connected line, with
+#                  +/- 1 SD or SE error bars (the "Error bars" control)
 #   "individual" - one colored line/point series per site/plot, legend at side
 #   "boxplot"    - box & whisker per time step (distribution across plots),
 #                  time on the X axis
-#   "bar"        - mean per time step as bars, time on the X axis
+#   "bar"        - mean per time step as bars, time on the X axis, with the
+#                  same error bars
 #
 # Every mode plots either the raw metric values or percent change from each
 # site/plot's own first scan, chosen with the "Data type" dropdown in each
@@ -35,6 +37,26 @@ box::use(
   app/logic/manage_timesteps[aggregate_time_steps, assign_time_steps,
                              describe_time_steps, percent_change_series],
 )
+
+# Error bar half-width per time step for the "Error bars" control: "sd" is the
+# spread of the scans in the step, "se" the standard error of its mean
+# (SD / sqrt(n)). NA (no bar) for a single-scan step or when bars are off.
+.error_halfwidth <- function(smry, errorbars) {
+  switch(errorbars,
+    sd = smry$sd,
+    se = smry$sd / sqrt(smry$n),
+    rep(NA_real_, nrow(smry))
+  )
+}
+
+# Plot caption naming what the error bars show; NULL when they are off.
+.error_caption <- function(errorbars) {
+  switch(errorbars,
+    sd = "Error bars: \u00b11 SD",
+    se = "Error bars: \u00b11 SE",
+    NULL
+  )
+}
 
 # Derived metrics: dropdown key -> the metrics column it is computed from
 # and the transform applied to it
@@ -303,6 +325,7 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
   } else if (mode == "bar") {
     smry <- aggregate_time_steps(raw)
     shiny$validate(shiny$need(nrow(smry) > 0, "No valid values for this metric in the loaded scans."))
+    smry[, err := .error_halfwidth(smry, errorbars_on)]
     labs_chr <- format(smry$t, "%Y-%m-%d")
     smry[, lab := factor(labs_chr, levels = unique(labs_chr[order(smry$t)]))]
 
@@ -315,13 +338,14 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
       }
     }
     p <- p + gplt$geom_col(fill = pal$accent, width = 0.7, alpha = 0.85)
-    if (errorbars_on == "on") {
-      p <- p + gplt$geom_errorbar(gplt$aes(ymin = mean - sd, ymax = mean + sd),
+    if (errorbars_on != "off") {
+      p <- p + gplt$geom_errorbar(gplt$aes(ymin = mean - err, ymax = mean + err),
                                   width = 0.3, color = pal$txt_dim, na.rm = TRUE)
     }
     p +
       y_scale() +
-      gplt$labs(x = "Scan date (time step)", y = axis_label, title = y_label) +
+      gplt$labs(x = "Scan date (time step)", y = axis_label, title = y_label,
+                caption = .error_caption(errorbars_on)) +
       aurora_theme(pal) +
       gplt$theme(axis.text.x = gplt$element_text(angle = 35, hjust = 1))
 
@@ -329,6 +353,7 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
   } else {
     smry <- aggregate_time_steps(raw)
     shiny$validate(shiny$need(nrow(smry) > 0, "No valid values for this metric in the loaded scans."))
+    smry[, err := .error_halfwidth(smry, errorbars_on)]
 
     p <- gplt$ggplot(smry, gplt$aes(x = t, y = mean))
     if (show_treat) {
@@ -336,8 +361,8 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
                                linetype = "solid", linewidth = TREAT_LW)
     }
     p <- p + gplt$geom_line(color = pal$accent, linewidth = 0.9)
-    if (errorbars_on == "on") {
-      p <- p + gplt$geom_errorbar(gplt$aes(ymin = mean - sd, ymax = mean + sd),
+    if (errorbars_on != "off") {
+      p <- p + gplt$geom_errorbar(gplt$aes(ymin = mean - err, ymax = mean + err),
                                   width = 5, color = pal$txt_dim, na.rm = TRUE)
     }
     p +
@@ -345,7 +370,8 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
                       color = pal$stroke, fill = pal$point, na.rm = TRUE) +
       gplt$scale_x_date(limits = range(smry$t), expand = gplt$expansion(mult = 0.05)) +
       y_scale() +
-      gplt$labs(x = "Scan date", y = axis_label, title = y_label) +
+      gplt$labs(x = "Scan date", y = axis_label, title = y_label,
+                caption = .error_caption(errorbars_on)) +
       aurora_theme(pal)
   }
 
