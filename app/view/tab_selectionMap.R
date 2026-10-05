@@ -10,12 +10,12 @@ box::use(
   api = app/logic/load_data_api,
   app/logic/manage_data[get_scans4dwnld, set_remeas_by_yr],
   app/logic/map_fnc[parse_click_id],
-  app/view/card_mapLeaflet,
   app/view/map_controls[map_scan_points,
                         update_dwnld_scan_points,
                         update_point_labels,
                         update_selected_scan_points],
   wDT = app/view/widget_datatable,
+  app/view/widget_mapLeaflet,
 )
 
 #' @export
@@ -49,19 +49,21 @@ ui <- function(id) {
       grid_card(
         area = "selection",
         full_screen = TRUE,
-        navset_pill(
-          #title = "IntELiMon Plots",
-          selected = "Location Map",
-          #navbar_options = navbar_options(collapsible = TRUE),
-          #theme = bs_theme(),
-          #header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
-          nav_panel(title = "Location Map",
-            shiny$div(
-              style = "height: 600px;",
-              card_mapLeaflet$ui(ns("map"))
-            )
-          ),
-          nav_panel(title = "Table", wDT$ui(ns("tbl_scan_filter")))
+        height = "100%",
+        card_header("IntELiMon Plots"),
+        card_body(
+          fill = TRUE,
+          height = "100%",
+          fillable = TRUE,
+          navset_pill(
+            #title = "IntELiMon Plots",
+            selected = "Location Map",
+            #navbar_options = navbar_options(collapsible = TRUE),
+            #theme = bs_theme(),
+            #header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
+            nav_panel(title = "Location Map", widget_mapLeaflet$ui(ns("map"))),
+            nav_panel(title = "Table", wDT$ui(ns("tbl_scan_filter")))
+          )
         )
       )
     )
@@ -83,11 +85,10 @@ server <- function(id) {
       filter_plots[Agency %in% input$ui_select_agency]
     })
 
-    map <- card_mapLeaflet$server("map",
-                                  fit2pts =  filtered_plots,
-                                  col_names = list(lat = "Latitude", lng = "Longitude"))
+    map <- widget_mapLeaflet$server("map",
+                                    fit2pts =  filtered_plots,
+                                    col_names = list(lat = "Latitude", lng = "Longitude"))
     proxy_map <- map$proxy
-
     #-----Map plot locations---------------------
     # Discrete palette for plot mapping. `levels` is the set of distinct
     # agencies, not the whole column: passing all 11k+ scan rows makes

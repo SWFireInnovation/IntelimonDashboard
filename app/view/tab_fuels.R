@@ -29,8 +29,8 @@ box::use(
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup],
   app/logic/manage_data[pivot_on_model],
-  app/view/card_mapLeaflet,
   app/view/map_controls[update_dwnld_scan_points, update_point_labels],
+  app/view/widget_mapLeaflet,
 )
 
 #' @export
@@ -116,7 +116,7 @@ ui <- function(id) {
                   style = "display:flex; gap:10px; height:100%;",
                   div(
                     style = "flex:1; min-width:0; min-height:200px; height:100%;",
-                    card_mapLeaflet$ui(ns("aoi_map"))
+                    widget_mapLeaflet$ui(ns("aoi_map"))
                   ),
                   div(
                     style = "width:150px; flex:none; display:flex;
@@ -548,9 +548,9 @@ server <- function(id) {
     # ---- AOI draw map ----
     aoi_polygon <- reactiveVal(NULL)
 
-    map <- card_mapLeaflet$server("aoi_map",
-                                  fit2pts =  session$userData$scan_selection,
-                                  col_names = list(lat = "Latitude", lng = "Longitude"))
+    map <- widget_mapLeaflet$server("aoi_map",
+                                    fit2pts =  session$userData$scan_selection,
+                                    col_names = list(lat = "Latitude", lng = "Longitude"))
     proxy_map <- map$proxy
 
     # Center the AOI map on the selected plots when metrics load

@@ -12,15 +12,7 @@ box::use(
 #' @export
 ui <- function(id) {
   ns <- NS(id)
-
-  bslib$card(
-    full_screen = TRUE,
-    height = "100%",
-    bslib$card_header("IntELiMon Plot Locations"),
-    bslib$card_body(
-      leaflet$leafletOutput(ns("map"), height = "100%")
-    )
-  )
+  leaflet$leafletOutput(ns("map"), height = "100%")
 }
 
 #' @param id module id - must match the id `ui()` was called with.

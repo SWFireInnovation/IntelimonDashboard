@@ -680,10 +680,22 @@ main > .container-fluid,
 
 .tab-content > .tab-pane.active > .grid-container {
   flex: 1 1 auto;
-  height: auto !important;
   min-height: 0;
 }
-.imn-sponsorbar { margin-top: 0 !important; }
+
+.tabbable {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
+
+.tabbable > .tab-content {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+}
 
 /* =========================================================================
    Tightening v4  (source-order last, wins)
