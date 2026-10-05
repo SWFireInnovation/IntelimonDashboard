@@ -167,6 +167,8 @@ server <- function(id) {
         )
       }
 
+      displayed_scans <- selected_scans()
+
       if (nzchar(input$ui_enter_unit)) {
         displayed_scans[selected_rows, "Unit" := as.character(input$ui_enter_unit)] # nolint: object_name_linter
       }
