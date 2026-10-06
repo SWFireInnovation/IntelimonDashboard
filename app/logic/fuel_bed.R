@@ -69,6 +69,37 @@ merge_scan_models <- function(metrics_dt, models_wide_dt) {
   merge.data.table(m, w, by = key, all.x = TRUE)
 }
 
+#' Scans for a point in time.
+#'
+#' @param dt table with site, plot and date columns
+#' @param mode "recent" (latest scan per plot), "all" (every scan) or "date"
+#'   (each plot's scan nearest `date`, the earlier one on a tie)
+#' @param date target date for mode "date"; without one, "recent" is used
+#' @export
+select_scans <- function(dt, mode = "recent", date = NULL) {
+  if (is.null(dt) || nrow(dt) == 0 || identical(mode, "all")) {
+    return(dt)
+  }
+  d <- as.numeric(as.Date(dt$date))
+  target <- if (identical(mode, "date") && length(date) == 1) as.numeric(as.Date(date)) else NA
+  rank <- if (is.na(target)) -d else 2 * abs(d - target) + (d > target)
+  plot_id <- paste(dt$site, dt$plot, sep = "\r")
+  o <- order(plot_id, rank)
+  dt[sort(o[!duplicated(plot_id[o])])]
+}
+
+#' Words for a point in time, e.g. "scans nearest 2023-08-25".
+#' @export
+point_in_time_label <- function(mode, date = NULL) {
+  if (identical(mode, "all")) {
+    "mean of all scans"
+  } else if (identical(mode, "date") && length(date) == 1 && !is.na(as.Date(date))) {
+    paste("scans nearest", format(as.Date(date)))
+  } else {
+    "most recent per plot"
+  }
+}
+
 #' Surface fuel bed with the source of each value.
 #'
 #' @param fm one-row fuel model from fuel_model_lookup(), or NULL

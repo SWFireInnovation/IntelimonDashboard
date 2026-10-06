@@ -82,7 +82,8 @@ aoi_vect <- function(aoi, layer) {
   terra$project(terra$vect(st_transform(aoi, 4326)), terra$crs(layer))
 }
 
-# TRUE for each cell of `layer` inside the AOI; every cell when aoi is NULL.
+#' TRUE for each cell of `layer` inside the AOI; every cell when aoi is NULL.
+#' @export
 aoi_cells <- function(layer, aoi) {
   if (is.null(aoi)) {
     return(rep(TRUE, terra$ncell(layer)))

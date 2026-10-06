@@ -1708,3 +1708,28 @@ body .imn-sponsor-plate {
   width: auto;
   white-space: nowrap;
 }
+
+/* Fuels exports sidebar: date field beside the "Nearest" choice */
+.imn-agg-date {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.imn-agg-date .form-group,
+.imn-agg-date .shiny-input-container {
+  margin: 0 !important;
+  width: 110px !important;
+  flex: none;
+}
+
+.imn-agg-date input.form-control {
+  /* the radio rules size every input in the label like a radio button */
+  position: static !important;
+  width: 100% !important;
+  margin: 0 !important;
+  height: 24px;
+  min-height: 24px;
+  padding: 0 6px !important;
+  font-size: 12px !important;
+}

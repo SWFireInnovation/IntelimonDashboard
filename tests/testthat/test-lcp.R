@@ -194,6 +194,18 @@ describe("write_lcp", {
     expect_true(grepl("Albers", terra$crs(back, describe = TRUE)$name))
   })
 
+  it("bundles a custom fuel model file under the same name", {
+    lcp_path <- lcp$write_lcp(fake_stack(), tempfile(fileext = ".lcp"), custom_fuels = TRUE)
+    fmd_path <- tempfile(fileext = ".fmd")
+    writeLines("ENGLISH", fmd_path)
+    zip_path <- lcp$bundle_lcp(lcp_path, tempfile(fileext = ".zip"), name = "site_x",
+                               fmd_path = fmd_path)
+
+    out <- tempfile()
+    unzip(zip_path, exdir = out)
+    expect_equal(sort(list.files(out)), c("site_x.fmd", "site_x.lcp", "site_x.prj"))
+  })
+
   it("refuses a stack without 8 bands", {
     expect_error(lcp$write_lcp(fake_stack()[[1:5]], tempfile(fileext = ".lcp")), "8 bands")
   })

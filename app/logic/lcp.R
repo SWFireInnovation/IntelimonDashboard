@@ -16,12 +16,18 @@
 #   5. crown    - keep CBH at most 90% of stand height inside the AOI and on
 #                 the plots, scaling LANDFIRE CBH down where stand height was
 #                 lowered
-#   6. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
-#   7. bundle   - zip the .lcp with its .prj so the projection travels with it
-#   8. IFTDSS   - optionally write the same landscape as the GeoTIFF IFTDSS
+#   6. surface  - when modeled surface fuel loadings were submitted, swap the
+#                 burnable fuel models (band 4) in the AOI for custom twins
+#                 scaled class by class to them (app/logic/lcp_surface.R)
+#   7. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
+#   8. bundle   - zip the .lcp with its .prj (and the custom fuel model .fmd)
+#                 so the projection and fuel models travel with it
+#   9. IFTDSS   - optionally write the same landscape as the GeoTIFF IFTDSS
 #                 accepts as a custom landscape (write_iftdss_tif): the 8 LCP
 #                 bands plus LANDFIRE FCCS fuelbeds and map zones as bands
-#                 9-10, the layout IFTDSS uses since version 3.12
+#                 9-10, the layout IFTDSS uses since version 3.12. It keeps
+#                 LANDFIRE's standard fuel models: IFTDSS doesn't read .fmd
+#                 custom fuel models.
 #
 # Units: LANDFIRE already stores every layer in the LCP convention, so the
 # LANDFIRE bands pass through unchanged. The lidar metrics are converted:
@@ -42,6 +48,7 @@ box::use(
 box::use(
   app/logic/lcp_canopy[CANOPY_CORRECTIONS, check_crown_length, correct_landfire_canopy],
   app/logic/lcp_format[write_esri_prj, write_lcp_binary],
+  app/logic/lcp_surface[normalize_surface_fuels, write_fmd],
 )
 
 #' LCP band spec, in the order the LCP format stores them.
@@ -254,8 +261,9 @@ burn_lidar_canopy <- function(stack, metrics_dt, plots_dt, plot_radius_m = 30) {
 #' written as water (see LCP_BANDS). A .prj is written alongside.
 #' @param stack 8-band stack in LCP band order, projected in meters
 #' @param lcp_path output .lcp file
+#' @param custom_fuels TRUE when band 4 holds custom fuel model numbers
 #' @export
-write_lcp <- function(stack, lcp_path) {
+write_lcp <- function(stack, lcp_path, custom_fuels = FALSE) {
   if (terra$nlyr(stack) != length(LCP_BANDS)) {
     stop("An LCP needs ", length(LCP_BANDS), " bands; got ", terra$nlyr(stack), ".")
   }
@@ -274,7 +282,7 @@ write_lcp <- function(stack, lcp_path) {
     lcp_path, values,
     ncol = terra$ncol(stack), nrow = terra$nrow(stack),
     extent = as.vector(terra$ext(stack)), resolution = terra$res(stack),
-    latitude = latitude
+    latitude = latitude, custom_fuels = custom_fuels
   )
   write_esri_prj(terra$crs(stack), sub("\\.lcp$", ".prj", lcp_path))
   lcp_path
@@ -413,6 +421,9 @@ build_flammap_lcp <- function(metrics_dt,
                               plot_radius_m = 30,
                               version = "LF2024",
                               tif_path = NULL,
+                              surface_scans = NULL,
+                              surface_system = "FBFM40",
+                              surface_label = NULL,
                               progress = message) {
   progress("Building AOI from selected plots...")
   plots <- latest_plot_metrics(metrics_dt, plots_dt)
@@ -470,36 +481,55 @@ build_flammap_lcp <- function(metrics_dt,
   )
   stack <- crown$stack
 
+  # the custom fuel models go into the LCP only; the IFTDSS GeoTIFF below
+  # keeps the standard models in `stack`
+  surface <- NULL
+  if (!is.null(surface_scans) && nrow(surface_scans) > 0) {
+    progress("Scaling surface fuel models (band 4) to the submitted loadings...")
+    surface <- normalize_surface_fuels(
+      stack, surface_scans,
+      aoi = aoi, system = surface_system, label = surface_label
+    )
+  }
+  lcp_stack <- if (is.null(surface)) stack else surface$stack
+
   progress("Writing .LCP...")
-  lcp_path <- write_lcp(stack[[seq_along(LCP_BANDS)]], tempfile(fileext = ".lcp"))
+  lcp_path <- write_lcp(
+    lcp_stack[[seq_along(LCP_BANDS)]], tempfile(fileext = ".lcp"),
+    custom_fuels = !is.null(surface)
+  )
   on.exit(unlink(sub("\\.lcp$", ".*", lcp_path)), add = TRUE)
-  out <- bundle_lcp(lcp_path, zip_path, name = name)
+  fmd_path <- if (!is.null(surface)) write_fmd(surface$models, tempfile(fileext = ".fmd"))
+  out <- bundle_lcp(lcp_path, zip_path, name = name, fmd_path = fmd_path)
   if (!is.null(tif_path)) {
     progress("Writing IFTDSS GeoTIFF...")
     attr(out, "iftdss_tif") <- write_iftdss_tif(stack, tif_path)
   }
+  attr(out, "surface_fuels") <- surface$info
   attr(out, "canopy_corrections") <- corrections
   attr(out, "crown_check") <- crown$info
   out
 }
 
-#' Zip an .lcp with the .prj GDAL writes alongside it.
+#' Zip an .lcp with the .prj written alongside it, and its custom fuel models.
 #'
-#' Both files are renamed to `name` inside the zip so they stay paired.
+#' The files are renamed to `name` inside the zip so they stay paired.
 #' @param lcp_path .lcp written by write_lcp()
 #' @param zip_path output .zip
 #' @param name base file name used inside the zip
+#' @param fmd_path optional custom fuel model file (write_fmd())
 #' @return zip_path
 #' @export
-bundle_lcp <- function(lcp_path, zip_path, name = "intelimon") {
+bundle_lcp <- function(lcp_path, zip_path, name = "intelimon", fmd_path = NULL) {
   prj_path <- sub("\\.lcp$", ".prj", lcp_path)
   if (!file.exists(prj_path)) stop("No .prj found next to ", lcp_path, ".")
 
   staging <- tempfile("lcp_bundle_")
   dir.create(staging)
   on.exit(unlink(staging, recursive = TRUE), add = TRUE)
-  files <- paste0(name, c(".lcp", ".prj"))
-  file.copy(c(lcp_path, prj_path), file.path(staging, files))
+  sources <- c(lcp = lcp_path, prj = prj_path, fmd = fmd_path)
+  files <- paste0(name, ".", names(sources))
+  file.copy(sources, file.path(staging, files))
 
   if (file.exists(zip_path)) file.remove(zip_path)
   zip(zip_path, files, root = staging)

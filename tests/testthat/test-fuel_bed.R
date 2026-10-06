@@ -162,3 +162,36 @@ describe("bed_for_scan", {
     expect_null(fuel_bed$bed_for_scan(NULL, other))
   })
 })
+
+describe("select_scans", {
+  dt <- data.table(
+    site = "S", plot = c("1", "1", "1", "2"),
+    date = as.Date(c("2021-07-01", "2023-08-01", "2025-07-01", "2022-01-01"))
+  )
+
+  it("keeps each plot's most recent scan", {
+    expect_equal(fuel_bed$select_scans(dt, "recent")$date, as.Date(c("2025-07-01", "2022-01-01")))
+  })
+
+  it("keeps every scan for the mean of all scans", {
+    expect_equal(nrow(fuel_bed$select_scans(dt, "all")), 4)
+  })
+
+  it("keeps each plot's scan nearest the date, the earlier one on a tie", {
+    near <- fuel_bed$select_scans(dt, "date", as.Date("2023-01-01"))
+    expect_equal(near$date, as.Date(c("2023-08-01", "2022-01-01")))
+    pair <- data.table(site = "S", plot = "1", date = as.Date(c("2021-07-01", "2021-07-11")))
+    tie <- fuel_bed$select_scans(pair, "date", as.Date("2021-07-06"))
+    expect_equal(tie$date, as.Date("2021-07-01"))
+  })
+
+  it("falls back to the most recent scan without a date", {
+    expect_equal(nrow(fuel_bed$select_scans(dt, "date", NULL)), 2)
+  })
+
+  it("labels the point in time", {
+    expect_equal(fuel_bed$point_in_time_label("date", "2023-08-25"), "scans nearest 2023-08-25")
+    expect_equal(fuel_bed$point_in_time_label("all"), "mean of all scans")
+    expect_equal(fuel_bed$point_in_time_label("date", NULL), "most recent per plot")
+  })
+})

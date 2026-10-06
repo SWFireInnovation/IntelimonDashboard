@@ -13,7 +13,7 @@
 # ---------------------------------------------------------------------------
 box::use(
   bslib[card_body, card_header, nav_panel],
-  data.table[.SD, as.data.table, copy, data.table, setorder],
+  data.table[as.data.table, copy, data.table],
   gridlayout[grid_card, grid_container],
   mirai[mirai],
   sf[st_area, st_polygon, st_sf, st_sfc, st_transform],
@@ -29,11 +29,18 @@ box::use(
     brown_class_load
   ],
   app/logic/fuel_bed[
-    MODELED_COLS, default_fuel_source, mean_fuel_loading, merge_scan_models, scan_fuel_loads
+    MODELED_COLS,
+    default_fuel_source,
+    mean_fuel_loading,
+    merge_scan_models,
+    point_in_time_label,
+    scan_fuel_loads,
+    select_scans
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup, is_litter_model],
   app/logic/lcp[build_flammap_lcp, describe_iftdss_tif],
   app/logic/lcp_canopy[describe_canopy_correction, describe_crown_check],
+  app/logic/lcp_surface[describe_surface_normalization],
   app/logic/manage_data[pivot_on_model],
   app/view/card_mapLeaflet,
   app/view/map_controls[update_dwnld_scan_points, update_point_labels],
@@ -62,11 +69,19 @@ ui <- function(id) {
             ),
             selected = "modeled", width = "100%"
           ),
-          radioButtons(ns("fuel_agg"), "Plot aggregation",
-            choices = list(
-              "Most recent per plot" = "recent",
-              "Mean of all scans" = "all"
+          # point in time for the card means and the LCP's surface fuels; the
+          # date field sits in the third choice's label
+          radioButtons(ns("fuel_agg"), "Point in time",
+            choiceNames = list(
+              "Most recent per plot",
+              "Mean of all scans",
+              div(
+                class = "imn-agg-date",
+                tags$span("Nearest"),
+                dateInput(ns("fuel_date"), NULL, width = "110px")
+              )
             ),
+            choiceValues = list("recent", "all", "date"),
             selected = "recent", width = "100%"
           ),
           # LANDFIRE fuel-model picker. Rendered server-side rather than with a
@@ -147,18 +162,13 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   moduleServer(id, function(input, output, session) {
-    # Aggregate a source table to one row per column, honoring the plot-
-    # aggregation radio (most recent scan per site/plot, or all scans).
+    # The scans of the sidebar's point in time: the most recent per plot, all
+    # of them, or each plot's scan nearest the chosen date.
     aggregate_scans <- function(src) {
       if (nrow(src) == 0) {
         return(data.table())
       }
-      m <- as.data.table(copy(src))
-      if (input$fuel_agg == "recent") {
-        setorder(m, site, plot, -date)
-        m <- m[, .SD[1], by = list(site, plot)]
-      }
-      m
+      select_scans(as.data.table(copy(src)), input$fuel_agg, input$fuel_date)
     }
 
     fuel_scans <- reactive({
@@ -301,6 +311,11 @@ server <- function(id) {
       if (nrow(session$userData$metrics()) == 0) {
         return()
       }
+      dates <- as.Date(session$userData$metrics()$date)
+      updateDateInput(session, "fuel_date",
+        value = max(dates, na.rm = TRUE),
+        min = min(dates, na.rm = TRUE), max = max(dates, na.rm = TRUE)
+      )
       has_data <- vapply(MODELED_COLS, function(col) !is.na(fuel_mean(col)), logical(1))
       updateRadioButtons(session, "fuel_source",
         selected = default_fuel_source(MODELED_COLS[has_data])
@@ -621,7 +636,7 @@ server <- function(id) {
         sprintf(
           "Means over %d scans (%s); each scan's own loadings are submitted.",
           m$n,
-          if (identical(input$fuel_agg, "recent")) "most recent per plot" else "all scans"
+          point_in_time_label(input$fuel_agg, input$fuel_date)
         ),
         if (landfire) {
           paste(
@@ -679,7 +694,11 @@ server <- function(id) {
         return()
       }
 
+      # the means stand in for any scan rothRmel meets that the table doesn't
+      # hold; the label reports the sidebar's point in time
       m <- mean_fuel_loading(loads)
+      selected <- select_scans(loads, input$fuel_agg, input$fuel_date)
+      point_in_time <- point_in_time_label(input$fuel_agg, input$fuel_date)
       fm <- active_fuel_model()
       bed <- list(
         scans = loads,
@@ -697,9 +716,9 @@ server <- function(id) {
           "Scott & Burgan 40"
         },
         label = sprintf(
-          "%s, mean %s t/ac",
+          "%s, mean %s t/ac (%s)",
           if (landfire) "LANDFIRE fuel models" else "Per-scan loadings",
-          fmt_num(sum(m$load_tonsac), 2)
+          fmt_num(sum(mean_fuel_loading(selected)$load_tonsac), 2), point_in_time
         ),
         non_burnable = FALSE
       )
@@ -714,6 +733,11 @@ server <- function(id) {
       bed$canopy_cover_pct <- cc
       bed$stand_height_m <- num_input("cf_maxth")
       bed$aggregation <- sprintf("%d scans, each with its own loadings", nrow(loads))
+      # the LCP's surface fuels follow the sidebar's point in time; LANDFIRE
+      # derived loadings are the standard models, so they leave the LCP as is
+      bed$point_in_time <- point_in_time
+      bed$fbfm_system <- if (identical(input$fbfm_system, "FBFM13")) "FBFM13" else "FBFM40"
+      bed$surface_scans <- if (!landfire) selected
       bed$submitted_at <- Sys.time()
 
       no_depth <- sum(is.na(loads$depth_ft) | loads$depth_ft <= 0)
@@ -827,7 +851,8 @@ server <- function(id) {
     lcp_format <- reactiveVal("lcp")
 
     lcp_task <- ExtendedTask$new(function(metrics, plots, email, zip_path, name, aoi, cbh_m,
-                                          cover_pct, height_m, tif_path) {
+                                          cover_pct, height_m, tif_path, surface_scans,
+                                          surface_system, surface_label) {
       mirai(
         {
           # the worker starts without the project's .Rprofile, so point it at
@@ -839,13 +864,16 @@ server <- function(id) {
             metrics, plots,
             email = email, zip_path = zip_path, name = name, aoi = aoi, cbh_m = cbh_m,
             cover_pct = cover_pct, height_m = height_m, tif_path = tif_path,
+            surface_scans = surface_scans, surface_system = surface_system,
+            surface_label = surface_label,
             progress = function(msg) NULL
           )
         },
         lib_paths = .libPaths(), project_dir = getwd(),
         metrics = metrics, plots = plots, email = email, zip_path = zip_path, name = name,
         aoi = aoi, cbh_m = cbh_m, cover_pct = cover_pct, height_m = height_m,
-        tif_path = tif_path
+        tif_path = tif_path, surface_scans = surface_scans, surface_system = surface_system,
+        surface_label = surface_label
       )
     })
 
@@ -863,7 +891,11 @@ server <- function(id) {
         cover_pct = session$userData$fuel_tool_values()$canopy_cover_pct,
         height_m = session$userData$fuel_tool_values()$stand_height_m,
         # IFTDSS rejects file names with a "." besides the extension's
-        tif_path = file.path(tempfile("iftdss_"), paste0(name, ".tif"))
+        tif_path = file.path(tempfile("iftdss_"), paste0(name, ".tif")),
+        # modeled surface fuel loadings for the point in time, if submitted
+        surface_scans = session$userData$fuel_tool_values()$surface_scans,
+        surface_system = session$userData$fuel_tool_values()$fbfm_system,
+        surface_label = session$userData$fuel_tool_values()$point_in_time
       )
       showNotification(
         paste(
@@ -920,7 +952,10 @@ server <- function(id) {
         title = if (iftdss) "IFTDSS landscape ready" else "LCP ready",
         p("Landscape built from LANDFIRE with lidar canopy cover, stand height and",
           "canopy base height at the selected plots. The LCP .zip holds the .lcp and its",
-          ".prj for FlamMap; the .tif uploads to IFTDSS as a custom landscape (unzipped)."),
+          ".prj for FlamMap (and an .fmd of custom fuel models when surface fuels were",
+          "scaled); the .tif uploads to IFTDSS as a custom landscape (unzipped) and keeps",
+          "LANDFIRE's standard fuel models."),
+        p(describe_surface_normalization(attr(zip_path, "surface_fuels"))),
         lapply(attr(zip_path, "canopy_corrections"), function(x) p(describe_canopy_correction(x))),
         p(describe_crown_check(attr(zip_path, "crown_check"))),
         p(describe_iftdss_tif(attr(zip_path, "iftdss_tif"))),

@@ -18,7 +18,8 @@
 #   4164  int32 columns, int32 rows, double max x, min x, max y, min y,
 #         int32 linear unit (0 = meters), double x res, double y res
 #   4224  int16[10] unit codes (elevation m, slope deg, aspect azimuth deg,
-#         no custom fuel models, cover %, heights m x 10, CBD kg/m^3 x 100)
+#         fuel model option: 0 = standard models only, 1 = custom models with
+#         no conversion file; cover %, heights m x 10, CBD kg/m^3 x 100)
 #   4244  char[256] x 10 source file names (left empty)
 #   6804  char[512] description
 #   7316  int16 cells, row by row from the north edge, all bands per cell
@@ -59,10 +60,13 @@ band_classes <- function(values) {
 #' @param resolution c(x, y) cell size
 #' @param latitude whole-degree latitude of the landscape
 #' @param description free text stored in the header
+#' @param custom_fuels TRUE when the fuel band holds custom fuel model numbers
+#'   (defined in an accompanying .fmd file)
 #' @return path
 #' @export
 write_lcp_binary <- function(path, values, ncol, nrow, extent, resolution, latitude,
-                             description = "LCP file created by IntELiMon.") {
+                             description = "LCP file created by IntELiMon.",
+                             custom_fuels = FALSE) {
   if (ncol(values) != 8) stop("An LCP needs 8 bands; got ", ncol(values), ".")
   if (nrow(values) != ncol * nrow) stop("values has ", nrow(values), " cells; expected ", ncol * nrow, ".")
   if (anyNA(values)) stop("LCP values cannot contain NA; fill them first.")
@@ -88,7 +92,9 @@ write_lcp_binary <- function(path, values, ncol, nrow, extent, resolution, latit
   dbl(bounds)
   int32(0L) # linear unit: meters
   dbl(abs(resolution))
-  writeBin(LCP_UNIT_CODES, con, size = 2, endian = "little")
+  unit_codes <- LCP_UNIT_CODES
+  if (custom_fuels) unit_codes[4] <- 1L
+  writeBin(unit_codes, con, size = 2, endian = "little")
   pad_to(6804)
   writeBin(charToRaw(substr(description, 1, 511)), con)
   pad_to(LCP_HEADER_BYTES)
