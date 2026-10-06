@@ -1,5 +1,7 @@
 box::use(
+  DT[selectRows],
   bslib[card_body, card_header, nav_panel, navset_pill],
+  data.table[fsetequal],
   grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
@@ -73,8 +75,10 @@ ui <- function(id) {
 #' @export
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
+    #--Filter scans----------------------------------------
     # make reactive markers
-    filtered_plots <- shiny$reactive({
+    # filter the scans based on the sidebar filters (sent to table display)
+    sidebar_filtered_plots <- shiny$reactive({
       plots <- session$userData$all_scans()
       shiny$req(input$ui_select_date_range)
       filter_plots <- plots[date >= input$ui_select_date_range[1] & date <= input$ui_select_date_range[2]]
@@ -85,6 +89,18 @@ server <- function(id) {
       filter_plots[Agency %in% input$ui_select_agency]
     })
 
+    # filter the scans further by any filters applited in the table display (sent to map display)
+    filtered_plots <- shiny$reactive({
+      sidebar_filtered_dt <- sidebar_filtered_plots()
+      tbl_filtered_index <- tbl_dt$input$dt_rows_all
+
+      if (is.null(tbl_filtered_index)) {
+        return(sidebar_filtered_dt)
+      }
+      sidebar_filtered_dt[tbl_filtered_index]
+    })
+
+    # --------Create Map ------------------------
     map <- widget_mapLeaflet$server("map",
                                     fit2pts =  filtered_plots,
                                     col_names = list(lat = "Latitude", lng = "Longitude"))
@@ -141,12 +157,50 @@ server <- function(id) {
     #----Plots table-----------------------------
     columns <- c("site", "plot", "date", "scanner_id", "Latitude", "Longitude")
     tbl_dt <- wDT$server("tbl_scan_filter",
-                         filtered_plots,
+                         sidebar_filtered_plots,
                          columns,
                          list(list(0, "asc"), list(1, "asc"), list(2, "asc")),
                          edit_options = FALSE)
 
     #----Select plots----------------------------
+    selection_key <- c("site", "plot", "date", "scanner_id")
+    # add to selected plots from ---TABLE---
+    shiny$observeEvent(tbl_dt$input$dt_rows_selected, {
+      # always initializes as NULL
+      dt_selected_rows <- tbl_dt$input$dt_rows_selected
+
+      if (is.null(dt_selected_rows)) {
+        dt_selected_rows <- 0
+      }
+      all_scans <- sidebar_filtered_plots()
+      dt_selected_scans <- all_scans[dt_selected_rows]
+
+      current_selection <- session$userData$scan_selection()
+
+      # remove unselected (inner join)
+      updated_selection <- current_selection[dt_selected_scans,
+                                             on = selection_key,
+                                             nomatch = 0, .SD,
+                                             .SDcols = names(current_selection)]
+
+      # add newly selected
+      added_selection <- dt_selected_scans[!current_selection, on = selection_key]
+
+      if (nrow(added_selection) > 0) {
+        added_selection[, ":="(
+          id = paste(site, plot, sep = "-"),
+          Unit = "My Unit",
+          Remeasurement = NA_real_
+        )]
+        updated_selection <- rbind(updated_selection, added_selection, fill = TRUE)
+      }
+
+      if (!fsetequal(current_selection, updated_selection)) {
+        session$userData$scan_selection(updated_selection)
+      }
+    })
+
+    # add to selected plots from ---MAP---
     shiny$observeEvent(map$input$map_marker_click, {
       click <- map$input$map_marker_click
       markers <- filtered_plots()
@@ -173,6 +227,21 @@ server <- function(id) {
 
       # reassign to reactive variable
       session$userData$scan_selection(all_clicks)
+    })
+
+    # UPDATE from selection
+    shiny$observeEvent(session$userData$scan_selection(), {
+      all_scans <- sidebar_filtered_plots()
+      selection <- session$userData$scan_selection()
+
+      selected_rows <- all_scans[
+        selection,
+        on = selection_key,
+        which = TRUE,
+        nomatch = 0
+      ]
+
+      selectRows(tbl_dt$proxy, selected_rows)
     })
 
     update_selected_scan_points(session, proxy_map,

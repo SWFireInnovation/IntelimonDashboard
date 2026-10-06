@@ -55,7 +55,10 @@ server <- function(id, data_reactive, columns, sort_order, edit_options = FALSE)
           ordering = TRUE,
           paging = FALSE,
           # sort by date, then site w/in each date, then plot w/in each site
-          order = sort_order
+          order = sort_order,
+          fixedHeader = TRUE,
+          # fix order: f = global search box, i = info-text(1of3), t =  table
+          dom = "it"
         )
       )
     })
