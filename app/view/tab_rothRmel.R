@@ -227,7 +227,7 @@ server <- function(id) {
         sprintf("%s · %s", b$system, b$aggregation), shiny$tags$br(),
         shiny$tags$span(
           style = "color:var(--imn-dim)",
-          "Surface fuels held constant across scans; canopy still per-scan."
+          "Surface fuel loadings and canopy are both per scan."
         )
       )
     })

@@ -19,12 +19,13 @@
 # point: it lets treatment effects show up as fire-behavior trends over time.
 # ---------------------------------------------------------------------------
 box::use(
-  data.table[as.data.table, data.table, rbindlist],
+  data.table[data.table, rbindlist],
   stats[uniroot],
 )
 
 box::use(
   app/logic/fuel[BROWN_CLASSES, brown_class_load],
+  app/logic/fuel_bed[bed_for_scan, merge_scan_models],
 )
 
 # ---- constants ------------------------------------------------------------
@@ -212,12 +213,12 @@ scan_fire_row <- function(row, env) {
     }
   }
 
-  # Surface fuel bed. Either the per-scan lidar/Brown bed (default) or a fixed
-  # bed submitted from the Fuel tool (env$bed). When a submitted bed is used
-  # the SURFACE fuels are held constant across scans while the CANOPY terms
-  # below still come from each scan - so the time series still shows how
-  # changing stand structure alters torching/crowning under one fuel scenario.
-  bed <- env$bed
+  # Surface fuel bed. Either the per-scan lidar/Brown bed (default) or the
+  # loadings submitted from the Fuels exports tab (env$bed), which carries
+  # one row per scan (app/logic/fuel_bed.R), so the submitted loadings are
+  # still tracked through time. A scan the submission doesn't hold uses the
+  # submitted means.
+  bed <- bed_for_scan(env$bed, row)
   sav_use <- SAV
   if (!is.null(bed)) {
     load_tonsac <- c(
@@ -379,15 +380,8 @@ scan_fire_behavior <- function(metrics_dt, models_wide_dt, env) {
   }
 
   key <- c("site", "plot", "date", "scanner_id")
-  m <- as.data.table(metrics_dt)
-
   # Bring in the model columns (fuel loads, depth) if present
-  if (nrow(models_wide_dt) > 0) {
-    w <- as.data.table(models_wide_dt)
-    dup <- setdiff(intersect(names(m), names(w)), key)
-    if (length(dup) > 0) w[, (dup) := NULL] # metrics win on clashes
-    m <- merge(m, w, by = key, all.x = TRUE)
-  }
+  m <- merge_scan_models(metrics_dt, models_wide_dt)
 
   rows <- lapply(seq_len(nrow(m)), function(i) {
     fb <- scan_fire_row(as.list(m[i]), env)

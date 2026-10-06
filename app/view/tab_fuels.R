@@ -1,7 +1,9 @@
 # app/view/tab_fuels.R
 # ---------------------------------------------------------------------------
-# Fuels exports tab. Surface / canopy / time-lag fuel cards prefilled from the
-# loaded scans, plus an AOI draw map. Reads metrics + the wide additional-
+# Fuels exports tab. Surface depth / time-lag / canopy fuel cards prefilled from
+# the loaded scans, a "Mean fuel loading" card averaging the per-scan surface
+# fuel loadings sent to rothRmel (with the source of every value), plus an AOI
+# draw map. Reads metrics + the wide additional-
 # models table through app/logic/dst_state.R, and writes the drawn polygon to
 # session$userData$aoi_polygon and the submitted fuel bed to
 # session$userData$fuel_tool_values (picked up by the rothRmel tab).
@@ -16,19 +18,20 @@ box::use(
   mirai[mirai],
   sf[st_area, st_polygon, st_sf, st_sfc, st_transform],
   shiny[...],
-  stats[setNames],
 )
 
 box::use(
   app/logic/fuel[
     BROWN_CLASSES,
     CANOPY_FUEL_ROWS,
-    COVER_CLASS_MODELS,
     SURFACE_FUEL_MODELS,
     TIMELAG_FUEL_MODELS,
     brown_class_load
   ],
-  app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup],
+  app/logic/fuel_bed[
+    MODELED_COLS, default_fuel_source, mean_fuel_loading, merge_scan_models, scan_fuel_loads
+  ],
+  app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup, is_litter_model],
   app/logic/lcp[build_flammap_lcp, describe_iftdss_tif],
   app/logic/lcp_canopy[describe_canopy_correction, describe_crown_check],
   app/logic/manage_data[pivot_on_model],
@@ -66,23 +69,10 @@ ui <- function(id) {
             ),
             selected = "recent", width = "100%"
           ),
-          selectInput(ns("cover_class"), "Surface fuel cover class",
-            choices = setNames(
-              names(COVER_CLASS_MODELS),
-              vapply(COVER_CLASS_MODELS, `[[`, character(1), "label")
-            )
-          ),
-
           # LANDFIRE fuel-model picker. Rendered server-side rather than with a
           # conditionalPanel so it does not depend on a namespaced id resolving
           # inside a JS expression.
-          uiOutput(ns("fbfm_block")),
-          tags$hr(style = "margin:6px 0;"),
-          tags$strong("Send to rothRmel"),
-          actionButton(ns("submit_fuels"), "↑  Submit fuel values",
-            width = "100%", class = "btn-primary"
-          ),
-          uiOutput(ns("submit_status"))
+          uiOutput(ns("fbfm_block"))
         )
       ),
       grid_card(
@@ -91,14 +81,15 @@ ui <- function(id) {
           grid_container(
             layout = c(
               "surfaceFuelGridArea canopyFuelGridArea",
-              "timelagFuelGridArea mapGridArea"
+              "timelagFuelGridArea mapGridArea",
+              "calcFuelGridArea mapGridArea"
             ),
-            row_sizes = c("1fr", "1fr"),
+            row_sizes = c("auto", "auto", "1fr"),
             col_sizes = c("1fr", "1fr"),
             gap_size = "10px",
             grid_card(
               area = "surfaceFuelGridArea", class = "fuel-card",
-              card_header("Surface fuel models"),
+              card_header("Surface fuels"),
               card_body(uiOutput(ns("surface_fuel_ui")))
             ),
             grid_card(
@@ -110,6 +101,20 @@ ui <- function(id) {
               area = "timelagFuelGridArea", class = "fuel-card",
               card_header("Time lag fuels"),
               card_body(uiOutput(ns("timelag_fuel_ui")))
+            ),
+            grid_card(
+              area = "calcFuelGridArea", class = "fuel-card imn-calc-card",
+              card_header(
+                class = "imn-calc-head",
+                "Mean fuel loading", uiOutput(ns("calc_model_tag"), inline = TRUE)
+              ),
+              card_body(
+                uiOutput(ns("calc_fuel_ui")),
+                actionButton(ns("submit_fuels"), "↑  Submit fuel values",
+                  width = "100%", class = "btn-primary imn-submit"
+                ),
+                uiOutput(ns("submit_status"))
+              )
             ),
             grid_card(
               area = "mapGridArea", class = "fuel-card", full_screen = TRUE,
@@ -224,22 +229,29 @@ server <- function(id) {
       fuel_model_lookup(key, sys)
     })
 
-    # Sidebar block shown only in LANDFIRE mode: which classification to use
-    # (Anderson 13 and Scott & Burgan 40 are separate systems and are NOT
-    # interchangeable, so the choice is explicit), the code resolved from the
-    # scan, and an override.
+    # Sidebar block: which classification to use (Anderson 13 and Scott &
+    # Burgan 40 are separate systems and are NOT interchangeable, so the
+    # choice is explicit), the code resolved from the scan, and an override.
+    # In LANDFIRE mode the model is the surface fuel bed; in Modeled mode it
+    # only sets the bulk density the surface loadings are scaled with.
     output$fbfm_block <- renderUI({
       ns <- session$ns
-      if (!identical(input$fuel_source, "landfire")) {
-        return(NULL)
-      }
-
       sys <- if (identical(input$fbfm_system, "FBFM13")) "FBFM13" else "FBFM40"
       code <- lf_fbfm_code()
 
       tagList(
         tags$hr(style = "margin:6px 0;"),
         tags$strong("LANDFIRE fuel model"),
+        if (!identical(input$fuel_source, "landfire")) {
+          div(
+            class = "imn-fnote",
+            paste(
+              "Each scan uses its own LANDFIRE code unless overridden. Modeled mode",
+              "scales the model to the measured depth and uses it wherever a",
+              "measurement is missing."
+            )
+          )
+        },
         radioButtons(ns("fbfm_system"), NULL,
           choices = list(
             "Scott & Burgan 40 (LF_FBFM40)" = "FBFM40",
@@ -281,94 +293,36 @@ server <- function(id) {
       )
     })
 
-    # ---- Surface fuel models card ----
-    # In LANDFIRE mode the modelled surface-fuel rows are replaced by the
-    # standard fire behavior fuel model resolved from LF_FBFM13/LF_FBFM40.
+    # ---- Default fuel data source ------------------------------------------
+    # Modeled/User defined when the scans carry a fuel bed depth or 1-100 hour
+    # time-lag models, LANDFIRE derived when they carry none. Set only when the
+    # data changes, so the radio stays the user's to switch.
+    observeEvent(list(session$userData$metrics(), session$userData$extra_models()), {
+      if (nrow(session$userData$metrics()) == 0) {
+        return()
+      }
+      has_data <- vapply(MODELED_COLS, function(col) !is.na(fuel_mean(col)), logical(1))
+      updateRadioButtons(session, "fuel_source",
+        selected = default_fuel_source(MODELED_COLS[has_data])
+      )
+    })
+
+    # ---- Surface fuels card (depths + bare ground) -------------------------
     output$surface_fuel_ui <- renderUI({
-      landfire <- input$fuel_source == "landfire"
-
-      if (landfire) {
-        fm <- active_fuel_model()
-        if (is.null(fm)) {
-          return(div(
-            class = "imn-fnote",
-            paste(
-              "No LANDFIRE fire behavior fuel model available for",
-              "the loaded scans. Pick one from the sidebar, or",
-              "switch to Modeled/User defined."
-            )
-          ))
-        }
-        bed <- fuel_model_bed(fm)
-        lr <- function(k, v) {
-          div(
-            class = "fuel-row",
-            tags$span(k, class = "fuel-label"),
-            tags$span(v, class = "imn-fval")
-          )
-        }
-        return(tagList(
-          div(
-            class = "imn-fbfm-head",
-            tags$b(paste0(fm$code, " — ", fm$name)),
-            tags$span(
-              class = "imn-fbfm-sys",
-              if (identical(input$fbfm_system, "FBFM13")) {
-                "Anderson 13"
-              } else {
-                "Scott & Burgan 40"
-              }
-            )
-          ),
-          lr("1-hour load (t/ac)", sprintf("%.2f", bed$load_tonsac[["d1"]])),
-          lr("10-hour load (t/ac)", sprintf("%.2f", bed$load_tonsac[["d10"]])),
-          lr("100-hour load (t/ac)", sprintf("%.2f", bed$load_tonsac[["d100"]])),
-          lr("Live herb load (t/ac)", sprintf("%.2f", bed$load_tonsac[["herb"]])),
-          lr("Live woody load (t/ac)", sprintf("%.2f", bed$load_tonsac[["woody"]])),
-          lr("Fuel bed depth (ft)", sprintf("%.2f", bed$depth_ft)),
-          lr("Dead Mx (%)", sprintf("%.0f", bed$mx_dead_pct)),
-          if (isTRUE(bed$non_burnable)) {
-            div(
-              class = "imn-sim-warn", tags$b("Non-burnable model."),
-              " This LANDFIRE class carries no fuel; rothRmel will return zero spread."
-            )
-          }
-        ))
-      }
-
-      cover_key <- input$cover_class
-      cover_lab <- if (!is.null(cover_key) && nzchar(cover_key)) {
-        COVER_CLASS_MODELS[[cover_key]]$label
-      } else {
-        "Fine fuels cover %"
-      }
-      cover_val <- if (is.null(cover_key) || !nzchar(cover_key)) {
-        NA
-      } else {
-        fuel_mean(COVER_CLASS_MODELS[[cover_key]]$col)
-      }
-
-      rows <- list(fuel_input_row("sf_cover", cover_lab, cover_val))
-
-      for (k in names(SURFACE_FUEL_MODELS)) {
+      tagList(lapply(names(SURFACE_FUEL_MODELS), function(k) {
         m <- SURFACE_FUEL_MODELS[[k]]
-        rows <- c(rows, list(fuel_input_row(
-          paste0("sf_", k), m$label,
-          fuel_mean(m$col)
-        )))
-      }
-      tagList(rows)
+        fuel_input_row(paste0("sf_", k), m$label, fuel_mean(m$col))
+      }))
     })
 
     # ---- Time lag fuels card (counts -> Brown tons/acre) ----
     output$timelag_fuel_ui <- renderUI({
       ns <- session$ns
-      landfire <- input$fuel_source == "landfire"
 
       rows <- lapply(names(TIMELAG_FUEL_MODELS), function(k) {
         m <- TIMELAG_FUEL_MODELS[[k]]
-        val <- if (landfire) NA else fuel_mean(m$col)
-        cnt <- if (is.na(val)) NA else round(val) # whole intercepts
+        val <- fuel_mean(m$col)
+        cnt <- if (is.na(val)) NA else round(val, 1) # modeled means, not field tallies
         div(
           class = "fuel-row",
           tags$span(m$label, class = "fuel-label"),
@@ -376,7 +330,7 @@ server <- function(id) {
             style = "width:58px; flex:none;",
             tags$div(
               class = "compact-num",
-              numericInput(ns(paste0("tl_", k)), label = NULL, value = cnt)
+              numericInput(ns(paste0("tl_", k)), label = NULL, value = cnt, step = 0.1)
             )
           ),
           div(
@@ -448,78 +402,327 @@ server <- function(id) {
       tagList(rows)
     })
 
-    # ---- Submit fuel values to the rothRmel tab ---------------------------
-    # Assembles the surface fuel bed currently shown (LANDFIRE standard model,
-    # or the modelled/user-edited numeric boxes) plus the canopy values, and
-    # writes it to shared session state. The rothRmel tab picks it up when its
-    # fuel source is set to "Fuel tool values".
-    observeEvent(input$submit_fuels, {
+    # ---- Mean fuel loading (calculation card) ------------------------------
+    # Surface fuel loadings are computed for every scan (app/logic/fuel_bed.R)
+    # from that scan's own depth, time-lag counts and LANDFIRE fuel model (or
+    # the sidebar override). The card shows their mean over the aggregated
+    # scans with what each value was derived from; the per-scan table is what
+    # gets submitted, so rothRmel tracks the loadings through time. Modeled
+    # mode takes each dead class from its count or from the fuel model scaled
+    # to the measured depth, falling back to the model where a scan has no
+    # measurement. LANDFIRE mode uses each scan's standard fuel model.
+    dead_classes <- c(d1 = "onehr", d10 = "tenhr", d100 = "hunhr")
+    calc_labels <- c(
+      d1 = "1-hour", d10 = "10-hour", d100 = "100-hour",
+      herb = "Live herb", woody = "Live woody"
+    )
+    num_input <- function(id) {
+      v <- suppressWarnings(as.numeric(input[[id]]))
+      if (length(v) != 1) NA_real_ else v
+    }
+    fmt_num <- function(x, digits = 3) {
+      if (length(x) == 0 || is.na(x)) "-" else formatC(x, format = "f", digits = digits)
+    }
+    drop_na <- function(x) x[!is.na(x)]
+
+    scan_table <- reactive({
+      merge_scan_models(
+        session$userData$metrics(), pivot_on_model(session$userData$extra_models())
+      )
+    })
+
+    # Fuel model for one scan: the sidebar override, else the scan's own code
+    scan_fuel_model <- reactive({
+      sys <- if (identical(input$fbfm_system, "FBFM13")) "FBFM13" else "FBFM40"
+      col <- if (sys == "FBFM13") "LF_FBFM13" else "LF_FBFM40"
+      ov <- input$fbfm_override
+      if (!is.null(ov) && nzchar(ov) && ov %in% unlist(fuel_model_choices(sys))) {
+        fm <- fuel_model_lookup(ov, sys)
+        return(function(row) fm)
+      }
+      function(row) fuel_model_lookup(row[[col]], sys)
+    })
+
+    # A box the user changed from its prefilled mean replaces every scan's
+    # value; an untouched box leaves each scan with its own.
+    edited_value <- function(id, col, digits) {
+      v <- num_input(id)
+      if (is.na(v)) {
+        return(NULL)
+      }
+      prefilled <- fuel_mean(col)
+      if (!is.na(prefilled) && isTRUE(all.equal(v, round(prefilled, digits)))) NULL else v
+    }
+
+    scan_loads <- reactive({
+      edits <- c(
+        list(depth_cm = edited_value("sf_mfbd", SURFACE_FUEL_MODELS$mfbd$col, 3)),
+        lapply(dead_classes, function(k) {
+          edited_value(paste0("tl_", k), TIMELAG_FUEL_MODELS[[k]]$col, 1)
+        })
+      )
+      scan_fuel_loads(
+        scan_table(), scan_fuel_model(),
+        prefer = vapply(names(dead_classes), function(k) {
+          v <- input[[paste0("calc_src_", k)]]
+          if (is.null(v)) "count" else v
+        }, character(1)),
+        edits = edits,
+        landfire = identical(input$fuel_source, "landfire")
+      )
+    })
+
+    mean_loading <- reactive(mean_fuel_loading(aggregate_scans(scan_loads())))
+
+    output$calc_model_tag <- renderUI({
+      codes <- unique(drop_na(scan_loads()$fbfm))
+      model <- if (length(codes) == 0) {
+        "No fuel model"
+      } else if (length(codes) == 1) {
+        codes
+      } else {
+        sprintf("%d fuel models", length(codes))
+      }
+      tags$span(
+        class = "imn-calc-tag", title = paste(sort(codes), collapse = ", "),
+        if (length(codes) == 0) {
+          model
+        } else if (identical(input$fuel_source, "landfire")) {
+          paste(model, "LANDFIRE")
+        } else {
+          paste(model, "bulk density")
+        }
+      )
+    })
+
+    # Row structure only: rebuilt when the mode or the data change, never on
+    # an edit, so the source pickers keep their selection. A class defaults to
+    # its count when the scans have one, otherwise to the fuel model x depth.
+    output$calc_fuel_ui <- renderUI({
+      ns <- session$ns
       landfire <- identical(input$fuel_source, "landfire")
 
-      num <- function(id, default = NA_real_) {
-        v <- suppressWarnings(as.numeric(input[[id]]))
-        if (length(v) != 1 || is.na(v)) default else v
+      value <- function(id) {
+        tags$span(textOutput(ns(id), inline = TRUE), class = "imn-calc-val")
       }
-
-      if (landfire) {
-        fm <- active_fuel_model()
-        if (is.null(fm)) {
-          showNotification(
-            "No LANDFIRE fuel model resolved - pick one before submitting.",
-            type = "warning", duration = 6
+      source_text <- function(id) {
+        tags$span(textOutput(ns(id), inline = TRUE), class = "imn-calc-src")
+      }
+      calc_row <- function(label, src, val, class = NULL) {
+        div(class = paste("fuel-row", class), tags$span(label, class = "fuel-label"), src, val)
+      }
+      source_cell <- function(k) {
+        if (landfire) {
+          return(source_text(paste0("calc_srcl_", k)))
+        }
+        has_count <- !is.na(fuel_mean(TIMELAG_FUEL_MODELS[[dead_classes[[k]]]]$col))
+        div(
+          class = "imn-calc-src imn-calc-pick",
+          selectInput(ns(paste0("calc_src_", k)), NULL,
+            choices = c("Time lag count" = "count", "Fuel model × depth" = "model"),
+            selected = if (has_count) "count" else "model", selectize = FALSE
           )
-          return()
-        }
-        bed <- fuel_model_bed(fm)
-        bed$source <- "landfire"
-        bed$system <- if (identical(input$fbfm_system, "FBFM13")) {
-          "Anderson 13"
-        } else {
-          "Scott & Burgan 40"
-        }
-        bed$label <- paste0(fm$code, " - ", fm$name)
-      } else {
-        # user-edited / modelled: time-lag counts -> Brown loads, depth in cm
-        d1 <- brown_class_load(num("tl_onehr"), BROWN_CLASSES$onehr)
-        d10 <- brown_class_load(num("tl_tenhr"), BROWN_CLASSES$tenhr)
-        d100 <- brown_class_load(num("tl_hunhr"), BROWN_CLASSES$hunhr)
-        depth_cm <- num("sf_mfbd")
-        bed <- list(
-          load_tonsac = c(
-            d1 = if (is.na(d1)) 0 else d1,
-            d10 = if (is.na(d10)) 0 else d10,
-            d100 = if (is.na(d100)) 0 else d100,
-            herb = 0, woody = 0
-          ),
-          depth_ft = depth_cm * 0.0328084,
-          mx_dead_pct = NULL, # rothRmel sidebar value is used
-          sav = NULL, # standard SAV set
-          source = "modeled",
-          system = "Modeled / user defined",
-          label = sprintf("user values (depth %.1f cm)", depth_cm),
-          non_burnable = FALSE
         )
       }
 
+      tagList(
+        calc_row(
+          "Class", tags$span("Derived from", class = "imn-calc-src"),
+          tags$span("Mean t/ac", class = "imn-calc-val"),
+          class = "imn-calc-hdr"
+        ),
+        lapply(names(dead_classes), function(k) {
+          calc_row(calc_labels[[k]], source_cell(k), value(paste0("calc_val_", k)))
+        }),
+        lapply(c("herb", "woody"), function(k) {
+          calc_row(
+            calc_labels[[k]], source_text(paste0("calc_srcl_", k)),
+            value(paste0("calc_val_", k))
+          )
+        }),
+        tags$hr(style = "margin:2px 0;"),
+        calc_row("Total load", tags$span(class = "imn-calc-src"), value("calc_total"),
+          class = "imn-calc-total"
+        ),
+        calc_row("Fuel bed depth (ft)", source_text("calc_depth_src"), value("calc_depth")),
+        calc_row("Dead Mx (%)", source_text("calc_mx_src"), value("calc_mx")),
+        calc_row(
+          "Canopy (CBH · CC · CBD)", tags$span("Canopy card", class = "imn-calc-src"),
+          value("calc_canopy"),
+          class = "imn-calc-wide"
+        ),
+        calc_row(
+          "1000-hour, duff", tags$span("Not used by Rothermel", class = "imn-calc-src"),
+          value("calc_ref"),
+          class = "imn-calc-ref imn-calc-wide"
+        ),
+        uiOutput(ns("calc_note"))
+      )
+    })
+
+    local({
+      for (k in names(calc_labels)) {
+        local({
+          key <- k
+          output[[paste0("calc_val_", key)]] <- renderText(
+            fmt_num(mean_loading()$load_tonsac[[key]])
+          )
+          output[[paste0("calc_srcl_", key)]] <- renderText(mean_loading()$sources[[key]])
+        })
+      }
+    })
+    output$calc_total <- renderText({
+      loads <- mean_loading()$load_tonsac
+      fmt_num(if (all(is.na(loads))) NA else sum(loads, na.rm = TRUE))
+    })
+    output$calc_depth <- renderText(fmt_num(mean_loading()$depth_ft, 2))
+    output$calc_depth_src <- renderText(mean_loading()$depth_source)
+    output$calc_mx <- renderText(fmt_num(mean_loading()$mx_dead_pct, 0))
+    output$calc_mx_src <- renderText(mean_loading()$mx_source)
+    output$calc_canopy <- renderText({
+      sprintf(
+        "%s m · %s%% · %s",
+        fmt_num(num_input("cf_cbh"), 1), fmt_num(num_input("cf_cc"), 0),
+        fmt_num(num_input("cf_cbd")/100, 2)
+      )
+    })
+    output$calc_ref <- renderText({
+      sprintf(
+        "%s t/ac · %s cm",
+        fmt_num(brown_class_load(input$tl_thohr, BROWN_CLASSES$thohr), 2),
+        fmt_num(num_input("sf_mdd"), 1)
+      )
+    })
+
+    # "1-hour in 2 of 6 scans, 10-hour in 6 of 6 scans" for one fallback source
+    fallback_note <- function(m, used, msg) {
+      parts <- unlist(lapply(names(m$fallback), function(k) {
+        n <- m$fallback[[k]][used]
+        if (!is.na(n) && n > 0) sprintf("%s in %d of %d scans", calc_labels[[k]], n, m$n)
+      }))
+      if (length(parts) > 0) sprintf(msg, paste(parts, collapse = ", "))
+    }
+
+    output$calc_note <- renderUI({
+      m <- mean_loading()
+      loads <- scan_loads()
+      if (m$n == 0) {
+        return(div(class = "imn-fnote", "Load scans to compute fuel loadings."))
+      }
+      landfire <- identical(input$fuel_source, "landfire")
+      sys <- if (identical(input$fbfm_system, "FBFM13")) "FBFM13" else "FBFM40"
+      codes <- unique(drop_na(loads$fbfm))
+      non_burnable <- codes[vapply(codes, function(code) {
+        isTRUE(fuel_model_bed(fuel_model_lookup(code, sys))$non_burnable)
+      }, logical(1))]
+      no_model <- sum(is.na(loads$fbfm))
+
+      notes <- c(
+        sprintf(
+          "Means over %d scans (%s); each scan's own loadings are submitted.",
+          m$n,
+          if (identical(input$fuel_agg, "recent")) "most recent per plot" else "all scans"
+        ),
+        if (landfire) {
+          paste(
+            "Each scan's standard LANDFIRE fuel model loads and depth; the measured",
+            "depths and counts above are not used."
+          )
+        } else {
+          c(
+            fallback_note(m, "model", "No count for %s, so the fuel model × depth is used."),
+            fallback_note(m, "count", "No fuel model for %s, so the count is used."),
+            fallback_note(m, "none", "No count or fuel model for %s, so it is 0.")
+          )
+        },
+        if (no_model > 0) {
+          sprintf(
+            "%d of %d scans have no LANDFIRE fuel model; pick an override in the sidebar.",
+            no_model, nrow(loads)
+          )
+        },
+        if (!landfire && is_litter_model(active_fuel_model())) {
+          "Litter is the fuel bed under timber litter models, so it is not added separately."
+        }
+      )
+      tagList(
+        lapply(notes, function(n) div(class = "imn-fnote", n)),
+        if (length(non_burnable) > 0) {
+          div(
+            class = "imn-sim-warn", tags$b("Non-burnable model "),
+            paste(non_burnable, collapse = ", "),
+            ". It carries no fuel; rothRmel will return zero spread for those scans."
+          )
+        }
+      )
+    })
+
+    # ---- Submit fuel loadings to the rothRmel tab --------------------------
+    # Sends the per-scan loadings (with their means, used for any scan the
+    # table doesn't hold) plus the canopy values to shared session state. The
+    # rothRmel tab picks it up when its fuel source is set to "Fuel tool values".
+    observeEvent(input$submit_fuels, {
+      landfire <- identical(input$fuel_source, "landfire")
+      loads <- scan_loads()
+
+      if (nrow(loads) == 0) {
+        showNotification("Load scans before submitting fuel loadings.",
+          type = "warning", duration = 6
+        )
+        return()
+      }
+      if (landfire && all(is.na(loads$fbfm))) {
+        showNotification(
+          "No LANDFIRE fuel model resolved - pick one before submitting.",
+          type = "warning", duration = 6
+        )
+        return()
+      }
+
+      m <- mean_fuel_loading(loads)
+      fm <- active_fuel_model()
+      bed <- list(
+        scans = loads,
+        load_tonsac = m$load_tonsac,
+        depth_ft = m$depth_ft,
+        mx_dead_pct = if (is.na(m$mx_dead_pct)) NULL else m$mx_dead_pct,
+        sav = if (landfire && !is.null(fm)) fuel_model_bed(fm)$sav,
+        sources = c(m$sources, depth = m$depth_source, mx = m$mx_source),
+        source = if (landfire) "landfire" else "modeled",
+        system = if (!landfire) {
+          "Modeled / user defined"
+        } else if (identical(input$fbfm_system, "FBFM13")) {
+          "Anderson 13"
+        } else {
+          "Scott & Burgan 40"
+        },
+        label = sprintf(
+          "%s, mean %s t/ac",
+          if (landfire) "LANDFIRE fuel models" else "Per-scan loadings",
+          fmt_num(sum(m$load_tonsac), 2)
+        ),
+        non_burnable = FALSE
+      )
+
       # canopy values from the canopy card travel with the bed
-      cc <- num("cf_cc")
-      bed$cbh_m <- num("cf_cbh")
+      cc <- num_input("cf_cc")
+      bed$cbh_m <- num_input("cf_cbh")
       # the canopy card shows LF_CBD in its stored form (kg/m^3 x 100);
       # fire_behavior expects kg/m^3, so scale on the way out
-      cbd_raw <- num("cf_cbd")
+      cbd_raw <- num_input("cf_cbd")
       bed$cbd <- if (is.na(cbd_raw)) NA_real_ else cbd_raw/100
       bed$canopy_cover_pct <- cc
-      bed$stand_height_m <- num("cf_maxth")
-      bed$aggregation <- if (identical(input$fuel_agg, "recent")) {
-        "Most recent per plot"
-      } else {
-        "Mean of all scans"
-      }
+      bed$stand_height_m <- num_input("cf_maxth")
+      bed$aggregation <- sprintf("%d scans, each with its own loadings", nrow(loads))
       bed$submitted_at <- Sys.time()
 
-      if (is.na(bed$depth_ft) || bed$depth_ft <= 0) {
+      no_depth <- sum(is.na(loads$depth_ft) | loads$depth_ft <= 0)
+      if (no_depth > 0) {
         showNotification(
-          "Fuel bed depth is missing or zero - rothRmel cannot spread fire without it.",
+          sprintf(
+            "%d scans have no fuel bed depth - rothRmel cannot spread fire for them.",
+            no_depth
+          ),
           type = "warning", duration = 6
         )
       }

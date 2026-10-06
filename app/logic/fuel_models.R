@@ -153,6 +153,35 @@ fuel_model_choices <- function(system = c("FBFM40", "FBFM13")) {
   setNames(as.list(tab$code), paste0(tab$code, " \u2014 ", tab$name))
 }
 
+CM_TO_FT <- 1 / 30.48
+
+#' Surface fuel loads (tons/acre) at a measured fuel bed depth.
+#'
+#' Each of the fuel model's load classes is scaled by measured depth / model
+#' depth, which keeps the model's bulk density (total load / depth).
+#' @param fm one-row fuel model from fuel_model_lookup()
+#' @param depth_cm measured depth (cm)
+#' @return named loads (d1, d10, d100, herb, woody), or NULL when the depth or
+#'   the model is missing, or the model has no fuel bed (non-burnable)
+#' @export
+depth_scaled_loads <- function(fm, depth_cm) {
+  depth_cm <- suppressWarnings(as.numeric(depth_cm))
+  if (is.null(fm) || nrow(fm) == 0 || !isTRUE(fm$depth_ft > 0)) {
+    return(NULL)
+  }
+  if (length(depth_cm) != 1 || is.na(depth_cm) || depth_cm < 0) {
+    return(NULL)
+  }
+  fuel_model_bed(fm)$load_tonsac * depth_cm * CM_TO_FT / fm$depth_ft
+}
+
+#' TRUE for timber litter models (Scott & Burgan TL1-TL9, Anderson 8-10),
+#' whose fuel bed is the litter layer.
+#' @export
+is_litter_model <- function(fm) {
+  !is.null(fm) && nrow(fm) > 0 && identical(fm$group, "Timber litter")
+}
+
 #' Convert a fuel model row into the surface fuel bed shape used by
 #' fire_behavior.R: loads (tons/acre), depth (ft), Mx (%), SAV (ft^2/ft^3).
 #' @export

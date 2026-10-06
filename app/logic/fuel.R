@@ -50,15 +50,6 @@ SURFACE_FUEL_MODELS <- list(
   bg   = list(label = "Mean bare ground", col = "BGmod")
 )
 
-# Cover-class models feeding the single "Fine fuels cover %" dropdown
-#' @export
-COVER_CLASS_MODELS <- list(
-  Flitt  = list(label = "Fine litter % cover", col = "Flittmod"),
-  Grass  = list(label = "Grass % cover", col = "Grassmod"),
-  Forbs  = list(label = "Forbs % cover", col = "Forbsmod"),
-  Woody  = list(label = "Woody % cover", col = "Woodymod")
-)
-
 # Time-lag fuel models -> intercept COUNTS per 40 m (feed the Brown calc)
 #' @export
 TIMELAG_FUEL_MODELS <- list(
