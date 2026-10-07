@@ -1,7 +1,7 @@
 box::use(
   DT[selectRows],
   bslib[card_body, card_header, nav_panel, navset_pill],
-  data.table[fsetequal],
+  data.table[data.table, fsetequal],
   grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
@@ -10,7 +10,8 @@ box::use(
 
 box::use(
   api = app/logic/load_data_api,
-  app/logic/manage_data[get_scans4dwnld, set_remeas_by_yr],
+  disk = app/logic/load_data_dir,
+  app/logic/manage_data[get_scans4dwnld, is_data_on_disk, set_remeas_by_yr],
   app/logic/map_fnc[parse_click_id],
   app/view/map_controls[map_scan_points,
                         update_dwnld_scan_points,
@@ -78,6 +79,9 @@ server <- function(id) {
     #--Filter scans----------------------------------------
     # make reactive markers
     # filter the scans based on the sidebar filters (sent to table display)
+    #filtered_plots <- shiny$reactiveVal({
+    #  session$userData$all_scans()
+    #})
     sidebar_filtered_plots <- shiny$reactive({
       plots <- session$userData$all_scans()
       shiny$req(input$ui_select_date_range)
@@ -261,6 +265,19 @@ server <- function(id) {
       selected <- get_scans4dwnld(session)
       nscans <- nrow(selected)
       nplots <- nrow(unique(selected, by = c("site", "plot")))
+      load_from_disk <- is_data_on_disk(selected)
+
+      if (any(load_from_disk)) {
+        all_paths <- session$userData$data_paths()
+
+        filter_metrics <- disk$which_metrics_files(all_paths$csv_path)
+        metric_paths <- all_paths[filter_metrics]
+
+        filter_treeinv <- disk$which_treeinv_files(all_paths$csv_path)
+        treeinv_paths <- all_paths[filter_treeinv]
+      } else {
+        metric_paths <- treeinv_paths <- data.table()
+      }
 
       if (nscans == 0) {
         shiny$showNotification(
@@ -290,19 +307,21 @@ server <- function(id) {
       session$userData$metrics(
         rbind(
           session$userData$metrics(),
-          api$get_metrics_for_scans(selected, progress = prog_obj)
+          api$get_metrics_for_scans(selected[!load_from_disk], progress = prog_obj),
+          disk$read_all(metric_paths)
         )
       )
 
       session$userData$tree_inv <- rbind(
         session$userData$tree_inv,
-        api$get_treeinv_for_scans(selected, progress = prog_obj)
+        api$get_treeinv_for_scans(selected[!load_from_disk], progress = prog_obj),
+        disk$read_all(treeinv_paths)
       )
 
       session$userData$extra_models(
         rbind(
           session$userData$extra_models(),
-          api$get_extra_models_for_scans(selected, progress = prog_obj)
+          api$get_extra_models_for_scans(selected[!load_from_disk], progress = prog_obj)
         )
       )
     })

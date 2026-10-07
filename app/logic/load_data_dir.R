@@ -35,8 +35,8 @@ read_all <- function(path_dt) {
   dt$rbindlist(
     Map(
       read_1_csv,
-      path_dt[selection]$zip_path,
-      path_dt[selection]$csv_path
+      path_dt$zip_path,
+      path_dt$csv_path
     ),
     fill = TRUE
   )
