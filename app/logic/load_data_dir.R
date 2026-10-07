@@ -1,40 +1,48 @@
 box::use(
   archive,
+  dt = data.table,
   datasets[state.abb],
   fs,
   tools[file_path_sans_ext],
   utils[read.csv2],
 )
 
+#' Read IntELiMon data files. Accepts csv's or csv's within zips.
+#'
+#' @param zip_path - str. Archive file path.
+#' @param csv_path - str. Csv file path. If csv is in an archive, this is the path relative (within) to
+#'        the .zip
+#' @return data.table from csv file.
 #' @export
-get_data_path <- function(yaml_path = "../data_loc.yaml") {
-  if (file.exists(yaml_path)) {
-    intelimon_out <- read_yaml(yaml_path)$data_dir
-    file.path(intelimon_out, "metrics")
-  } else {
-    NULL
+read_1_csv <- function(zip_path, csv_path) {
+  if (is.na(zip_path)) {
+    con <- archive$archive_read(zip_path, csv_path)
+    return(read.csv2(con, sep = ","))
   }
+  dt$fread(csv_path)
 }
 
+#' Bulk read a list of csv's into a data.table.
+#'
+#' Take a list of all identified csv files and load them. Assumes the
+#' path data.table is the output of get_dir_contents. Where zip_path == NA, the csv_path is the full path to
+#' a csv file. Where zip_path contains the full path to a .zip file, csv_path is a partial path to a csv
+#' within the .zip file.
+#'
+#' @param path_dt - data.table. See get_dir_contents
+#' @return data.table of all csv's read
 #' @export
-list_plot_files <- function(data_dir) {
-  file_names <- list.files(data_dir, recursive = TRUE, full.names = TRUE, pattern = "\\.csv$")
-  plot_names <- file_path_sans_ext(file_names)
-  names(file_names) <- plot_names
-  file_names
+read_all <- function(path_dt) {
+  dt$rbindlist(
+    Map(
+      read_1_csv,
+      path_dt[selection]$zip_path,
+      path_dt[selection]$csv_path
+    ),
+    fill = TRUE
+  )
 }
 
-#' @export
-load_selected_plots <- function(data_dir, selected_plots, plot_files) {
-  # Map user selection back to actual file names and build full paths
-  selected_files <- plot_files[selected_plots]
-  full_paths <- file.path(data_dir, selected_files)
-
-  names(full_paths) <- selected_plots
-
-  # Read all selected files and merge them into a single data frame
-  map_df(full_paths, \(x) read.csv(x), .id = "Plot_ID")
-}
 
 #' Test if a str has a .csv extention
 #'
@@ -201,4 +209,36 @@ get_csvs <- function(path) {
 #' @export
 get_dir_contents <- function(path) {
   dt$rbindlist(list(get_zip_contents(path, ext = "zip"), get_csvs(path)))
+}
+
+#' Build a data.table of all scans in the user's directory
+#'
+#' Take a user defined directory, and build a table of all scans in that directory based on filename. This
+#' can be used in conjuntion with session$userData$all_scans() to generate a selection table for users.
+#'
+#' @param directory - str. A valid directory path.
+#' @return a data.table of scan names
+#' @export
+build_scan_dt <- function(directory) {
+  # get contents of directory
+  all_paths <- get_dir_contents(directory)
+
+  # filter for metrics files
+  filter_metrics <- which_metrics_files(all_paths$csv_path)
+  metric_paths <- all_paths[filter_metrics]
+
+  scan_names <- basename(metric_paths$csv_path)
+  scan_dt <- dt$setDT(dt$tstrsplit(scan_names, "_",
+                                   fixed = TRUE,
+                                   names = c("site", "plot", "date", "scanner_id", "suffix"))
+  )
+
+  scan_dt[, ":="(
+                 Longitude = NA_real_,
+                 Latitude = NA_real_,
+                 Agency = "MyPC",
+                 date = as.Date(as.character(date), "%Y%m%d"))
+  ]
+
+  scan_dt
 }

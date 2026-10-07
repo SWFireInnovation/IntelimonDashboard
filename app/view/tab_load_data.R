@@ -1,7 +1,13 @@
 box::use(
   bslib,
+  data.table[rbindlist],
+  fs[path_home],
   shiny,
   shinyFiles,
+)
+
+box::use(
+  app/logic/load_data_dir,
 )
 
 #' @export
@@ -59,12 +65,18 @@ ui <- function(id) {
         title = "Select folder containing IntELiMon metrics:",
         label = "Load IntELiMon metrics"
       ),
-      bslib$card_footer("Map points (optional)"),
-      shinyFiles$shinyFilesButton(
-        id = ns("ui_btn_load_pts"),
-        title = "Select .kmz file:",
-        label = "Get plot locations",
-        multiple = FALSE
+      shiny$h6("Map plot locations (optional): Choose 1"),
+      bslib$layout_columns(
+        shiny$actionButton(ns("ui_btn_load_dwnld_latlong"),
+          "From IntELiMon download files",
+          class = "btn-primary"
+        ),
+        shinyFiles$shinyFilesButton(
+          id = ns("ui_btn_load_file_latlng"),
+          title = "Select .kmz file:",
+          label = "From my .kmz",
+          multiple = FALSE
+        )
       )
     )
   )
@@ -87,7 +99,10 @@ server <- function(id) {
       )
     }
 
-    roots <- shiny$reactiveVal(shinyFiles$getVolumes()())
+    get_roots <- function() {
+      c(Home = as.character(path_home()), shinyFiles$getVolumes()())
+    }
+    roots <- shiny$reactiveVal(get_roots())
 
     # check if any new drives have been plugged/unplugged when opening each pop-up window
     shiny$observeEvent({
@@ -96,7 +111,7 @@ server <- function(id) {
       input$ui_btn_dir_metrics_read
     },
     {
-      new_roots <- shinyFiles$getVolumes()()
+      new_roots <- get_roots()
       if (!identical(names(new_roots), names(roots()))) {
         roots(new_roots)
       }
@@ -123,6 +138,7 @@ server <- function(id) {
     # -- Upload metrics ------------------------------------------
     # if the root drive list has changed or a new metrics output folder is chosen:
     # re-initialize the shinyDirChooser
+    dir_metric_roots <- shiny$reactiveVal()
     shiny$observe({
       dir_metrics_w <- dir_metrics_write()
       rt <- roots()
@@ -137,9 +153,22 @@ server <- function(id) {
       register_shinyDirChooser("ui_btn_dir_metrics_read",
                                new_rts,
                                default_rt = if (has_write_dir) "metrics_output" else rt[[1]])
+
+      dir_metric_roots(new_rts)
     })
 
     dir_metrics_read <- shiny$reactive({
-                                        shinyFiles$parseDirPath(dwnld_rts(), input$ui_btn_dir_metrics_read)})
+                                        shinyFiles$parseDirPath(dir_metric_roots(),
+                                                                input$ui_btn_dir_metrics_read)})
+
+    shiny$observeEvent(dir_metrics_read(), {
+      shiny$req(dir_metrics_read())
+      read_dir <- dir_metrics_read()
+
+      local_dt <- load_data_dir$build_scan_dt(read_dir)
+      api_dt <- session$userData$all_scans()
+      combined_dt <- rbindlist(list(local_dt, api_dt), fill = TRUE)
+      session$userData$all_scans(combined_dt)
+    })
   })
 }

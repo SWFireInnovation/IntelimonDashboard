@@ -155,7 +155,7 @@ server <- function(id) {
                         col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
 
     #----Plots table-----------------------------
-    columns <- c("site", "plot", "date", "scanner_id", "Latitude", "Longitude")
+    columns <- c("site", "plot", "date", "Agency", "Latitude", "Longitude", "scanner_id")
     tbl_dt <- wDT$server("tbl_scan_filter",
                          sidebar_filtered_plots,
                          columns,
@@ -309,7 +309,7 @@ server <- function(id) {
 
     #-----renderUI components--------------------
     output$ui_select_agency <- shiny$renderUI({
-      agencies <- api$get_agencies()$value
+      agencies <- agency_levels()
       shiny$selectInput(
         inputId = session$ns("ui_select_agency"),
         label = "Agency selection",

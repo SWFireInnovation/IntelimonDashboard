@@ -61,7 +61,7 @@ server <- function(id) {
     init_session_userdata(session)
 
     # -------Tab Servers ------------------------
-    data_dir <- tab_load_data$server("Load-Data")
+    tab_load_data$server("Load-Data")
     tab_selectionMap$server("Selection Map")
     tab_set_trtmt$server("Set Treatments")
     tab_directOutputs$server("Standard-outputs")
