@@ -195,3 +195,42 @@ describe("select_scans", {
     expect_equal(fuel_bed$point_in_time_label("date", NULL), "most recent per plot")
   })
 })
+
+describe("assemble_fuel_bed with the auto source", {
+  gr1 <- fuel_model_lookup("GR1", "FBFM40")
+  auto <- c(d1 = "auto", d10 = "auto", d100 = "auto")
+
+  it("takes the fuel model over a grass model's near-zero count", {
+    bed <- fuel_bed$assemble_fuel_bed(gr1, 60, c(d1 = 2, d10 = NA, d100 = NA), auto)
+    expect_equal(bed$load_tonsac[["d1"]], depth_scaled_loads(gr1, 60)[["d1"]])
+    expect_equal(bed$grass_model, c("d1", "d10", "d100"))
+    expect_equal(bed$fallback, character(0))
+  })
+
+  it("keeps a grass model's count once it carries real load", {
+    bed <- fuel_bed$assemble_fuel_bed(gr1, 60, c(d1 = 200, d10 = NA, d100 = NA), auto)
+    expect_equal(bed$sources[["d1"]], "Time lag count")
+    expect_equal(bed$grass_model, c("d10", "d100"))
+  })
+
+  it("keeps the count on other models, however small", {
+    bed <- fuel_bed$assemble_fuel_bed(tl3, 6, c(d1 = 1, d10 = 12, d100 = 3), auto)
+    expect_equal(bed$sources[["d1"]], "Time lag count")
+    expect_equal(bed$grass_model, character(0))
+  })
+
+  it("keeps a near-zero count when the count is chosen explicitly", {
+    bed <- fuel_bed$assemble_fuel_bed(gr1, 60, c(d1 = 0, d10 = NA, d100 = NA), prefer_counts)
+    expect_equal(bed$load_tonsac[["d1"]], 0)
+    expect_equal(bed$sources[["d1"]], "Time lag count")
+  })
+
+  it("records the switches and the dynamic flag per scan", {
+    grass <- data.table(site = "S", plot = c("1", "2"), date = as.Date("2024-11-21"),
+                        scanner_id = 2, MFBDmod = 60, onehrmod = c(0, 200), LF_FBFM40 = "GR1")
+    loads <- fuel_bed$scan_fuel_loads(grass, fm_from_scan, auto)
+    expect_equal(loads$grass_d1, c(TRUE, FALSE))
+    expect_equal(loads$dynamic, c(TRUE, TRUE))
+    expect_equal(fuel_bed$mean_fuel_loading(loads)$grass_model[["d1"]], 1L)
+  })
+})

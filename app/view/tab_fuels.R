@@ -480,7 +480,7 @@ server <- function(id) {
         scan_table(), scan_fuel_model(),
         prefer = vapply(names(dead_classes), function(k) {
           v <- input[[paste0("calc_src_", k)]]
-          if (is.null(v)) "count" else v
+          if (is.null(v)) "auto" else v
         }, character(1)),
         edits = edits,
         landfire = identical(input$fuel_source, "landfire")
@@ -511,8 +511,9 @@ server <- function(id) {
     })
 
     # Row structure only: rebuilt when the mode or the data change, never on
-    # an edit, so the source pickers keep their selection. A class defaults to
-    # its count when the scans have one, otherwise to the fuel model x depth.
+    # an edit, so the source pickers keep their selection. Each class defaults
+    # to "Auto": the count, or the fuel model x depth where a grass model's
+    # count is effectively zero or a scan has no count.
     output$calc_fuel_ui <- renderUI({
       ns <- session$ns
       landfire <- identical(input$fuel_source, "landfire")
@@ -530,12 +531,13 @@ server <- function(id) {
         if (landfire) {
           return(source_text(paste0("calc_srcl_", k)))
         }
-        has_count <- !is.na(fuel_mean(TIMELAG_FUEL_MODELS[[dead_classes[[k]]]]$col))
         div(
           class = "imn-calc-src imn-calc-pick",
           selectInput(ns(paste0("calc_src_", k)), NULL,
-            choices = c("Time lag count" = "count", "Fuel model × depth" = "model"),
-            selected = if (has_count) "count" else "model", selectize = FALSE
+            choices = c(
+              "Auto" = "auto", "Time lag count" = "count", "Fuel model × depth" = "model"
+            ),
+            selected = "auto", selectize = FALSE
           )
         )
       }
@@ -618,6 +620,20 @@ server <- function(id) {
       if (length(parts) > 0) sprintf(msg, paste(parts, collapse = ", "))
     }
 
+    # "Auto" scans that took the fuel model over a grass model's near-zero count
+    grass_note <- function(m) {
+      parts <- unlist(lapply(names(m$grass_model), function(k) {
+        n <- m$grass_model[[k]]
+        if (n > 0) sprintf("%s in %d of %d scans", calc_labels[[k]], n, m$n)
+      }))
+      if (length(parts) > 0) {
+        sprintf(
+          "Grass fuel model with almost no time-lag count (%s), so Auto uses the fuel model × depth.",
+          paste(parts, collapse = ", ")
+        )
+      }
+    }
+
     output$calc_note <- renderUI({
       m <- mean_loading()
       loads <- scan_loads()
@@ -647,7 +663,8 @@ server <- function(id) {
           c(
             fallback_note(m, "model", "No count for %s, so the fuel model × depth is used."),
             fallback_note(m, "count", "No fuel model for %s, so the count is used."),
-            fallback_note(m, "none", "No count or fuel model for %s, so it is 0.")
+            fallback_note(m, "none", "No count or fuel model for %s, so it is 0."),
+            grass_note(m)
           )
         },
         if (no_model > 0) {

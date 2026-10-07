@@ -10,7 +10,9 @@
 # (Brown) or from the fuel model scaled to the measured fuel bed depth; live
 # herb and woody loads always come from the scaled fuel model. A missing
 # measurement falls back to the fuel model, and a missing depth to the model's
-# own depth.
+# own depth. "Auto" (the default) takes the count, except on grass and
+# grass-shrub models where the count gives effectively no load (the transects
+# barely register grass), which take the fuel model x depth instead.
 # ---------------------------------------------------------------------------
 box::use(
   data.table[as.data.table, copy, data.table, merge.data.table, rbindlist],
@@ -38,6 +40,14 @@ COUNT_COLS <- vapply(DEAD_CLASSES, function(k) TIMELAG_FUEL_MODELS[[k]]$col, cha
 # Models whose presence makes a scan set "Modeled/User defined"
 #' @export
 MODELED_COLS <- unname(c(DEPTH_COL, COUNT_COLS))
+
+#' A time-lag load below this (tons/acre) counts as effectively none for the
+#' "auto" source on grass models.
+#' @export
+NEAR_ZERO_LOAD <- 0.01
+
+# Fuel model groups whose fine fuel is mostly grass the transects miss
+GRASS_GROUPS <- c("Grass", "Grass-shrub")
 
 as_num <- function(x) {
   x <- suppressWarnings(as.numeric(x))
@@ -106,11 +116,13 @@ point_in_time_label <- function(mode, date = NULL) {
 #' @param depth_cm measured fuel bed depth (cm); NA when missing
 #' @param counts time-lag intercept counts per 40 m, named d1/d10/d100; NA
 #'   when missing
-#' @param prefer "count" or "model" per dead class, named d1/d10/d100
+#' @param prefer "auto", "count" or "model" per dead class, named d1/d10/d100
 #' @return list: load_tonsac (d1, d10, d100, herb, woody), sources (labels,
 #'   same names), depth_ft, depth_source, mx_dead_pct (NULL without a fuel
-#'   model), mx_source, and fallback (for each dead class that could not use
-#'   the preferred source, the source used instead: "count", "model" or "none")
+#'   model), mx_source, fallback (for each dead class that could not use the
+#'   preferred source, the source used instead: "count", "model" or "none"),
+#'   and grass_model (the dead classes "auto" moved to the fuel model because a
+#'   grass model's count was effectively zero)
 #' @export
 assemble_fuel_bed <- function(fm, depth_cm, counts, prefer) {
   depth_cm <- as_num(depth_cm)
@@ -134,10 +146,20 @@ assemble_fuel_bed <- function(fm, depth_cm, counts, prefer) {
   loads <- setNames(rep(0, 5), LOAD_KEYS)
   sources <- setNames(rep("No data", 5), LOAD_KEYS)
   fallback <- character(0)
+  grass <- burnable && isTRUE(fm$group %in% GRASS_GROUPS)
+  grass_model <- character(0)
 
   for (k in names(DEAD_CLASSES)) {
     brown <- brown_class_load(as_num(counts[k]), BROWN_CLASSES[[DEAD_CLASSES[[k]]]])
-    want <- if (identical(unname(prefer[k]), "model")) "model" else "count"
+    pref <- unname(prefer[k])
+    want <- if (identical(pref, "model")) {
+      "model"
+    } else if (!identical(pref, "count") && grass && !isTRUE(brown >= NEAR_ZERO_LOAD)) {
+      grass_model <- c(grass_model, k)
+      "model"
+    } else {
+      "count"
+    }
     used <- if (!is.na(brown) && (want == "count" || is.null(scaled))) {
       "count"
     } else if (!is.null(scaled)) {
@@ -171,7 +193,8 @@ assemble_fuel_bed <- function(fm, depth_cm, counts, prefer) {
     depth_source = depth_source,
     mx_dead_pct = if (burnable) model$mx_dead_pct,
     mx_source = if (burnable) "Fuel model" else "rothRmel sidebar",
-    fallback = fallback
+    fallback = fallback,
+    grass_model = grass_model
   )
 }
 
@@ -179,15 +202,17 @@ assemble_fuel_bed <- function(fm, depth_cm, counts, prefer) {
 #'
 #' @param scans one row per scan, from merge_scan_models()
 #' @param fm_for function(row) returning the scan's fuel model (or NULL)
-#' @param prefer "count" or "model" per dead class, named d1/d10/d100
+#' @param prefer "auto", "count" or "model" per dead class, named d1/d10/d100
 #' @param edits user-edited values that replace every scan's own: depth_cm,
 #'   d1, d10, d100 (counts); NULL or absent keeps the scan's value
 #' @param landfire TRUE for each scan's standard fuel model loads and depth,
 #'   ignoring the measurements
 #' @return data.table, one row per scan: the scan key, fbfm, loads d1..woody
 #'   (tons/acre), depth_ft, mx_dead_pct, sav_d1/sav_herb/sav_woody (NA for the
-#'   standard SAV set), src_* / depth_source / mx_source labels, and
-#'   fallback_d1/d10/d100 (the source used when the preferred one was missing)
+#'   standard SAV set), dynamic (the fuel model cures live herb to dead),
+#'   src_* / depth_source / mx_source labels, fallback_d1/d10/d100 (the source
+#'   used when the preferred one was missing) and grass_d1/d10/d100 (TRUE where
+#'   "auto" took the fuel model over a grass model's near-zero count)
 #' @export
 scan_fuel_loads <- function(scans, fm_for, prefer, edits = list(), landfire = FALSE) {
   if (is.null(scans) || nrow(scans) == 0) {
@@ -213,7 +238,10 @@ scan_fuel_loads <- function(scans, fm_for, prefer, edits = list(), landfire = FA
     }
     c(
       row[key],
-      list(fbfm = if (is.null(fm)) NA_character_ else fm$code),
+      list(
+        fbfm = if (is.null(fm)) NA_character_ else fm$code,
+        dynamic = isTRUE(fm$dynamic)
+      ),
       as.list(bed$load_tonsac),
       list(
         depth_ft = bed$depth_ft,
@@ -227,6 +255,10 @@ scan_fuel_loads <- function(scans, fm_for, prefer, edits = list(), landfire = FA
       setNames(
         as.list(unname(bed$fallback[names(DEAD_CLASSES)])),
         paste0("fallback_", names(DEAD_CLASSES))
+      ),
+      setNames(
+        as.list(names(DEAD_CLASSES) %in% bed$grass_model),
+        paste0("grass_", names(DEAD_CLASSES))
       )
     )
   })
@@ -237,8 +269,9 @@ scan_fuel_loads <- function(scans, fm_for, prefer, edits = list(), landfire = FA
 #'
 #' @param loads scan_fuel_loads() table
 #' @return list: n (scans), load_tonsac, sources, depth_ft, depth_source,
-#'   mx_dead_pct, mx_source, and fallback (per dead class, the number of scans
-#'   that used each fallback source)
+#'   mx_dead_pct, mx_source, fallback (per dead class, the number of scans
+#'   that used each fallback source) and grass_model (per dead class, the
+#'   number of scans "auto" moved to the fuel model)
 #' @export
 mean_fuel_loading <- function(loads) {
   n <- if (is.null(loads)) 0L else nrow(loads)
@@ -271,7 +304,10 @@ mean_fuel_loading <- function(loads) {
     fallback = lapply(setNames(nm = names(DEAD_CLASSES)), function(k) {
       x <- col(paste0("fallback_", k))
       table(x[!is.na(x)])
-    })
+    }),
+    grass_model = vapply(names(DEAD_CLASSES), function(k) {
+      sum(col(paste0("grass_", k)) %in% TRUE)
+    }, integer(1))
   )
 }
 
@@ -281,7 +317,8 @@ mean_fuel_loading <- function(loads) {
 #' @param bed submitted fuel bed (session$userData$fuel_tool_values()), or NULL
 #' @param row the scan, as a named list holding its key columns
 #' @return list with load_tonsac, depth_ft, mx_dead_pct (NULL -> use the
-#'   caller's) and sav (NULL -> standard set); NULL when nothing was submitted
+#'   caller's), sav (NULL -> standard set) and dynamic; NULL when nothing was
+#'   submitted
 #' @export
 bed_for_scan <- function(bed, row) {
   scans <- bed$scans
@@ -302,6 +339,7 @@ bed_for_scan <- function(bed, row) {
     load_tonsac = vapply(LOAD_KEYS, function(k) s[[k]], numeric(1)),
     depth_ft = s$depth_ft,
     mx_dead_pct = if (is.na(s$mx_dead_pct)) NULL else s$mx_dead_pct,
-    sav = if (anyNA(sav)) NULL else sav
+    sav = if (anyNA(sav)) NULL else sav,
+    dynamic = isTRUE(s$dynamic)
   )
 }

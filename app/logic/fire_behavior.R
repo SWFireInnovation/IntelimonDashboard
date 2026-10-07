@@ -55,7 +55,9 @@ FM10 <- list(
 )
 
 # ---- Rothermel surface spread core ----------------------------------------
-# All inputs US customary. load/sav/mf are length-5: 1h,10h,100h,herb,woody.
+# All inputs US customary. load/sav/mf hold the dead classes followed by the
+# two live ones (herb, woody): length 5 (1h, 10h, 100h, herb, woody) or 6 with
+# a dead herbaceous class after 100h for cured grass (see cure_live_herb).
 # Returns a list with ros_ft_min, I_R (BTU/ft^2/min), sigma, I_B (BTU/ft/s),
 # I_B_kw (kW/m), flame_ft, hpa (BTU/ft^2).
 roth_core <- function(load_lbft2, sav, mf, delta_ft, mx_dead,
@@ -74,8 +76,9 @@ roth_core <- function(load_lbft2, sav, mf, delta_ft, mx_dead,
     return(zero)
   }
 
-  dead <- 1:3
-  live <- 4:5
+  n_class <- length(load_lbft2)
+  dead <- seq_len(n_class - 2)
+  live <- (n_class - 1):n_class
 
   # Surface-area weighting
   Aij <- sav * load_lbft2/rho_p
@@ -88,7 +91,7 @@ roth_core <- function(load_lbft2, sav, mf, delta_ft, mx_dead,
 
   f_dead <- A_dead/A_T
   f_live <- A_live/A_T
-  f_ij <- numeric(5)
+  f_ij <- numeric(n_class)
   if (A_dead > 0) f_ij[dead] <- Aij[dead]/A_dead
   if (A_live > 0) f_ij[live] <- Aij[live]/A_live
 
@@ -200,6 +203,36 @@ fm10_ros_ft_min <- function(mf, mx_dead_env, midflame_ftmin, slope_frac) {
   )$ros_ft_min
 }
 
+# ---- dynamic fuel models ----------------------------------------------------
+# Scott & Burgan (2005) dynamic models cure part of their live herbaceous load
+# into a dead herbaceous class as the herb dries: the share cured falls
+# linearly from all of it at 30% herb moisture to none at 120%.
+herb_cured_fraction <- function(m_herb_pct) {
+  min(1, max(0, 1.333 - 1.11 * m_herb_pct / 100))
+}
+
+# Split the live herb load of a 5-class bed into dead (cured) and live herb,
+# returning the 6-class bed roth_core takes: 1h, 10h, 100h, dead herb, live
+# herb, live woody. The dead herb keeps the herb SAV and takes the 1-hour
+# moisture. A static bed (cured = 0) gets an empty dead herb class.
+cure_live_herb <- function(load_tonsac, sav, mf, cured) {
+  herb <- load_tonsac[["herb"]]
+  list(
+    load_tonsac = c(load_tonsac[c("d1", "d10", "d100")],
+                    dherb = herb * cured, herb = herb * (1 - cured), woody = load_tonsac[["woody"]]),
+    sav = c(sav[1:3], dherb = sav[[4]], sav[4:5]),
+    mf = c(mf[1:3], mf[1], mf[4:5])
+  )
+}
+
+# Canopy metrics of a scan without canopy: surface fire only. The crown
+# thresholds and indices stay missing, since 0 would read as "torches or
+# crowns at any wind".
+NO_CANOPY <- list(
+  crown_Io = NA_real_, crown_Ro = NA_real_, torching_idx = NA_real_, crowning_idx = NA_real_,
+  fire_type_num = 0
+)
+
 # ---- one scan -------------------------------------------------------------
 # `row` is a named list/1-row frame holding whatever metric/model columns the
 # scan has. `env` carries the uniform sidebar settings. Returns a named list
@@ -254,11 +287,21 @@ scan_fire_row <- function(row, env) {
     hpa = NA_real_, crown_Io = NA_real_, crown_Ro = NA_real_,
     torching_idx = NA_real_, crowning_idx = NA_real_, fire_type_num = NA_real_
   )
-  if (is.na(delta_ft) || delta_ft <= 0 || sum(load_lbft2[1:3]) <= 0) {
+  # No fuel bed depth is missing data. A bed with no dead fuel is a real
+  # result: Rothermel needs dead fine fuel to carry fire, so it doesn't spread.
+  if (is.na(delta_ft) || delta_ft <= 0) {
     return(na_out)
   }
+  no_dead_fuel <- sum(load_lbft2[1:3]) <= 0
 
   mf <- c(env$m1, env$m10, env$m100, env$m_herb, env$m_woody)/100
+
+  # dynamic fuel models cure part of the live herb into dead herbaceous fuel
+  cured <- if (isTRUE(bed$dynamic)) herb_cured_fraction(env$m_herb) else 0
+  cured_bed <- cure_live_herb(load_tonsac, sav_use, mf, cured)
+  load_lbft2 <- cured_bed$load_tonsac * TONSAC_TO_LBFT2
+  sav_use <- cured_bed$sav
+  mf <- cured_bed$mf
   mx_dead_pct <- if (!is.null(bed) && !is.null(bed$mx_dead_pct)) {
     bed$mx_dead_pct
   } else {
@@ -270,10 +313,31 @@ scan_fire_row <- function(row, env) {
   wind_ftmin <- env$wind_mph * MPH_TO_FTMIN
 
   # Surface fire at the input wind
-  surf <- roth_core(
-    load_lbft2, sav_use, mf, delta_ft, mx_dead_pct/100,
-    waf * wind_ftmin, slope_frac
+  surf <- if (no_dead_fuel) {
+    list(ros_ft_min = 0, I_R = 0, I_B_kw = 0, flame_ft = 0, hpa = 0)
+  } else {
+    roth_core(
+      load_lbft2, sav_use, mf, delta_ft, mx_dead_pct/100,
+      waf * wind_ftmin, slope_frac
+    )
+  }
+
+  surface <- list(
+    ros_ch_hr = surf$ros_ft_min * FTMIN_TO_CHHR,
+    ros_m_min = surf$ros_ft_min * FTMIN_TO_MMIN,
+    rxn_int   = surf$I_R,
+    fli_kw_m  = surf$I_B_kw,
+    flame_ft  = surf$flame_ft,
+    flame_m   = surf$flame_ft * FT_TO_M,
+    hpa       = surf$hpa
   )
+
+  # No canopy - no trees measured (maximum tree height, tree count or stems
+  # per acre of 0) - means no torching or crowning, whatever CBH or cover the
+  # scan reports: the fire type is surface fire.
+  if (any(c(gv("MaxTH"), gv("TreesN"), gv("StemsPacre")) %in% 0)) {
+    return(c(surface, NO_CANOPY))
+  }
 
   # Canopy terms. Per-scan by default; a submitted bed may override them when
   # the user edited canopy values in the Fuel tool.
@@ -297,7 +361,8 @@ scan_fire_row <- function(row, env) {
 
   # Rothermel (1991) crown spread rate (m/min): 3.34 x FM10 ROS at crown wind
   # exposure (0.4 x 20-ft wind).
-  crown_fm10_ros <- fm10_ros_ft_min(mf, env$mx_dead/100, 0.4 * wind_ftmin, slope_frac)
+  mf5 <- c(env$m1, env$m10, env$m100, env$m_herb, env$m_woody)/100 # FM10's classes
+  crown_fm10_ros <- fm10_ros_ft_min(mf5, env$mx_dead/100, 0.4 * wind_ftmin, slope_frac)
   crown_ros_m <- 3.34 * crown_fm10_ros * FTMIN_TO_MMIN
 
   # Fire type: 0 surface, 1 passive (torching), 2 active crown
@@ -306,9 +371,10 @@ scan_fire_row <- function(row, env) {
     fire_type <- if (!is.na(R_o) && crown_ros_m >= R_o) 2 else 1
   }
 
-  # Torching index: 20-ft wind (mph) where surface I_B == I_o
+  # Torching index: 20-ft wind (mph) where surface I_B == I_o (never, with no
+  # surface fire)
   torching <- NA_real_
-  if (!is.na(I_o)) {
+  if (!is.na(I_o) && !no_dead_fuel) {
     fI <- function(w_mph) {
       roth_core(
         load_lbft2, sav_use, mf, delta_ft, mx_dead_pct/100,
@@ -323,7 +389,7 @@ scan_fire_row <- function(row, env) {
   if (!is.na(R_o)) {
     fR <- function(w_mph) {
       3.34 * (fm10_ros_ft_min(
-        mf, mx_dead_pct/100,
+        mf5, mx_dead_pct/100,
         0.4 * w_mph * MPH_TO_FTMIN, slope_frac
       ) *
         FTMIN_TO_MMIN) - R_o
@@ -331,20 +397,13 @@ scan_fire_row <- function(row, env) {
     crowning <- solve_wind(fR)
   }
 
-  list(
-    ros_ch_hr     = surf$ros_ft_min * FTMIN_TO_CHHR,
-    ros_m_min     = surf$ros_ft_min * FTMIN_TO_MMIN,
-    rxn_int       = surf$I_R,
-    fli_kw_m      = surf$I_B_kw,
-    flame_ft      = surf$flame_ft,
-    flame_m       = surf$flame_ft * FT_TO_M,
-    hpa           = surf$hpa,
+  c(surface, list(
     crown_Io      = I_o,
     crown_Ro      = R_o,
     torching_idx  = torching,
     crowning_idx  = crowning,
     fire_type_num = fire_type
-  )
+  ))
 }
 
 # Find the 20-ft wind (mph) at which f(wind) crosses zero, monotonic increasing.
