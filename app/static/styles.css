@@ -706,13 +706,15 @@ main > .container-fluid,
 .imn-plot-dl.show, .imn-plot-dl:has(.show){ opacity:1; pointer-events:auto; }
 
 /* ---------- Plot card Graph / Statistics toggle -------------------------
-   Upper-left segmented control on each plot card, mirroring the pill tabs on
-   the Forestry tool's right-hand card. It follows the Download menu's hover
-   behaviour so the plot is unobstructed while you read it - except when
+   Lower-left segmented control on each plot card, just right of the expand
+   button, so every control sits along the bottom edge clear of the title.
+   It mirrors the pill tabs on the Forestry tool's right-hand card, and
+   follows the Download menu's hover behaviour so the plot is unobstructed
+   while you read it - except when
    Statistics is the active view, where the control is the only way back to
    the graph and therefore stays put. ------------------------------------- */
 .imn-card-view{
-  position:absolute; left:4px; top:4px; z-index:6;
+  position:absolute; left:34px; top:auto; bottom:4px; z-index:6;
   opacity:0; pointer-events:none; transition:opacity .15s ease-in-out;
 }
 .card:has(> .card-body > .imn-plot-wrap):hover .imn-card-view,

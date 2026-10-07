@@ -49,7 +49,9 @@ box::use(
   )
 }
 
-# Plot caption naming what the error bars show; NULL when they are off.
+# Label naming what the error bars show, right-aligned on its own line under
+# the title (the subtitle, see aurora_theme()) so it stays clear of both the
+# title and the card's Download menu in the lower right; NULL when they're off.
 .error_caption <- function(errorbars) {
   switch(errorbars,
     sd = "Error bars: \u00b11 SD",
@@ -161,6 +163,9 @@ aurora_theme <- function(pal = SCREEN_PAL) {
                                             size = 13.5, hjust = 0.5,
                                             margin = gplt$margin(b = 7)),
       plot.margin       = gplt$margin(t = 6, r = 10, b = 4, l = 4),
+      # error-bar label, upper right under the title
+      plot.subtitle     = gplt$element_text(color = pal$axis_text, size = 9.5,
+                                            hjust = 1, margin = gplt$margin(b = 2)),
       legend.text       = gplt$element_text(color = pal$axis_text, size = 9.5),
       legend.title      = gplt$element_text(color = pal$axis_title, size = 10)
     )
@@ -345,7 +350,7 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
     p +
       y_scale() +
       gplt$labs(x = "Scan date (time step)", y = axis_label, title = y_label,
-                caption = .error_caption(errorbars_on)) +
+                subtitle = .error_caption(errorbars_on)) +
       aurora_theme(pal) +
       gplt$theme(axis.text.x = gplt$element_text(angle = 35, hjust = 1))
 
@@ -371,7 +376,7 @@ metric_series_plot <- function(data_state, plt_options, light = FALSE) {
       gplt$scale_x_date(limits = range(smry$t), expand = gplt$expansion(mult = 0.05)) +
       y_scale() +
       gplt$labs(x = "Scan date", y = axis_label, title = y_label,
-                caption = .error_caption(errorbars_on)) +
+                subtitle = .error_caption(errorbars_on)) +
       aurora_theme(pal)
   }
 
@@ -436,11 +441,12 @@ metric_series_stats <- function(data_state) {
   out
 }
 
-#' Wrap a `metric_series_plot()` card with a "Download" menu in its lower-right
-#' corner (CSV of the underlying data, or an SVG/PNG of the rendered plot).
-#' The menu is hidden until the card is hovered - see .imn-plot-dl in
-#' app/static/styles.css, which also moves bslib's full-screen expand button
-#' to the opposite corner. Pair with `register_plot_download()` in the module
+#' Wrap a `metric_series_plot()` card with its controls along the bottom
+#' edge: the Graph / Statistics toggle in the lower left (beside bslib's
+#' full-screen expand button) and a "Download" menu in the lower right (CSV of
+#' the underlying data, or an SVG/PNG of the rendered plot). They're hidden
+#' until the card is hovered - see .imn-card-view and .imn-plot-dl in
+#' app/static/styles.css. Pair with `register_plot_download()` in the module
 #' server.
 #' @param id is a name space passed from the calling ui. Exp: plotting$plot_card_ui(ns('treeStat'))
 #' @export
@@ -448,7 +454,7 @@ plot_card_ui <- function(id, height = "100%") {
   id_view <- paste0(id, "_view")
   shiny$div(
     class = "imn-plot-wrap",
-    # Graph / Statistics toggle, upper left. Hidden until the card is hovered
+    # Graph / Statistics toggle, lower left. Hidden until the card is hovered
     # (styles.css keeps it visible whenever Statistics is the active view, so
     # there is always a way back to the plot).
     shiny$div(

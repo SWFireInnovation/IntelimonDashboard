@@ -62,10 +62,10 @@ describe("error bars", {
     expect_null(errorbar_data(plot_with("off", "bar")))
   })
 
-  it("are named in the plot caption", {
-    expect_true(grepl("SD", plot_with("sd")$labels$caption))
-    expect_true(grepl("SE", plot_with("se", "bar")$labels$caption))
-    expect_null(plot_with("off")$labels$caption)
+  it("are named in the label under the title", {
+    expect_true(grepl("SD", plot_with("sd")$labels$subtitle))
+    expect_true(grepl("SE", plot_with("se", "bar")$labels$subtitle))
+    expect_null(plot_with("off")$labels$subtitle)
   })
 
   it("have no width for a single-scan time step", {
