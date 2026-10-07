@@ -364,7 +364,7 @@ describe_iftdss_tif <- function(tif) {
   clamped <- attr(tif, "clamped")
   msg <- sprintf(
     paste(
-      "IFTDSS GeoTIFF: %d cells' stand height capped at 120 m, %d cells' CBH capped at",
+      "GeoTIFF: %d cells' stand height capped at 120 m, %d cells' CBH capped at",
       "stand height, %d cells' CBD capped at 0.50 kg/m^3."
     ),
     clamped[["stand_height"]], clamped[["canopy_base"]], clamped[["canopy_bulk"]]
@@ -509,6 +509,25 @@ build_flammap_lcp <- function(metrics_dt,
   attr(out, "canopy_corrections") <- corrections
   attr(out, "crown_check") <- crown$info
   out
+}
+
+#' Zip the LCP bundle and the GeoTIFF together, for "Save both".
+#'
+#' @param lcp_zip .zip from bundle_lcp()
+#' @param tif_path GeoTIFF from write_iftdss_tif()
+#' @param zip_path output .zip holding the LCP bundle's files and the .tif
+#' @return zip_path
+#' @export
+bundle_fuel_rasters <- function(lcp_zip, tif_path, zip_path) {
+  staging <- tempfile("fuel_rasters_")
+  dir.create(staging)
+  on.exit(unlink(staging, recursive = TRUE), add = TRUE)
+  unzip(lcp_zip, exdir = staging)
+  file.copy(tif_path, staging)
+
+  if (file.exists(zip_path)) file.remove(zip_path)
+  zip(zip_path, list.files(staging), root = staging)
+  zip_path
 }
 
 #' Zip an .lcp with the .prj written alongside it, and its custom fuel models.

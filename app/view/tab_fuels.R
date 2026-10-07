@@ -38,7 +38,7 @@ box::use(
     select_scans
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup, is_litter_model],
-  app/logic/lcp[build_flammap_lcp, describe_iftdss_tif],
+  app/logic/lcp[build_flammap_lcp, bundle_fuel_rasters, describe_iftdss_tif],
   app/logic/lcp_canopy[describe_canopy_correction, describe_crown_check],
   app/logic/lcp_surface[describe_surface_normalization],
   app/logic/manage_data[pivot_on_model],
@@ -144,9 +144,8 @@ ui <- function(id) {
                   div(
                     style = "width:150px; flex:none; display:flex;
                              flex-direction:column; gap:6px;",
-                    actionButton(ns("btn_download_lcp"), "Download LCP", width = "100%"),
+                    actionButton(ns("btn_fuel_raster"), "Fuel raster export", width = "100%"),
                     actionButton(ns("btn_fuel_dud2"), "Download FastFuels", width = "100%"),
-                    actionButton(ns("btn_download_iftdss"), "Download IFTDSS", width = "100%"),
                     actionButton(ns("btn_fuel_dud4"), "Download FCCS", width = "100%")
                   )
                 )
@@ -862,10 +861,9 @@ server <- function(id) {
     # LANDFIRE needs a contact email, collected by the app-wide email prompt.
     # The build runs in a separate R process (mirai) so the LANDFIRE download
     # doesn't block the session; the result is a .zip with the .lcp and .prj,
-    # plus the same landscape as an IFTDSS GeoTIFF. Both download buttons run
-    # this one build; the one pressed decides which file the dialog offers first.
+    # plus the same landscape as a GeoTIFF (the layout IFTDSS takes). The
+    # dialog then offers either file, or both in one .zip.
     lcp_file <- reactiveVal(NULL)
-    lcp_format <- reactiveVal("lcp")
 
     lcp_task <- ExtendedTask$new(function(metrics, plots, email, zip_path, name, aoi, cbh_m,
                                           cover_pct, height_m, tif_path, surface_scans,
@@ -923,7 +921,7 @@ server <- function(id) {
       )
     }
 
-    request_lcp_build <- function(format) {
+    request_lcp_build <- function() {
       if (lcp_task$status() == "running") {
         showNotification("A landscape is already being built.", type = "warning")
         return()
@@ -932,15 +930,13 @@ server <- function(id) {
         showNotification("Load scans before building a landscape.", type = "warning")
         return()
       }
-      lcp_format(format)
       session$userData$request_email(
         start_lcp_build,
         reason = "LANDFIRE requires a contact email to build the landscape file."
       )
     }
 
-    observeEvent(input$btn_download_lcp, request_lcp_build("lcp"))
-    observeEvent(input$btn_download_iftdss, request_lcp_build("iftdss"))
+    observeEvent(input$btn_fuel_raster, request_lcp_build())
 
     observeEvent(lcp_task$status(), ignoreInit = TRUE, {
       status <- lcp_task$status()
@@ -956,31 +952,24 @@ server <- function(id) {
       }
       zip_path <- lcp_task$result()
       lcp_file(zip_path)
-      iftdss <- identical(lcp_format(), "iftdss")
-      save_lcp <- downloadButton(
-        session$ns("lcp_download"), "Save LCP (.zip)",
-        class = if (iftdss) "btn-secondary" else "btn-primary"
-      )
-      save_tif <- downloadButton(
-        session$ns("iftdss_download"), "Save IFTDSS (.tif)",
-        class = if (iftdss) "btn-primary" else "btn-secondary"
-      )
       showModal(modalDialog(
-        title = if (iftdss) "IFTDSS landscape ready" else "LCP ready",
+        title = "Fuel rasters ready",
         p("Landscape built from LANDFIRE with lidar canopy cover, stand height and",
           "canopy base height at the selected plots. The LCP .zip holds the .lcp and its",
           ".prj for FlamMap (and an .fmd of custom fuel models when surface fuels were",
-          "scaled); the .tif uploads to IFTDSS as a custom landscape (unzipped) and keeps",
-          "LANDFIRE's standard fuel models."),
+          "scaled). The GeoTIFF carries the same landscape with LANDFIRE's standard fuel",
+          "models; it uploads to IFTDSS as a custom landscape. Save either, or both in",
+          "one .zip."),
         p(describe_surface_normalization(attr(zip_path, "surface_fuels"))),
         lapply(attr(zip_path, "canopy_corrections"), function(x) p(describe_canopy_correction(x))),
         p(describe_crown_check(attr(zip_path, "crown_check"))),
         p(describe_iftdss_tif(attr(zip_path, "iftdss_tif"))),
-        footer = if (iftdss) {
-          tagList(modalButton("Close"), save_lcp, save_tif)
-        } else {
-          tagList(modalButton("Close"), save_tif, save_lcp)
-        },
+        footer = tagList(
+          modalButton("Close"),
+          downloadButton(session$ns("lcp_download"), "Save LCP (.zip)", class = "btn-secondary"),
+          downloadButton(session$ns("tif_download"), "Save GeoTIFF (.tif)", class = "btn-secondary"),
+          downloadButton(session$ns("both_download"), "Save both (.zip)", class = "btn-primary")
+        ),
         easyClose = TRUE
       ))
     })
@@ -990,9 +979,16 @@ server <- function(id) {
       content = function(file) file.copy(lcp_file(), file, overwrite = TRUE)
     )
 
-    output$iftdss_download <- downloadHandler(
-      filename = function() paste0("intelimon_", format(Sys.Date(), "%Y%m%d"), "_iftdss.tif"),
+    output$tif_download <- downloadHandler(
+      filename = function() paste0("intelimon_", format(Sys.Date(), "%Y%m%d"), "_landscape.tif"),
       content = function(file) file.copy(attr(lcp_file(), "iftdss_tif"), file, overwrite = TRUE)
+    )
+
+    output$both_download <- downloadHandler(
+      filename = function() paste0("intelimon_", format(Sys.Date(), "%Y%m%d"), "_fuel_rasters.zip"),
+      content = function(file) {
+        bundle_fuel_rasters(lcp_file(), attr(lcp_file(), "iftdss_tif"), file)
+      }
     )
   })
 }

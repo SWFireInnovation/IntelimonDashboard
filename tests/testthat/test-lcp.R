@@ -206,6 +206,19 @@ describe("write_lcp", {
     expect_equal(sort(list.files(out)), c("site_x.fmd", "site_x.lcp", "site_x.prj"))
   })
 
+  it("zips the LCP bundle and the GeoTIFF together for 'Save both'", {
+    lcp_path <- lcp$write_lcp(fake_stack(), tempfile(fileext = ".lcp"))
+    lcp_zip <- lcp$bundle_lcp(lcp_path, tempfile(fileext = ".zip"), name = "site_x")
+    tif <- file.path(tempfile("tif_"), "site_x.tif")
+    dir.create(dirname(tif))
+    writeLines("tif", tif)
+    both <- lcp$bundle_fuel_rasters(lcp_zip, tif, tempfile(fileext = ".zip"))
+
+    out <- tempfile()
+    unzip(both, exdir = out)
+    expect_equal(sort(list.files(out)), c("site_x.lcp", "site_x.prj", "site_x.tif"))
+  })
+
   it("refuses a stack without 8 bands", {
     expect_error(lcp$write_lcp(fake_stack()[[1:5]], tempfile(fileext = ".lcp")), "8 bands")
   })
