@@ -3,7 +3,6 @@ box::use(
   dt = data.table,
   datasets[state.abb],
   fs,
-  tools[file_path_sans_ext],
   utils[read.csv2],
 )
 
@@ -211,18 +210,18 @@ get_dir_contents <- function(path) {
   dt$rbindlist(list(get_zip_contents(path, ext = "zip"), get_csvs(path)))
 }
 
-#' Build a data.table of all scans in the user's directory
+#' Build a data.table of all scan outputs in the user's directory with columns for site, plot, date, and
+#' scanner_id.
 #'
-#' Take a user defined directory, and build a table of all scans in that directory based on filename. This
+#' Takes a data.table returned from get_dir_contents.
+#'
+#' From the input data.table, breaks down the valid filenames into a table of all scans. This
 #' can be used in conjuntion with session$userData$all_scans() to generate a selection table for users.
 #'
-#' @param directory - str. A valid directory path.
+#' @param all_paths - a data.table with the path to all csv files in the parent directory.
 #' @return a data.table of scan names
 #' @export
-build_scan_dt <- function(directory) {
-  # get contents of directory
-  all_paths <- get_dir_contents(directory)
-
+build_scan_dt <- function(all_paths) {
   # filter for metrics files
   filter_metrics <- which_metrics_files(all_paths$csv_path)
   metric_paths <- all_paths[filter_metrics]
@@ -230,14 +229,19 @@ build_scan_dt <- function(directory) {
   scan_names <- basename(metric_paths$csv_path)
   scan_dt <- dt$setDT(dt$tstrsplit(scan_names, "_",
                                    fixed = TRUE,
-                                   names = c("site", "plot", "date", "scanner_id", "suffix"))
+                                   keep = 1:4,
+                                   names = c("site", "plot", "date", "scanner_id"))
   )
 
   scan_dt[, ":="(
+                 site = as.character(site),
+                 plot = as.character(plot),
+                 scanner_id = as.integer(scanner_id),
+                 scanner_name = character(),
                  Longitude = NA_real_,
                  Latitude = NA_real_,
-                 Agency = "MyPC",
-                 date = as.Date(as.character(date), "%Y%m%d"))
+                 Agency = as.character("MyPC"),
+                 date = as.Date(as.character(date), "%Y%m%d")),
   ]
 
   scan_dt

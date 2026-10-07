@@ -7,6 +7,7 @@ box::use(
 )
 
 box::use(
+  app/logic/init_session_userData[init_desktop_user_data],
   app/logic/load_data_dir,
 )
 
@@ -165,7 +166,10 @@ server <- function(id) {
       shiny$req(dir_metrics_read())
       read_dir <- dir_metrics_read()
 
-      local_dt <- load_data_dir$build_scan_dt(read_dir)
+      init_desktop_user_data(session)
+      session$userData$data_paths(load_data_dir$get_dir_contents(read_dir))
+
+      local_dt <- load_data_dir$build_scan_dt(session$userData$data_paths())
       api_dt <- session$userData$all_scans()
       combined_dt <- rbindlist(list(local_dt, api_dt), fill = TRUE)
       session$userData$all_scans(combined_dt)

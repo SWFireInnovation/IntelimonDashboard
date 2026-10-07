@@ -7,6 +7,11 @@ box::use(
   app/logic/manage_data[build_scan_loc_dt],
 )
 
+#' Initialize a set of userData that is attached to each session. This data can be accessed by any part of
+#' the shiny project. All variables can be accessed by session$userData$<name>. A number of the values are
+#' shiny$reactiveVal()'s, so they can be updated and the updates will propagate throughout all shiny modules.
+#'
+#' @export
 init_session_userdata <- function(session) {
   # --------Shared User Data-------------------
   session$userData$all_scans <- reactiveVal(
@@ -43,4 +48,11 @@ init_session_userdata <- function(session) {
   )
   # selected fuel information
   session$userData$fuel_tool_values <- reactiveVal(NULL)
+}
+
+#' This is initialises additional user data that only exists for the desktop-app. The web-app will never need
+#' or utilize this data, and will never call this function.
+#' @export
+init_desktop_user_data <- function(session) {
+  session$userData$data_paths <- reactiveVal(data.table())
 }
