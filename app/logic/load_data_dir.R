@@ -14,11 +14,16 @@ box::use(
 #' @return data.table from csv file.
 #' @export
 read_1_csv <- function(zip_path, csv_path) {
-  if (is.na(zip_path)) {
+  if (!is.na(zip_path)) {
     con <- archive$archive_read(zip_path, csv_path)
-    return(read.csv2(con, sep = ","))
+    data <- read.csv2(con, sep = ",")
+  } else {
+    data <- dt$fread(csv_path)
   }
-  dt$fread(csv_path)
+
+  scan_info <- get_scan_parts(basename(csv_path))
+  data[names(scan_info)] <- scan_info   # scalars recycle across rows
+  data
 }
 
 #' Bulk read a list of csv's into a data.table.
@@ -31,7 +36,7 @@ read_1_csv <- function(zip_path, csv_path) {
 #' @param path_dt - data.table. See get_dir_contents
 #' @return data.table of all csv's read
 #' @export
-read_all <- function(path_dt) {
+read_multi_scan <- function(path_dt) {
   dt$rbindlist(
     Map(
       read_1_csv,
@@ -41,7 +46,6 @@ read_all <- function(path_dt) {
     fill = TRUE
   )
 }
-
 
 #' Test if a str has a .csv extention
 #'
@@ -210,6 +214,29 @@ get_dir_contents <- function(path) {
   dt$rbindlist(list(get_zip_contents(path, ext = "zip"), get_csvs(path)))
 }
 
+#' Returns a list of properly formatted scan information such as site, plot and date from a str.
+#'
+#'Submit a str in the standard file format of AZFTA_0001_20261007_1_metric.csv, and this function splits it
+#' into a named list and manages the data formats. Will also accept a list of strings (uses dt$tstrsplit).
+#'
+#' @param scan_str - a str or list of str containing site data
+#' @param sep - a str defining the delimeter that separates the scan components
+#' @return a named list with site, plot scanner_id and date
+#' @export
+get_scan_parts <- function(scan_str, sep = "_") {
+  str_list <- dt$tstrsplit(scan_str, sep,
+                           fixed = TRUE,
+                           keep = 1:4,
+                           names = c("site", "plot", "date", "scanner_id")
+  )
+
+  str_list$site <- as.character(str_list$site)
+  str_list$plot <- as.character(str_list$plot)
+  str_list$scanner_id <- as.integer(str_list$scanner_id)
+  str_list$date <- as.Date(as.character(str_list$date), "%Y%m%d")
+
+  str_list
+}
 #' Build a data.table of all scan outputs in the user's directory with columns for site, plot, date, and
 #' scanner_id.
 #'
@@ -227,22 +254,35 @@ build_scan_dt <- function(all_paths) {
   metric_paths <- all_paths[filter_metrics]
 
   scan_names <- basename(metric_paths$csv_path)
-  scan_dt <- dt$setDT(dt$tstrsplit(scan_names, "_",
-                                   fixed = TRUE,
-                                   keep = 1:4,
-                                   names = c("site", "plot", "date", "scanner_id"))
-  )
+  scan_dt <- dt$setDT(get_scan_parts(scan_names))
 
   scan_dt[, ":="(
-                 site = as.character(site),
-                 plot = as.character(plot),
-                 scanner_id = as.integer(scanner_id),
-                 scanner_name = character(),
+                 scanner_name = NA_character_,
                  Longitude = NA_real_,
                  Latitude = NA_real_,
-                 Agency = as.character("MyPC"),
-                 date = as.Date(as.character(date), "%Y%m%d")),
-  ]
+                 Agency = as.character("MyPC")
+  )]
 
   scan_dt
+}
+
+#' Generic output reader that filters all_paths by apply which_function and then calls read_multi_scan
+.read_output <- function(all_paths, which_func) {
+  if (nrow(all_paths) == 0) {
+    return()
+  }
+  filter_ouptut <- which_func(all_paths$csv_path)
+  output_paths <- all_paths[filter_ouptut]
+  read_multi_scan(output_paths)
+}
+
+
+#' @export
+read_treeinv <- function(all_paths) {
+  .read_output(all_paths, which_treeinv_files)
+}
+
+#' @export
+read_metrics <- function(all_paths) {
+  .read_output(all_paths, which_metrics_files)
 }

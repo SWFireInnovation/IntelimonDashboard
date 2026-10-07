@@ -1,7 +1,7 @@
 box::use(
   DT[selectRows],
   bslib[card_body, card_header, nav_panel, navset_pill],
-  data.table[data.table, fsetequal],
+  data.table[data.table, fsetequal, rbindlist],
   grDevices[hcl.colors],
   gridlayout[grid_card, grid_container],
   leaflet,
@@ -265,18 +265,12 @@ server <- function(id) {
       selected <- get_scans4dwnld(session)
       nscans <- nrow(selected)
       nplots <- nrow(unique(selected, by = c("site", "plot")))
-      load_from_disk <- is_data_on_disk(selected)
 
+      load_from_disk <- is_data_on_disk(selected)
       if (any(load_from_disk)) {
         all_paths <- session$userData$data_paths()
-
-        filter_metrics <- disk$which_metrics_files(all_paths$csv_path)
-        metric_paths <- all_paths[filter_metrics]
-
-        filter_treeinv <- disk$which_treeinv_files(all_paths$csv_path)
-        treeinv_paths <- all_paths[filter_treeinv]
       } else {
-        metric_paths <- treeinv_paths <- data.table()
+        all_paths <- data.table()
       }
 
       if (nscans == 0) {
@@ -305,17 +299,23 @@ server <- function(id) {
 
       # download data from the API and save to this session
       session$userData$metrics(
-        rbind(
-          session$userData$metrics(),
-          api$get_metrics_for_scans(selected[!load_from_disk], progress = prog_obj),
-          disk$read_all(metric_paths)
+        rbindlist(
+          list(
+                 session$userData$metrics(),
+                 api$get_metrics_for_scans(selected[!load_from_disk], progress = prog_obj),
+                 disk$read_metrics(all_paths)
+          ),
+          fill = TRUE
         )
       )
 
-      session$userData$tree_inv <- rbind(
-        session$userData$tree_inv,
-        api$get_treeinv_for_scans(selected[!load_from_disk], progress = prog_obj),
-        disk$read_all(treeinv_paths)
+      session$userData$tree_inv <- rbindlist(
+        list(
+             session$userData$tree_inv,
+             api$get_treeinv_for_scans(selected[!load_from_disk], progress = prog_obj),
+             disk$read_treeinv(all_paths)
+          ),
+          fill = TRUE
       )
 
       session$userData$extra_models(
