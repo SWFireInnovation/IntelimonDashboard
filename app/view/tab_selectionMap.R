@@ -269,8 +269,12 @@ server <- function(id) {
       load_from_disk <- is_data_on_disk(selected)
       if (any(load_from_disk)) {
         all_paths <- session$userData$data_paths()
+        disk_paths <- all_paths[selected,
+                                on = .(site, plot, date),
+                                nomatch = 0
+        ]
       } else {
-        all_paths <- data.table()
+        disk_paths <- data.table()
       }
 
       if (nscans == 0) {
@@ -303,7 +307,7 @@ server <- function(id) {
           list(
                  session$userData$metrics(),
                  api$get_metrics_for_scans(selected[!load_from_disk], progress = prog_obj),
-                 disk$read_metrics(all_paths)
+                 disk$read_metrics(disk_paths)
           ),
           fill = TRUE
         )
@@ -313,7 +317,7 @@ server <- function(id) {
         list(
              session$userData$tree_inv,
              api$get_treeinv_for_scans(selected[!load_from_disk], progress = prog_obj),
-             disk$read_treeinv(all_paths)
+             disk$read_treeinv(disk_paths)
           ),
           fill = TRUE
       )

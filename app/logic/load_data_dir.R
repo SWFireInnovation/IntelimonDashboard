@@ -22,7 +22,7 @@ read_1_csv <- function(zip_path, csv_path) {
   }
 
   scan_info <- get_scan_parts(basename(csv_path))
-  data[names(scan_info)] <- scan_info   # scalars recycle across rows
+  data[names(scan_info)] <- scan_info
   data
 }
 
@@ -202,16 +202,22 @@ get_csvs <- function(path) {
   )
 }
 
-#' Get a data.table with the path to all csv or zip files in a parent directory.
+#' Get a data.table with the path to all csv or zip files in a parent directory and columns for scan id.
 #'
 #' Returns a data.table with 2 columns, csv_path which is the path to a csv file in the parent directory or
 #' the relative path to a csv file in an archive and zip_path, which is a path to a zip file containing the
-#' csv or NA.
+#' csv or NA. Columns with site, plot, date, scanner_id are appended to allow indexing of paths.
 #'
 #'@inheritParams get_csvs
 #' @export
 get_dir_contents <- function(path) {
-  dt$rbindlist(list(get_zip_contents(path, ext = "zip"), get_csvs(path)))
+  contents <- dt$rbindlist(list(get_zip_contents(path, ext = "zip"), get_csvs(path)))
+
+  is_scan <- is_scan_id(basename(contents$csv_path))
+  scan_info <- get_scan_parts(basename(contents$csv_path[is_scan]))
+  contents[is_scan, (names(scan_info)) := scan_info]
+
+  contents
 }
 
 #' Returns a list of properly formatted scan information such as site, plot and date from a str.
