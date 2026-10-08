@@ -31,10 +31,11 @@ ui <- function(id) {
 #' @return - list with names proxy, containing a proxy of the widget, and input, that contains the input for
 #'         the server with the approriate name space.
 #' @export
-server <- function(id, data, columns, sort_order, edit_options = FALSE) {
+server <- function(id, data_reactive, columns, sort_order, edit_options = FALSE) {
   shiny$moduleServer(id, function(input, output, session) {
 
     output$dt <- DT$renderDT({
+      data <- shiny$isolate(data_reactive())
       ndata <- nrow(data)
       shiny$validate(
         shiny$need(
@@ -50,16 +51,27 @@ server <- function(id, data, columns, sort_order, edit_options = FALSE) {
         selection = "multiple",
         editable = edit_options,
         options = list(
-          pageLength = 50,
           ordering = TRUE,
           paging = FALSE,
           # sort by date, then site w/in each date, then plot w/in each site
           order = sort_order,
           fixedHeader = TRUE,
           # fix order: f = global search box, i = info-text(1of3), t =  table
-          dom = "it"
+          dom = "it",
+          language = list(
+            info = "Rows _START_ - _END_ ",
+            infoFiltered = "(filtered from _MAX_ total)"
+          )
         )
-      )
+      ) |>
+        (\(tbl) {
+          if ('Latitude' %in% columns) {
+            DT$formatRound(tbl, columns = c("Latitude", "Longitude"), digits = 3)
+          } else {
+            tbl
+          }
+    })()
+
     })
 
     proxy <- DT$dataTableProxy(
@@ -68,10 +80,10 @@ server <- function(id, data, columns, sort_order, edit_options = FALSE) {
     )
 
     # ensure that updates use teh same column subset and rownames setting
-    update_data <- function(new_data) {
-      DT$replaceData(proxy, new_data[, ..columns],
+    shiny$observeEvent( data_reactive(), {
+      DT$replaceData(proxy, data_reactive()[, ..columns],
                      resetPaging = FALSE, rownames = FALSE, clearSelection = "none")
-    }
+    }, ignoreInit = TRUE)
 
     shiny$observeEvent(input$btn_clear_selection, {
       DT$selectRows(proxy, NULL)
@@ -79,8 +91,7 @@ server <- function(id, data, columns, sort_order, edit_options = FALSE) {
 
     list(
       proxy = proxy,
-      input = input,
-      update_data = update_data
+      input = input
     )
   })
 }

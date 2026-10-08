@@ -91,22 +91,10 @@ server <- function(id) {
       filter_plots[Agency %in% input$ui_select_agency]
     })
 
-    # After the DT display table is updated, record what the updated table looks like
-    dt_display_plots <- shiny$reactiveVal(NULL)
-    # update the data table when sidebar filters change without loosing table filteing.
-    # If a reactive is passed instead, the table updates, but looses any filtering or sorting.
-    shiny$observeEvent(sidebar_filtered_plots(), {
-      update_plots <- sidebar_filtered_plots()
-      tbl_dt$update_data(update_plots)
-
-      # record what the update is in a new reactive data.table
-      dt_display_plots(update_plots)
-    })
-
     # Take the filtered plots handed to the data.table, and apply any filters from that table to the mapped
     # plots
     filtered_plots <- shiny$reactive({
-      sidebar_filtered_dt <- dt_display_plots()
+      sidebar_filtered_dt <- sidebar_filtered_plots()
       tbl_filtered_index <- tbl_dt$input$dt_rows_all
 
       if (is.null(tbl_filtered_index) || is.null(sidebar_filtered_dt)) {
@@ -176,7 +164,7 @@ server <- function(id) {
     # this is an initial, static render that is updated by the observeEvent below
     columns <- c("site", "plot", "date", "Agency", "Latitude", "Longitude", "scanner_id")
     tbl_dt <- wDT$server("tbl_scan_filter",
-                         shiny$isolate(session$userData$all_scans()),
+                         sidebar_filtered_plots,
                          columns,
                          list(list(0, "asc"), list(1, "asc"), list(2, "asc")),
                          edit_options = FALSE)
@@ -191,7 +179,7 @@ server <- function(id) {
       if (is.null(dt_selected_rows)) {
         dt_selected_rows <- 0
       }
-      all_scans <- dt_display_plots()
+      all_scans <- sidebar_filtered_plots()
       dt_selected_scans <- all_scans[dt_selected_rows]
 
       current_selection <- session$userData$scan_selection()
@@ -250,7 +238,7 @@ server <- function(id) {
 
     # UPDATE from selection
     shiny$observeEvent(session$userData$scan_selection(), {
-      all_scans <- dt_display_plots()
+      all_scans <- sidebar_filtered_plots()
       selection <- session$userData$scan_selection()
 
       selected_rows <- all_scans[
