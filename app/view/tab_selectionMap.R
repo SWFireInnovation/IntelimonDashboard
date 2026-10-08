@@ -1,5 +1,5 @@
 box::use(
-  DT[selectRows],
+  DT[selectRows, replaceData],
   bslib[card_body, card_header, nav_panel, navset_pill],
   data.table[data.table, fsetequal, rbindlist],
   grDevices[hcl.colors],
@@ -77,11 +77,9 @@ ui <- function(id) {
 server <- function(id) {
   shiny$moduleServer(id, function(input, output, session) {
     #--Filter scans----------------------------------------
-    # make reactive markers
-    # filter the scans based on the sidebar filters (sent to table display)
-    #filtered_plots <- shiny$reactiveVal({
-    #  session$userData$all_scans()
-    #})
+    # This can filter plots from the drop down menus in the sidebar, or from the DT data.table filtering
+    # options in the table
+    # filter the scans based on the sidebar filters (sent to DT table display)
     sidebar_filtered_plots <- shiny$reactive({
       plots <- session$userData$all_scans()
       shiny$req(input$ui_select_date_range)
@@ -93,12 +91,28 @@ server <- function(id) {
       filter_plots[Agency %in% input$ui_select_agency]
     })
 
-    # filter the scans further by any filters applited in the table display (sent to map display)
+    # After the DT display table is updated, record what the updated table looks like
+    dt_display_plots <- shiny$reactiveVal(NULL)
+    # update the data table when sidebar filters change without loosing table filteing.
+    # If a reactive is passed instead, the table updates, but looses any filtering or sorting.
+    shiny$observeEvent(sidebar_filtered_plots(), {
+      update_plots <- sidebar_filtered_plots()
+      tbl_dt$update_data(update_plots)
+
+      # record what the update is in a new reactive data.table
+      dt_display_plots(update_plots)
+    })
+
+    # Take the filtered plots handed to the data.table, and apply any filters from that table to the mapped
+    # plots
     filtered_plots <- shiny$reactive({
-      sidebar_filtered_dt <- sidebar_filtered_plots()
+      sidebar_filtered_dt <- dt_display_plots()
       tbl_filtered_index <- tbl_dt$input$dt_rows_all
 
-      if (is.null(tbl_filtered_index)) {
+      if (is.null(tbl_filtered_index) || is.null(sidebar_filtered_dt)) {
+        return(sidebar_filtered_dt)
+      }
+      if (length(tbl_filtered_index) > 0 && max(tbl_filtered_index) > nrow(sidebar_filtered_dt)) {
         return(sidebar_filtered_dt)
       }
       sidebar_filtered_dt[tbl_filtered_index]
@@ -159,9 +173,10 @@ server <- function(id) {
                         col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
 
     #----Plots table-----------------------------
+    # this is an initial, static render that is updated by the observeEvent below
     columns <- c("site", "plot", "date", "Agency", "Latitude", "Longitude", "scanner_id")
     tbl_dt <- wDT$server("tbl_scan_filter",
-                         sidebar_filtered_plots,
+                         shiny$isolate(session$userData$all_scans()),
                          columns,
                          list(list(0, "asc"), list(1, "asc"), list(2, "asc")),
                          edit_options = FALSE)
@@ -176,7 +191,7 @@ server <- function(id) {
       if (is.null(dt_selected_rows)) {
         dt_selected_rows <- 0
       }
-      all_scans <- sidebar_filtered_plots()
+      all_scans <- dt_display_plots()
       dt_selected_scans <- all_scans[dt_selected_rows]
 
       current_selection <- session$userData$scan_selection()
@@ -235,7 +250,7 @@ server <- function(id) {
 
     # UPDATE from selection
     shiny$observeEvent(session$userData$scan_selection(), {
-      all_scans <- sidebar_filtered_plots()
+      all_scans <- dt_display_plots()
       selection <- session$userData$scan_selection()
 
       selected_rows <- all_scans[
@@ -287,7 +302,6 @@ server <- function(id) {
 
       # assign a default remeasurement number based on sequential years of measurment
       set_remeas_by_yr(session)
-
       # create a progress bar
       dwnld_prog <- shiny$Progress$new(session)
       on.exit(dwnld_prog$close())

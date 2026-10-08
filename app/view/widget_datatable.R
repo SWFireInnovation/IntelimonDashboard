@@ -31,11 +31,10 @@ ui <- function(id) {
 #' @return - list with names proxy, containing a proxy of the widget, and input, that contains the input for
 #'         the server with the approriate name space.
 #' @export
-server <- function(id, data_reactive, columns, sort_order, edit_options = FALSE) {
+server <- function(id, data, columns, sort_order, edit_options = FALSE) {
   shiny$moduleServer(id, function(input, output, session) {
 
     output$dt <- DT$renderDT({
-      data <- data_reactive()
       ndata <- nrow(data)
       shiny$validate(
         shiny$need(
@@ -68,13 +67,20 @@ server <- function(id, data_reactive, columns, sort_order, edit_options = FALSE)
       session = session
     )
 
+    # ensure that updates use teh same column subset and rownames setting
+    update_data <- function(new_data) {
+      DT$replaceData(proxy, new_data[, ..columns],
+                     resetPaging = FALSE, rownames = FALSE, clearSelection = "none")
+    }
+
     shiny$observeEvent(input$btn_clear_selection, {
       DT$selectRows(proxy, NULL)
     })
 
     list(
       proxy = proxy,
-      input = input
+      input = input,
+      update_data = update_data
     )
   })
 }
