@@ -16,7 +16,7 @@ box::use(
 read_1_csv <- function(zip_path, csv_path) {
   if (!is.na(zip_path)) {
     con <- archive$archive_read(zip_path, csv_path)
-    data <- read.csv2(con, sep = ",")
+    data <- read.csv2(con, sep = ",", dec = ".")
   } else {
     data <- dt$fread(csv_path)
   }
@@ -103,7 +103,7 @@ is_scan_id <- function(filename, sep = "_", lgth = 5) {
   parts <- strsplit(filename, sep)
 
   is_scan <- c()
-  for (p in 1:length(parts)) {
+  for (p in seq_along(parts)) {
     part <- parts[[p]]
     is_scan[p] <- length(part) == lgth && is_site(part[1]) && is_plot(part[2]) && is_date(part[3])
   }

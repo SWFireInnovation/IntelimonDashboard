@@ -171,7 +171,9 @@ server <- function(id) {
 
       local_dt <- load_data_dir$build_scan_dt(session$userData$data_paths())
       api_dt <- session$userData$all_scans()
-      combined_dt <- rbindlist(list(local_dt, api_dt), fill = TRUE)
+
+      new_dt <- local_dt[!api_dt, on = .(site, plot, date, scanner_id, Agency)]
+      combined_dt <- rbindlist(list(new_dt, api_dt), fill = TRUE)
       session$userData$all_scans(combined_dt)
     })
   })

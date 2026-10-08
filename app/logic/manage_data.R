@@ -219,3 +219,17 @@ is_data_on_disk <- function(data) {
 
   !has_api_agency | no_lat
 }
+
+#' Exclude na from summary functions like min/max, while protecting against -Inf.
+#'
+#' A min or a max of NA returns -Inf. This function returns NA if all values are NA, but otherwise ignores NA.
+#'
+#' @param x - input data. Any data accepted by the fnc parameter
+#' @param fnc - an R function to be applied to X. Must accept parameter na.rm. Min or max expected.
+#' @export
+safe_summary <- function(x, fnc) {
+  if (all(is.na(x))) {
+    return(NA_real_)
+  }
+  fnc(x, na.rm = TRUE)
+}
