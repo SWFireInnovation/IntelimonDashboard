@@ -124,7 +124,7 @@ ui <- function(id) {
               ),
               card_body(
                 uiOutput(ns("calc_fuel_ui")),
-                actionButton(ns("submit_fuels"), "↑  Submit fuel values",
+                actionButton(ns("submit_fuels"), "↑  Submit fuels to rothRmel",
                   width = "100%", class = "btn-primary imn-submit"
                 ),
                 uiOutput(ns("submit_status"))

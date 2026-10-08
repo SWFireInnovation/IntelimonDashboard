@@ -197,7 +197,7 @@ server <- function(id) {
           !is.null(session$userData$fuel_tool_values()),
           paste(
             "No fuel values submitted yet - set them on the Fuels exports tab",
-            "and press Submit fuel values, or switch back to scan level fuels."
+            "and press Submit fuels to rothRmel, or switch back to scan level fuels."
           )
         ))
       }
@@ -218,7 +218,7 @@ server <- function(id) {
       if (is.null(b)) {
         return(shiny$div(
           class = "imn-sim-warn", shiny$tags$b("Nothing submitted. "),
-          "Set values on the Fuels exports tab and press Submit fuel values."
+          "Set values on the Fuels exports tab and press Submit fuels to rothRmel."
         ))
       }
       shiny$div(
