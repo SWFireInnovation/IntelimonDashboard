@@ -168,7 +168,7 @@ server <- function(id) {
     #-----Show labels once zoomed in-------------
     update_point_labels(map$input,
                         proxy_map,
-                        filtered_plots(),
+                        filtered_plots,
                         map_id = "map",
                         col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
 

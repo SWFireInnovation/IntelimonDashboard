@@ -20,7 +20,7 @@ box::use(
 #' @export
 update_point_labels <- function(input,
                                 proxy_map,
-                                pts,
+                                pts_reactive,
                                 map_id = "map",
                                 col_names = list(lat = "Latitude", lng = "Longitude", label = "plots")) {
   zoom_name <- paste0(map_id, "_zoom")
@@ -30,6 +30,7 @@ update_point_labels <- function(input,
     {
       input[[zoom_name]]
       input[[bounds_name]]
+      pts_reactive()
     },
     {
       req(input[[zoom_name]])
@@ -45,6 +46,7 @@ update_point_labels <- function(input,
         return()
       }
 
+      pts <- pts_reactive()
       # Filter to minimum labels
       # if zoomed in, filter plots to current extent.
       plt_mark <- get_plots_in_view(pts, input[[bounds_name]])

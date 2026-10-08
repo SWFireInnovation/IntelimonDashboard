@@ -563,7 +563,7 @@ server <- function(id) {
     update_dwnld_scan_points(session, proxy_map, col_names = list(lat = "Latitude", lng = "Longitude"))
     update_point_labels(map$input,
                         proxy_map,
-                        session$userData$scan_selection(),
+                        session$userData$scan_selection,
                         # this is the ID used by the leaflet (app/view/card_mapLeaflet)
                         map_id = "map",
                         col_names = list(lat = "Latitude", lng = "Longitude", label = "plot"))
