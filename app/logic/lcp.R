@@ -16,18 +16,15 @@
 #   5. crown    - keep CBH at most 90% of stand height inside the AOI and on
 #                 the plots, scaling LANDFIRE CBH down where stand height was
 #                 lowered
-#   6. surface  - when modeled surface fuel loadings were submitted, swap the
-#                 burnable fuel models (band 4) in the AOI for custom twins
-#                 scaled class by class to them (app/logic/lcp_surface.R)
-#   7. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
-#   8. bundle   - zip the .lcp with its .prj (and the custom fuel model .fmd)
-#                 so the projection and fuel models travel with it
-#   9. IFTDSS   - optionally write the same landscape as the GeoTIFF IFTDSS
+#                 Steps 3-5 run only when the canopy comes from the scans
+#                 (canopy_source = "scans"); with "landfire", bands 5-7 stay
+#                 LANDFIRE's.
+#   6. write    - write the binary .LCP and its .prj (app/logic/lcp_format.R)
+#   7. bundle   - zip the .lcp with its .prj so the projection travels with it
+#   8. IFTDSS   - optionally write the same landscape as the GeoTIFF IFTDSS
 #                 accepts as a custom landscape (write_iftdss_tif): the 8 LCP
 #                 bands plus LANDFIRE FCCS fuelbeds and map zones as bands
-#                 9-10, the layout IFTDSS uses since version 3.12. It keeps
-#                 LANDFIRE's standard fuel models: IFTDSS doesn't read .fmd
-#                 custom fuel models.
+#                 9-10, the layout IFTDSS uses since version 3.12
 #
 # Units: LANDFIRE already stores every layer in the LCP convention, so the
 # LANDFIRE bands pass through unchanged. The lidar metrics are converted:
@@ -37,7 +34,7 @@
 # prompt (app/view/email_prompt.R).
 # ---------------------------------------------------------------------------
 box::use(
-  data.table[as.data.table, setorder],
+  data.table[.SD, as.data.table, setorder],
   rlandfire[landfireAPIv2],
   sf[st_bbox, st_transform],
   terra,
@@ -48,7 +45,6 @@ box::use(
 box::use(
   app/logic/lcp_canopy[CANOPY_CORRECTIONS, check_crown_length, correct_landfire_canopy],
   app/logic/lcp_format[write_esri_prj, write_lcp_binary],
-  app/logic/lcp_surface[normalize_surface_fuels, write_fmd],
 )
 
 #' LCP band spec, in the order the LCP format stores them.
@@ -225,6 +221,28 @@ latest_plot_metrics <- function(metrics_dt, plots_dt) {
   m[!is.na(Longitude) & !is.na(Latitude)]
 }
 
+#' One row per plot with the mean of its scans' lidar canopy metrics.
+#'
+#' For a landscape built from the mean of all scans; the row carries the
+#' plot's latest scan date.
+#' @param metrics_dt scan metrics (site, plot, date + metric columns)
+#' @export
+mean_plot_metrics <- function(metrics_dt) {
+  metric_cols <- Filter(Negate(is.na), vapply(LCP_BANDS, `[[`, character(1), "metric"))
+  m <- as.data.table(metrics_dt)
+  if (nrow(m) == 0) {
+    return(m)
+  }
+  cols <- intersect(metric_cols, names(m))
+  m[, c(
+    lapply(.SD, function(x) {
+      x <- suppressWarnings(as.numeric(x))
+      if (all(is.na(x))) NA_real_ else mean(x, na.rm = TRUE)
+    }),
+    list(date = max(date))
+  ), by = list(site, plot), .SDcols = cols]
+}
+
 #' Burn the lidar canopy metrics into bands 5-7 around each plot.
 #'
 #' Every cell whose center lies within `plot_radius_m` of a plot takes that
@@ -261,9 +279,8 @@ burn_lidar_canopy <- function(stack, metrics_dt, plots_dt, plot_radius_m = 30) {
 #' written as water (see LCP_BANDS). A .prj is written alongside.
 #' @param stack 8-band stack in LCP band order, projected in meters
 #' @param lcp_path output .lcp file
-#' @param custom_fuels TRUE when band 4 holds custom fuel model numbers
 #' @export
-write_lcp <- function(stack, lcp_path, custom_fuels = FALSE) {
+write_lcp <- function(stack, lcp_path) {
   if (terra$nlyr(stack) != length(LCP_BANDS)) {
     stop("An LCP needs ", length(LCP_BANDS), " bands; got ", terra$nlyr(stack), ".")
   }
@@ -282,7 +299,7 @@ write_lcp <- function(stack, lcp_path, custom_fuels = FALSE) {
     lcp_path, values,
     ncol = terra$ncol(stack), nrow = terra$nrow(stack),
     extent = as.vector(terra$ext(stack)), resolution = terra$res(stack),
-    latitude = latitude, custom_fuels = custom_fuels
+    latitude = latitude
   )
   write_esri_prj(terra$crs(stack), sub("\\.lcp$", ".prj", lcp_path))
   lcp_path
@@ -402,11 +419,15 @@ describe_iftdss_tif <- function(tif) {
 #'   values are shifted so their mean matches it
 #' @param tif_path optional output .tif; when given, the same landscape is also
 #'   written as an IFTDSS GeoTIFF (see write_iftdss_tif())
+#' @param canopy_source "scans" corrects bands 5-7 toward the scans' canopy
+#'   metrics and burns them in at the plots; "landfire" keeps LANDFIRE's
+#'   canopy cover, stand height and CBH (cbh_m, cover_pct and height_m are
+#'   then unused)
 #' @param progress function(message) called at each step
 #' @return zip_path, with the IFTDSS GeoTIFF path in attr(, "iftdss_tif"), the canopy correction details (see
 #'   app/logic/lcp_canopy.R) in attr(, "canopy_corrections"), a list with
 #'   one entry per corrected band, and the crown check counts in
-#'   attr(, "crown_check")
+#'   attr(, "crown_check"); both are NULL when canopy_source is "landfire"
 #' @export
 build_flammap_lcp <- function(metrics_dt,
                               plots_dt,
@@ -421,9 +442,7 @@ build_flammap_lcp <- function(metrics_dt,
                               plot_radius_m = 30,
                               version = "LF2024",
                               tif_path = NULL,
-                              surface_scans = NULL,
-                              surface_system = "FBFM40",
-                              surface_label = NULL,
+                              canopy_source = "scans",
                               progress = message) {
   progress("Building AOI from selected plots...")
   plots <- latest_plot_metrics(metrics_dt, plots_dt)
@@ -460,52 +479,39 @@ build_flammap_lcp <- function(metrics_dt,
   )
   landfire <- stack[[c("stand_height", "canopy_base")]]
 
-  # LCP order puts stand height before CBH, so CBH is capped at the corrected height
-  progress("Correcting LANDFIRE canopy cover, stand height and base height (bands 5-7)...")
-  corrections <- list()
-  for (b in Filter(function(b) b$name %in% names(CANOPY_CORRECTIONS), LCP_BANDS)) {
-    obs <- plots[, .(Longitude, Latitude)]
-    obs$value <- b$to_lcp(as.numeric(plots[[b$metric]]))
-    corrected <- correct_landfire_canopy(stack, obs, band = b$name, aoi = aoi)
-    stack <- corrected$stack
-    corrections[[b$name]] <- corrected$info
-  }
+  corrections <- NULL
+  crown <- NULL
+  if (identical(canopy_source, "scans")) {
+    # LCP order puts stand height before CBH, so CBH is capped at the corrected height
+    progress("Correcting LANDFIRE canopy cover, stand height and base height (bands 5-7)...")
+    corrections <- list()
+    for (b in Filter(function(b) b$name %in% names(CANOPY_CORRECTIONS), LCP_BANDS)) {
+      obs <- plots[, .(Longitude, Latitude)]
+      obs$value <- b$to_lcp(as.numeric(plots[[b$metric]]))
+      corrected <- correct_landfire_canopy(stack, obs, band = b$name, aoi = aoi)
+      stack <- corrected$stack
+      corrections[[b$name]] <- corrected$info
+    }
 
-  progress("Burning lidar canopy metrics into bands 5-7...")
-  stack <- burn_lidar_canopy(stack, plots, plots, plot_radius_m = plot_radius_m)
+    progress("Burning lidar canopy metrics into bands 5-7...")
+    stack <- burn_lidar_canopy(stack, plots, plots, plot_radius_m = plot_radius_m)
 
-  progress("Checking canopy base height against stand height...")
-  crown <- check_crown_length(
-    stack, landfire,
-    aoi = aoi, rescale = identical(corrections$canopy_base$rule, "none")
-  )
-  stack <- crown$stack
-
-  # the custom fuel models go into the LCP only; the IFTDSS GeoTIFF below
-  # keeps the standard models in `stack`
-  surface <- NULL
-  if (!is.null(surface_scans) && nrow(surface_scans) > 0) {
-    progress("Scaling surface fuel models (band 4) to the submitted loadings...")
-    surface <- normalize_surface_fuels(
-      stack, surface_scans,
-      aoi = aoi, system = surface_system, label = surface_label
+    progress("Checking canopy base height against stand height...")
+    crown <- check_crown_length(
+      stack, landfire,
+      aoi = aoi, rescale = identical(corrections$canopy_base$rule, "none")
     )
+    stack <- crown$stack
   }
-  lcp_stack <- if (is.null(surface)) stack else surface$stack
 
   progress("Writing .LCP...")
-  lcp_path <- write_lcp(
-    lcp_stack[[seq_along(LCP_BANDS)]], tempfile(fileext = ".lcp"),
-    custom_fuels = !is.null(surface)
-  )
+  lcp_path <- write_lcp(stack[[seq_along(LCP_BANDS)]], tempfile(fileext = ".lcp"))
   on.exit(unlink(sub("\\.lcp$", ".*", lcp_path)), add = TRUE)
-  fmd_path <- if (!is.null(surface)) write_fmd(surface$models, tempfile(fileext = ".fmd"))
-  out <- bundle_lcp(lcp_path, zip_path, name = name, fmd_path = fmd_path)
+  out <- bundle_lcp(lcp_path, zip_path, name = name)
   if (!is.null(tif_path)) {
     progress("Writing IFTDSS GeoTIFF...")
     attr(out, "iftdss_tif") <- write_iftdss_tif(stack, tif_path)
   }
-  attr(out, "surface_fuels") <- surface$info
   attr(out, "canopy_corrections") <- corrections
   attr(out, "crown_check") <- crown$info
   out
@@ -530,25 +536,23 @@ bundle_fuel_rasters <- function(lcp_zip, tif_path, zip_path) {
   zip_path
 }
 
-#' Zip an .lcp with the .prj written alongside it, and its custom fuel models.
+#' Zip an .lcp with the .prj GDAL writes alongside it.
 #'
-#' The files are renamed to `name` inside the zip so they stay paired.
+#' Both files are renamed to `name` inside the zip so they stay paired.
 #' @param lcp_path .lcp written by write_lcp()
 #' @param zip_path output .zip
 #' @param name base file name used inside the zip
-#' @param fmd_path optional custom fuel model file (write_fmd())
 #' @return zip_path
 #' @export
-bundle_lcp <- function(lcp_path, zip_path, name = "intelimon", fmd_path = NULL) {
+bundle_lcp <- function(lcp_path, zip_path, name = "intelimon") {
   prj_path <- sub("\\.lcp$", ".prj", lcp_path)
   if (!file.exists(prj_path)) stop("No .prj found next to ", lcp_path, ".")
 
   staging <- tempfile("lcp_bundle_")
   dir.create(staging)
   on.exit(unlink(staging, recursive = TRUE), add = TRUE)
-  sources <- c(lcp = lcp_path, prj = prj_path, fmd = fmd_path)
-  files <- paste0(name, ".", names(sources))
-  file.copy(sources, file.path(staging, files))
+  files <- paste0(name, c(".lcp", ".prj"))
+  file.copy(c(lcp_path, prj_path), file.path(staging, files))
 
   if (file.exists(zip_path)) file.remove(zip_path)
   zip(zip_path, files, root = staging)

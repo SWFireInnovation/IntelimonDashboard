@@ -122,6 +122,22 @@ describe("check_band_ranges", {
   })
 })
 
+describe("mean_plot_metrics", {
+  it("averages each plot's scans and keeps its latest date", {
+    m <- lcp$mean_plot_metrics(metrics)
+    expect_equal(nrow(m), 1)
+    expect_equal(m$canopyCover, 0.325)
+    expect_equal(m$MaxTH, 13.435)
+    expect_equal(m$CBH, 2.175)
+    expect_equal(m$date, as.Date("2024-05-01"))
+  })
+
+  it("leaves a metric missing when none of the plot's scans has it", {
+    m <- lcp$mean_plot_metrics(copy(metrics)[, CBH := NA_real_])
+    expect_true(is.na(m$CBH))
+  })
+})
+
 describe("burn_lidar_canopy", {
   it("burns the latest scan into bands 5-7 and leaves 1-4 and 8 alone", {
     before <- fake_stack()
@@ -192,18 +208,6 @@ describe("write_lcp", {
     back <- terra$rast(file.path(out, "site_x.lcp"))
     expect_equal(terra$nlyr(back), 8)
     expect_true(grepl("Albers", terra$crs(back, describe = TRUE)$name))
-  })
-
-  it("bundles a custom fuel model file under the same name", {
-    lcp_path <- lcp$write_lcp(fake_stack(), tempfile(fileext = ".lcp"), custom_fuels = TRUE)
-    fmd_path <- tempfile(fileext = ".fmd")
-    writeLines("ENGLISH", fmd_path)
-    zip_path <- lcp$bundle_lcp(lcp_path, tempfile(fileext = ".zip"), name = "site_x",
-                               fmd_path = fmd_path)
-
-    out <- tempfile()
-    unzip(zip_path, exdir = out)
-    expect_equal(sort(list.files(out)), c("site_x.fmd", "site_x.lcp", "site_x.prj"))
   })
 
   it("zips the LCP bundle and the GeoTIFF together for 'Save both'", {

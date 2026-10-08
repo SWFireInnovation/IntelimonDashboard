@@ -61,17 +61,6 @@ describe("write_lcp_binary", {
     )
   })
 
-  it("flags custom fuel models in the fuel band's option code", {
-    path <- tempfile(fileext = ".lcp")
-    lcp_format$write_lcp_binary(
-      path, make_values(),
-      ncol = 4, nrow = 3, extent = extent, resolution = c(30, 30), latitude = 36,
-      custom_fuels = TRUE
-    )
-    b <- readBin(path, "raw", 7316)
-    expect_equal(readBin(b[4231:4232], "integer", 1, size = 2, endian = "little"), 1L)
-  })
-
   it("records each band's min, max and sorted distinct values, including negatives", {
     b <- readBin(write_test_lcp(), "raw", 7316)
     aspect <- 44 + 2 * 412

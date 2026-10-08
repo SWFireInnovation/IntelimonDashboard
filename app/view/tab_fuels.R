@@ -38,9 +38,8 @@ box::use(
     select_scans
   ],
   app/logic/fuel_models[fuel_model_bed, fuel_model_choices, fuel_model_lookup, is_litter_model],
-  app/logic/lcp[build_flammap_lcp, bundle_fuel_rasters, describe_iftdss_tif],
+  app/logic/lcp[build_flammap_lcp, bundle_fuel_rasters, describe_iftdss_tif, mean_plot_metrics],
   app/logic/lcp_canopy[describe_canopy_correction, describe_crown_check],
-  app/logic/lcp_surface[describe_surface_normalization],
   app/logic/manage_data[pivot_on_model],
   app/view/card_mapLeaflet,
   app/view/map_controls[update_dwnld_scan_points, update_point_labels],
@@ -69,8 +68,8 @@ ui <- function(id) {
             ),
             selected = "modeled", width = "100%"
           ),
-          # point in time for the card means and the LCP's surface fuels; the
-          # date field sits in the third choice's label
+          # point in time for the card means and the fuel raster's canopy
+          # (bands 5-7); the date field sits in the third choice's label
           radioButtons(ns("fuel_agg"), "Point in time",
             choiceNames = list(
               "Most recent per plot",
@@ -749,11 +748,6 @@ server <- function(id) {
       bed$canopy_cover_pct <- cc
       bed$stand_height_m <- num_input("cf_maxth")
       bed$aggregation <- sprintf("%d scans, each with its own loadings", nrow(loads))
-      # the LCP's surface fuels follow the sidebar's point in time; LANDFIRE
-      # derived loadings are the standard models, so they leave the LCP as is
-      bed$point_in_time <- point_in_time
-      bed$fbfm_system <- if (identical(input$fbfm_system, "FBFM13")) "FBFM13" else "FBFM40"
-      bed$surface_scans <- if (!landfire) selected
       bed$submitted_at <- Sys.time()
 
       no_depth <- sum(is.na(loads$depth_ft) | loads$depth_ft <= 0)
@@ -854,10 +848,14 @@ server <- function(id) {
 
     # ---- LCP export ----
     # LANDFIRE layers for a buffered box around the selected plots (widened to
-    # any AOI drawn on the map), with the LANDFIRE canopy cover, stand height
-    # and base height corrected toward the scans' values (or those submitted from the canopy
-    # card) and the lidar canopy metrics burned into bands 5-7 (see
-    # app/logic/lcp.R).
+    # any AOI drawn on the map). With the Modeled/User defined fuel source,
+    # the LANDFIRE canopy cover, stand height and base height are corrected
+    # toward the scans of the sidebar's point in time and those scans' lidar
+    # canopy metrics are burned into bands 5-7 (see app/logic/lcp.R); a
+    # canopy card box the user edited shifts the scans' mean onto it. With
+    # LANDFIRE derived, bands 5-7 stay LANDFIRE's. The surface fuel models
+    # (band 4) are always LANDFIRE's; the submitted surface fuels are for
+    # rothRmel only.
     # LANDFIRE needs a contact email, collected by the app-wide email prompt.
     # The build runs in a separate R process (mirai) so the LANDFIRE download
     # doesn't block the session; the result is a .zip with the .lcp and .prj,
@@ -866,8 +864,7 @@ server <- function(id) {
     lcp_file <- reactiveVal(NULL)
 
     lcp_task <- ExtendedTask$new(function(metrics, plots, email, zip_path, name, aoi, cbh_m,
-                                          cover_pct, height_m, tif_path, surface_scans,
-                                          surface_system, surface_label) {
+                                          cover_pct, height_m, tif_path, canopy_source) {
       mirai(
         {
           # the worker starts without the project's .Rprofile, so point it at
@@ -879,38 +876,47 @@ server <- function(id) {
             metrics, plots,
             email = email, zip_path = zip_path, name = name, aoi = aoi, cbh_m = cbh_m,
             cover_pct = cover_pct, height_m = height_m, tif_path = tif_path,
-            surface_scans = surface_scans, surface_system = surface_system,
-            surface_label = surface_label,
+            canopy_source = canopy_source,
             progress = function(msg) NULL
           )
         },
         lib_paths = .libPaths(), project_dir = getwd(),
         metrics = metrics, plots = plots, email = email, zip_path = zip_path, name = name,
         aoi = aoi, cbh_m = cbh_m, cover_pct = cover_pct, height_m = height_m,
-        tif_path = tif_path, surface_scans = surface_scans, surface_system = surface_system,
-        surface_label = surface_label
+        tif_path = tif_path, canopy_source = canopy_source
       )
     })
 
+    # A canopy card box the user changed from its prefilled mean, else NULL
+    # (each scan keeps its own value). `scale` is the card's unit per scan unit.
+    canopy_edit <- function(key, scale = 1) {
+      v <- num_input(paste0("cf_", key))
+      prefilled <- fuel_mean(CANOPY_FUEL_ROWS[[key]]$col) * scale
+      if (is.na(v) || (!is.na(prefilled) && isTRUE(all.equal(v, round(prefilled, 3))))) {
+        return(NULL)
+      }
+      v
+    }
+
     start_lcp_build <- function(email) {
       name <- paste0("intelimon_", format(Sys.Date(), "%Y%m%d"))
+      modeled <- !identical(input$fuel_source, "landfire")
+      # the scans of the sidebar's point in time, one row per plot
+      scans <- fuel_scans()
+      if (identical(input$fuel_agg, "all")) scans <- mean_plot_metrics(scans)
       lcp_task$invoke(
-        session$userData$metrics(),
+        scans,
         session$userData$scan_selection(),
         email = email,
         zip_path = tempfile(fileext = ".zip"),
         name = name,
         aoi = aoi_polygon(),
-        # CBH, canopy cover and stand height submitted from the canopy card, if any
-        cbh_m = session$userData$fuel_tool_values()$cbh_m,
-        cover_pct = session$userData$fuel_tool_values()$canopy_cover_pct,
-        height_m = session$userData$fuel_tool_values()$stand_height_m,
+        cbh_m = if (modeled) canopy_edit("cbh"),
+        cover_pct = if (modeled) canopy_edit("cc", 100),
+        height_m = if (modeled) canopy_edit("maxth"),
         # IFTDSS rejects file names with a "." besides the extension's
         tif_path = file.path(tempfile("iftdss_"), paste0(name, ".tif")),
-        # modeled surface fuel loadings for the point in time, if submitted
-        surface_scans = session$userData$fuel_tool_values()$surface_scans,
-        surface_system = session$userData$fuel_tool_values()$fbfm_system,
-        surface_label = session$userData$fuel_tool_values()$point_in_time
+        canopy_source = if (modeled) "scans" else "landfire"
       )
       showNotification(
         paste(
@@ -952,15 +958,20 @@ server <- function(id) {
       }
       zip_path <- lcp_task$result()
       lcp_file(zip_path)
+      canopy <- if (is.null(attr(zip_path, "canopy_corrections"))) {
+        "LANDFIRE canopy cover, stand height and canopy base height (LANDFIRE derived)."
+      } else {
+        paste(
+          "lidar canopy cover, stand height and canopy base height at the selected plots",
+          "(Modeled/User defined)."
+        )
+      }
       showModal(modalDialog(
         title = "Fuel rasters ready",
-        p("Landscape built from LANDFIRE with lidar canopy cover, stand height and",
-          "canopy base height at the selected plots. The LCP .zip holds the .lcp and its",
-          ".prj for FlamMap (and an .fmd of custom fuel models when surface fuels were",
-          "scaled). The GeoTIFF carries the same landscape with LANDFIRE's standard fuel",
-          "models; it uploads to IFTDSS as a custom landscape. Save either, or both in",
-          "one .zip."),
-        p(describe_surface_normalization(attr(zip_path, "surface_fuels"))),
+        p("Landscape built from LANDFIRE with", canopy, "The LCP .zip holds the .lcp and",
+          "its .prj for FlamMap; the GeoTIFF carries the same landscape and uploads to",
+          "IFTDSS as a custom landscape. Both use LANDFIRE's standard fuel models. Save",
+          "either, or both in one .zip."),
         lapply(attr(zip_path, "canopy_corrections"), function(x) p(describe_canopy_correction(x))),
         p(describe_crown_check(attr(zip_path, "crown_check"))),
         p(describe_iftdss_tif(attr(zip_path, "iftdss_tif"))),
