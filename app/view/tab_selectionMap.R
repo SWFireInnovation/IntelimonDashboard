@@ -1,5 +1,5 @@
 box::use(
-  DT[selectRows, replaceData],
+  DT[selectRows],
   bslib[card_body, card_header, nav_panel, navset_pill],
   data.table[data.table, fsetequal, rbindlist],
   grDevices[hcl.colors],
@@ -20,6 +20,9 @@ box::use(
   wDT = app/view/widget_datatable,
   app/view/widget_mapLeaflet,
 )
+
+  today <- Sys.Date()
+  beresheet <- as.Date("2000-01-01")
 
 #' @export
 ui <- function(id) {
@@ -43,8 +46,20 @@ ui <- function(id) {
         area = "IntELiMonDSS",
         card_header("Select Scans"),
         card_body(
-          shiny$uiOutput(ns("ui_select_agency")),
-          shiny$uiOutput(ns("ui_select_date_range")),
+          shiny$selectInput(inputId = ns("ui_select_agency"),
+                            label = "Agency selection",
+                            choices = NULL,
+                            multiple = TRUE
+          ),
+          shiny$sliderInput(
+            inputId = ns("ui_select_date_range"),
+            label = "Select date range",
+            min = beresheet,
+            max = today,
+            value = c(beresheet, today),
+            step = 30,
+            timeFormat = "%Y-%m-%d"
+          ),
           shiny$actionButton(ns("btn_clear"), "\u2715  Clear All Plots", width = "100%"),
           shiny$actionButton(ns("btn_get_data"), "\u2913  Get Data", width = "100%"),
         )
@@ -333,29 +348,41 @@ server <- function(id) {
     })
 
     #-----renderUI components--------------------
-    output$ui_select_agency <- shiny$renderUI({
+    # Don't re-render when agency_levels updates and keep last selection.
+    shiny$observeEvent(agency_levels(), {
+      shiny$req(agency_levels())
       agencies <- agency_levels()
-      shiny$selectInput(
-        inputId = session$ns("ui_select_agency"),
-        label = "Agency selection",
-        choices = agencies[order(agencies)],
-        multiple = TRUE
-      )
-    })
 
-    output$ui_select_date_range <- shiny$renderUI({
+      shiny$updateSelectInput(
+        session,
+        "ui_select_agency",
+        choices = agencies[order(agencies)],
+        selected = shiny$isolate(input$ui_select_agency)
+      )
+    }, ignoreNULL = TRUE)
+
+    # Don't re-render when all_scans updates and keep last selection.
+    shiny$observeEvent(session$userData$all_scans(), {
       plots <- session$userData$all_scans()
+      shiny$req(nrow(plots) > 0)
       min_yr <- min(plots$date)
       max_yr <- max(plots$date)
-      shiny$sliderInput(
-        inputId = session$ns("ui_select_date_range"),
-        label = "Select date range",
+
+      last <- shiny$isolate(input$ui_select_date_range)
+      new_value <- if (beresheet %in% last) {
+        c(min_yr, max_yr)
+      } else {
+        c(last[1], last[2])
+      }
+
+      shiny$updateSliderInput(
+        session,
+        "ui_select_date_range",
         min = min_yr,
         max = max_yr,
-        value = c(min_yr, max_yr),
-        step = 30,
-        timeFormat = "%Y-%m-%d"
+        value = new_value
       )
-    })
+    }, ignoreNULL = TRUE)
+
   })
 }
