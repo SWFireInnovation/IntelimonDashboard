@@ -23,6 +23,7 @@ ui <- function(id) {
       bslib$card_header("Process .PTX files"),
       shiny$tags$label("1. Select folders:"),
       bslib$layout_columns(
+        col_widths = c(8, 4),
         shinyFiles$shinyDirButton(
           id = ns("ui_btn_dir_ptx"),
           title = "Select folder containing ptx files:",
@@ -38,6 +39,7 @@ ui <- function(id) {
         "\u2193" # ↓
       ),
       bslib$layout_columns(
+        col_widths = c(8, 4),
         shinyFiles$shinyDirButton(
           id = ns("ui_btn_dir_metrics_write"),
           title = "Select folder to save IntELiMon metrics:",
@@ -61,10 +63,14 @@ ui <- function(id) {
     bslib$card(
       bslib$card_header("Load IntELiMon data"),
       bslib$card_footer("Select folder:"),
-      shinyFiles$shinyDirButton(
-        id = ns("ui_btn_dir_metrics_read"),
-        title = "Select folder containing IntELiMon metrics:",
-        label = "Load IntELiMon metrics"
+      bslib$layout_columns(
+        col_widths = c(8, 4),
+        shinyFiles$shinyDirButton(
+          id = ns("ui_btn_dir_metrics_read"),
+          title = "Select folder containing IntELiMon metrics:",
+          label = "Load IntELiMon metrics"
+        ),
+        shiny$uiOutput(ns("loaded_scans"))
       ),
       shiny$h6("Map plot locations (optional): Choose 1"),
       bslib$layout_columns(
@@ -162,9 +168,15 @@ server <- function(id) {
                                         shinyFiles$parseDirPath(dir_metric_roots(),
                                                                 input$ui_btn_dir_metrics_read)})
 
+    nscans_loaded <- shiny$reactiveVal({0})
     shiny$observeEvent(dir_metrics_read(), {
       shiny$req(dir_metrics_read())
       read_dir <- dir_metrics_read()
+
+      shiny$showNotification("Making data available for selection on the Selectionion-Tab.",
+                             duration = 5,
+                             type = "message"
+      )
 
       init_desktop_user_data(session)
       session$userData$data_paths(load_data_dir$get_dir_contents(read_dir))
@@ -175,6 +187,34 @@ server <- function(id) {
       new_dt <- local_dt[!api_dt, on = .(site, plot, date, scanner_id, Agency)]
       combined_dt <- rbindlist(list(new_dt, api_dt), fill = TRUE)
       session$userData$all_scans(combined_dt)
+
+      already_loaded <- nscans_loaded()
+      nscans_loaded(already_loaded + nrow(new_dt))
+    })
+
+    output$loaded_scans <- shiny$renderUI({
+      nscans <- nscans_loaded()
+
+      if (nscans == 0) {
+        #appropriate_color <- "danger"
+        bg_color <- "#8a2f3b"
+        txt <- "None loaded from this computer: choose a metrics folder"
+        icon_ <- shiny$icon("folder-open")
+      } else {
+        bg_color <- "#1f6f5c"
+        #appropriate_color <- "success"
+        txt <- "Data available for selection on Selection Map tab"
+        icon_ <- shiny$icon("circle-check")
+      }
+
+      bslib$value_box(
+          title = "Scan metrics loaded:",
+          value = nscans,
+          showcase = icon_,
+          theme = "text-white",
+          style = sprintf("background-color: %s !important;", bg_color),
+          shiny$p(txt)
+        )
     })
   })
 }

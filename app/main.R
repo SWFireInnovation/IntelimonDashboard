@@ -39,7 +39,7 @@ ui <- function(id) {
     if (!file.exists("../data_loc.yaml")) {
       tab_load_data$ui(ns("Load-Data"))
     },
-    tab_selectionMap$ui(ns("Selection Map")),
+    tab_selectionMap$ui(ns("Selection-Map")),
     tab_set_trtmt$ui(ns("Set Treatments")),
     tab_directOutputs$ui(ns("Standard-outputs")),
     tab_predictive_models$ui(ns("Predictive-models")),
@@ -62,7 +62,7 @@ server <- function(id) {
 
     # -------Tab Servers ------------------------
     tab_load_data$server("Load-Data")
-    tab_selectionMap$server("Selection Map")
+    tab_selectionMap$server("Selection-Map")
     tab_set_trtmt$server("Set Treatments")
     tab_directOutputs$server("Standard-outputs")
     tab_predictive_models$server("Predictive-models")

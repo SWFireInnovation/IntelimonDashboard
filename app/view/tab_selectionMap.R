@@ -1,9 +1,9 @@
 box::use(
   DT[selectRows],
-  bslib[card_body, card_header, nav_panel, navset_pill],
+  bslib[card_body, card_header, nav_panel, navset_card_pill],
   data.table[data.table, fsetequal, rbindlist],
   grDevices[hcl.colors],
-  gridlayout[grid_card, grid_container],
+  gridlayout[grid_card, grid_container, grid_place],
   leaflet,
   shiny,
 )
@@ -64,24 +64,18 @@ ui <- function(id) {
           shiny$actionButton(ns("btn_get_data"), "\u2913  Get Data", width = "100%"),
         )
       ),
-      grid_card(
+      grid_place(
         area = "selection",
-        full_screen = TRUE,
-        height = "100%",
-        card_header("IntELiMon Plots"),
-        card_body(
-          fill = TRUE,
+        navset_card_pill(
+          title = "IntELiMon Plots",
+          selected = "Location Map",
           height = "100%",
-          fillable = TRUE,
-          navset_pill(
-            #title = "IntELiMon Plots",
-            selected = "Location Map",
-            #navbar_options = navbar_options(collapsible = TRUE),
-            #theme = bs_theme(),
-            #header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
-            nav_panel(title = "Location Map", widget_mapLeaflet$ui(ns("map"))),
-            nav_panel(title = "Table", wDT$ui(ns("tbl_scan_filter")))
-          )
+          full_screen = TRUE,
+          #navbar_options = navbar_options(collapsible = TRUE),
+          #theme = bs_theme(),
+          #header = shiny$tags$head(shiny$includeCSS("app/static/styles.css")),
+          nav_panel(title = "Location Map", widget_mapLeaflet$ui(ns("map"))),
+          nav_panel(title = "Table", wDT$ui(ns("tbl_scan_filter")))
         )
       )
     )
