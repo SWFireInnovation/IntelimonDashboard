@@ -253,10 +253,10 @@ server <- function(id) {
 
     update_selected_scan_points(session, proxy_map,
                                 col_names = list(lat = "Latitude", lng = "Longitude"),
-                                lyrid = ~paste(site, plot, sep = "-"))
+                                lyrid = ~paste(site, plot, "select", sep = "-"))
     update_dwnld_scan_points(session, proxy_map,
                              col_names = list(lat = "Latitude", lng = "Longitude"),
-                             lyrid = ~paste(site, plot, sep = "-"))
+                             lyrid = ~paste(site, plot, "dwnld", sep = "-"))
 
     shiny$observeEvent(input$btn_clear, {
       current <- session$userData$scan_selection()

@@ -68,7 +68,7 @@ update_point_labels <- function(input,
           label = plt_mark[[col_names$label]],
           group = "plot-labels",
           labelOptions = leaflet$labelOptions(
-            offset = c(0, -2),
+            offset = c(8, -2),
             noHide = TRUE,
             textOnly = TRUE,
             className = "plot-label",
@@ -151,7 +151,7 @@ map_scan_points <- function(proxy_map,
 update_selected_scan_points <- function(session,
                                         proxy_map,
                                         col_names = list(lat = "Latitude", lng = "Longitude"),
-                                        lyrid = ~paste(site, plot, sep = "-")) {
+                                        lyrid = ~paste(site, plot, "selected", sep = "-")) {
   observeEvent(session$userData$scan_selection(), {
     mark <- session$userData$scan_selection()
     req(mark)
@@ -171,7 +171,7 @@ update_selected_scan_points <- function(session,
 update_dwnld_scan_points <- function(session,
                                      proxy_map,
                                      col_names = list(lat = "Latitude", lng = "Longitude"),
-                                     lyrid = ~paste(site, plot, sep = "-")) {
+                                     lyrid = ~paste(site, plot, "dwnld", sep = "-")) {
   observeEvent(
     {
       # if only metrics is monitored, then new selected scans cause all metrics to be overwritten
