@@ -16,13 +16,13 @@ box::use(
 read_1_csv <- function(zip_path, csv_path) {
   if (!is.na(zip_path)) {
     con <- archive$archive_read(zip_path, csv_path)
-    data <- read.csv2(con, sep = ",", dec = ".")
+    data <- dt$as.data.table(read.csv2(con, sep = ",", dec = "."))
   } else {
     data <- dt$fread(csv_path)
   }
 
   scan_info <- get_scan_parts(basename(csv_path))
-  data[names(scan_info)] <- scan_info
+  data[, names(scan_info) := scan_info]
   data
 }
 
@@ -213,8 +213,9 @@ get_csvs <- function(path) {
 get_dir_contents <- function(path) {
   contents <- dt$rbindlist(list(get_zip_contents(path, ext = "zip"), get_csvs(path)))
 
-  is_scan <- is_scan_id(basename(contents$csv_path))
-  scan_info <- get_scan_parts(basename(contents$csv_path[is_scan]))
+  filename <- basename(contents$csv_path)
+  is_scan <- is_scan_id(filename)
+  scan_info <- get_scan_parts(filename[is_scan])
   contents[is_scan, (names(scan_info)) := scan_info]
 
   contents
@@ -278,7 +279,7 @@ build_scan_dt <- function(all_paths) {
     return()
   }
   filter_ouptut <- which_func(all_paths$csv_path)
-  output_paths <- all_paths[filter_ouptut]
+  output_paths <- unique(all_paths[filter_ouptut], by = c("site", "plot", "date", "scanner_id"))
   read_multi_scan(output_paths)
 }
 

@@ -282,7 +282,7 @@ server <- function(id) {
       if (any(load_from_disk)) {
         all_paths <- session$userData$data_paths()
         disk_paths <- all_paths[selected,
-                                on = .(site, plot, date),
+                                on = .(site, plot, date, scanner_id),
                                 nomatch = 0
         ]
       } else {
