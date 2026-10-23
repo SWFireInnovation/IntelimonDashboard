@@ -1,5 +1,7 @@
 box::use(
+  data.table[is.data.table],
   here[here],
+  httr2,
   testthat[expect_error, expect_identical, expect_true, skip_if_not, test_that],
 )
 
@@ -45,6 +47,20 @@ test_that("is_request_successful() reflects the response's error state", {
   err_resp <- structure(list(status_code = 500), class = "httr2_response")
   expect_true(api$is_request_successful(ok_resp))
   expect_true(!api$is_request_successful(err_resp))
+})
+
+test_that("resp2dt() returns an empty table for an empty response", {
+  # e.g. the tree inventory of a plot with no stems comes back as []
+  for (body in c("[]", "{}")) {
+    resp <- httr2$response(
+      200,
+      headers = list(`Content-Type` = "application/json"),
+      body = charToRaw(body)
+    )
+    out <- api$resp2dt(resp)
+    expect_true(is.data.table(out))
+    expect_identical(nrow(out), 0L)
+  }
 })
 
 test_that("build_points2pano_url_sdsc() hides the site list and map", {

@@ -157,6 +157,12 @@ resp2dt <- function(resp) {
   }
   resp_json <- resp |> httr2$resp_body_json(check_type = TRUE)
 
+  # an empty array or object means no data, e.g. the tree inventory of a plot
+  # with no stems
+  if (length(resp_json) == 0) {
+    return(dt$data.table())
+  }
+
   # if json is a list of lists
   test_sample <- resp_json[[1]]
   if (is.list(test_sample)) {
