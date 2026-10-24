@@ -24,6 +24,10 @@ box::use(
 
 APP_VERSION <- read_yaml(here("version.yml"))$version # nolint: unused_declared_object_linter
 
+# search for APP_ENV set by electron/main.js. If electron/mainljs has not run, default to "server"
+app_env <- Sys.getenv("APP_ENV", unset = "server")
+app_is_electron <- app_env == "electron"
+
 # App UI: the navbar of workflow tabs
 #' @export
 ui <- function(id) {
@@ -45,7 +49,7 @@ ui <- function(id) {
     # exports and rothRmel cards are built against.
     header = tags$head(includeCSS("app/static/styles.css")),
     footer = sponsor_footer(),
-    if (!file.exists("../data_loc.yaml")) {
+    if (app_is_electron) {
       tab_load_data$ui(ns("Load-Data"))
     },
     tab_selectionMap$ui(ns("Selection-Map")),
@@ -74,7 +78,9 @@ server <- function(id) {
     email_prompt$server("email_prompt")
 
     # -------Tab Servers ------------------------
-    tab_load_data$server("Load-Data")
+    if (app_is_electron) {
+        tab_load_data$server("Load-Data")
+    }
     tab_selectionMap$server("Selection-Map")
     tab_set_trtmt$server("set_treatments")
     tab_directOutputs$server("Standard-outputs")

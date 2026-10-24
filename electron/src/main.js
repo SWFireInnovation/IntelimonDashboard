@@ -8,6 +8,8 @@ const ServerUtils = require("./server-utils"); // 추가
 const AppState = require("./app-state");
 const WindowManager = require("./window-manager");
 
+process.env.APP_ENV = "electron";
+
 global.fetch = require('node-fetch');
 
 const AbortController = require('abort-controller');
