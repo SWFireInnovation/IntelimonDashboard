@@ -1,6 +1,6 @@
 box::use(
   leaflet,
-  shiny[observeEvent, req],
+  shiny[observeEvent, reactiveVal, req],
 )
 
 box::use(
@@ -94,7 +94,7 @@ update_point_labels <- function(input,
 #' @param lgnd_labels - if NULL, grp is used for all colors. If a color palette is used, supply a list
 #'        (e.g. unique(df$Agency))
 #' @param lyr_id - ID for each point. e.g. ~paste(site, plot, sep = "-"). Used when a point is clicked on.
-#' @param grp - string. group name of markers
+#' @param grp - string. group name of markers.
 #' @param clickble - boolean. TRUE if point can be selected on map.
 #' @export
 map_scan_points <- function(proxy_map,
@@ -212,29 +212,62 @@ MAX_FIT_ZOOM <- 17
 #' Adjust map extent of leaflet$leafletProxy. This function uses a shiny$observeEvent() based on changes
 #' to fit2pts.
 #'
+#' The map is only fitted when the extent of fit2pts differs from the last fit, so a refresh of
+#' fit2pts that leaves the points as they were (e.g. the table being shown) does not undo the user's
+#' panning and zooming.
+#'
 #' @param proxy_map - a leaflet$leafletProxy object for a rendered map
 #' @param fit2pts - a reactive containing a data.table with 2 columns containing EPSG 3857 formatted location
 #'        data (used to set map extent). Pass the reactive object, not the current value (no parenthases)
 #' @param col_names - a list defining column names of lat and lng location data
+#' @param visible - a reactive, TRUE while the map is on screen. Fitting a hidden map (it has no
+#'        size) leaves it shrunk in a corner, so a fit requested while it is hidden waits until
+#'        it is shown.
 #' @export
-update_extent <- function(proxy_map, fit2pts, col_names = list(lat = "Latitude", lng = "Longitude")) {
+update_extent <- function(proxy_map, fit2pts, col_names = list(lat = "Latitude", lng = "Longitude"),
+                          visible = function() TRUE) {
+  last_fit <- reactiveVal(NULL)
+  fit_pending <- reactiveVal(FALSE)
 
-  observeEvent(fit2pts(),
-               {
-                 pts <- fit2pts()
-                 if (nrow(pts) == 0) {
-                   return()
-                 }
+  pts_extent <- function() {
+    pts <- fit2pts()
+    if (nrow(pts) == 0) {
+      return(NULL)
+    }
+    c(
+      lng1 = safe_summary(pts[[col_names$lng]], min),
+      lat1 = safe_summary(pts[[col_names$lat]], min),
+      lng2 = safe_summary(pts[[col_names$lng]], max),
+      lat2 = safe_summary(pts[[col_names$lat]], max)
+    )
+  }
 
-                 proxy_map |>
-                   leaflet$fitBounds(
-                     lng1 = safe_summary(pts[[col_names$lng]], min),
-                     lat1 = safe_summary(pts[[col_names$lat]], min),
-                     lng2 = safe_summary(pts[[col_names$lng]], max),
-                     lat2 = safe_summary(pts[[col_names$lat]], max),
-                     options = list(padding = c(15, 15), maxZoom = MAX_FIT_ZOOM)
-                     # past the deepest level the basemap imagery has
-                     # a single plot gives a zero-size extent, which would zoom
-                   )
-               })
+  fit_to_extent <- function(ext) {
+    last_fit(ext)
+    proxy_map |>
+      leaflet$fitBounds(
+        lng1 = ext[["lng1"]], lat1 = ext[["lat1"]], lng2 = ext[["lng2"]], lat2 = ext[["lat2"]],
+        options = list(padding = c(15, 15), maxZoom = MAX_FIT_ZOOM)
+        # past the deepest level the basemap imagery has
+        # a single plot gives a zero-size extent, which would zoom
+      )
+  }
+
+  observeEvent(fit2pts(), {
+    ext <- pts_extent()
+    if (is.null(ext)) {
+      last_fit(NULL)
+      fit_pending(FALSE)
+    } else if (!identical(ext, last_fit())) {
+      if (visible()) fit_to_extent(ext) else fit_pending(TRUE)
+    }
+  })
+
+  observeEvent(visible(), {
+    if (visible() && fit_pending()) {
+      fit_pending(FALSE)
+      ext <- pts_extent()
+      if (!is.null(ext) && !identical(ext, last_fit())) fit_to_extent(ext)
+    }
+  })
 }
