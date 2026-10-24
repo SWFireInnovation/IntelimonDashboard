@@ -78,7 +78,7 @@ jobs:
           fi
   tests_pass:
     needs: is_new_version
-    uses: ./.github/workflows/tests.yml
+    uses: ./.github/workflows/test.yml
     secrets: inherit
 
   # -- Build binaries --------------------------------
