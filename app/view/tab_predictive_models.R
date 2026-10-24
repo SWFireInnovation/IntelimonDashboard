@@ -6,7 +6,8 @@ box::use(
 )
 
 box::use(
-  app/logic/manage_data[pivot_on_model],
+  app/logic/constants[COLNAME2LABEL],
+  app/logic/manage_data[get_display_col, pivot_on_model],
   app/view/card_metrics,
   app/view/card_points2pano,
   app/view/sidebar_plot_controls[standard_plt_ctrls],
@@ -97,9 +98,9 @@ server <- function(id) {
       }
 
       pick <- function(k) model_choices[min(k, length(model_choices))]
-      shiny$updateSelectInput(session, "ui_select_modelA", choices = model_choices, selected = pick(1))
-      shiny$updateSelectInput(session, "ui_select_modelB", choices = model_choices, selected = pick(2))
-      shiny$updateSelectInput(session, "ui_select_modelC", choices = model_choices, selected = pick(3))
+      shiny$updateSelectInput(session, "ui_select_modelA", choices = get_display_col(model_choices, COLNAME2LABEL), selected = pick(1))
+      shiny$updateSelectInput(session, "ui_select_modelB", choices = get_display_col(model_choices, COLNAME2LABEL), selected = pick(2))
+      shiny$updateSelectInput(session, "ui_select_modelC", choices = get_display_col(model_choices, COLNAME2LABEL), selected = pick(3))
     })
 
     # make input reactive so that it will update when passed to other module.
