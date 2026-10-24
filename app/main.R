@@ -79,7 +79,7 @@ server <- function(id) {
 
     # -------Tab Servers ------------------------
     if (app_is_electron) {
-        tab_load_data$server("Load-Data")
+      tab_load_data$server("Load-Data")
     }
     tab_selectionMap$server("Selection-Map")
     tab_set_trtmt$server("set_treatments")

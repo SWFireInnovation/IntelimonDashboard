@@ -98,9 +98,10 @@ server <- function(id) {
       }
 
       pick <- function(k) model_choices[min(k, length(model_choices))]
-      shiny$updateSelectInput(session, "ui_select_modelA", choices = get_display_col(model_choices, COLNAME2LABEL), selected = pick(1))
-      shiny$updateSelectInput(session, "ui_select_modelB", choices = get_display_col(model_choices, COLNAME2LABEL), selected = pick(2))
-      shiny$updateSelectInput(session, "ui_select_modelC", choices = get_display_col(model_choices, COLNAME2LABEL), selected = pick(3))
+      choices_display <- get_display_col(model_choices, COLNAME2LABEL)
+      shiny$updateSelectInput(session, "ui_select_modelA", choices = choices_display, selected = pick(1))
+      shiny$updateSelectInput(session, "ui_select_modelB", choices = choices_display, selected = pick(2))
+      shiny$updateSelectInput(session, "ui_select_modelC", choices = choices_display, selected = pick(3))
     })
 
     # make input reactive so that it will update when passed to other module.
