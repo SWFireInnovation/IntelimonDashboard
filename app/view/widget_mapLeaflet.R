@@ -1,16 +1,43 @@
 box::use(bslib,
+  htmlwidgets[onRender],
   leaflet,
   leaflet.extras[
     addDrawToolbar, drawPolygonOptions, drawRectangleOptions, editToolbarOptions,
     removeDrawToolbar
   ],
-  shiny[NS, moduleServer, outputOptions],
+  shiny[NS, moduleServer, outputOptions, reactive],
 )
 
 box::use(
   app/view/map_controls[update_extent],
 )
 
+
+# The map is rendered at startup (see `outputOptions` below), so it can be updated while its tab is
+# hidden. A hidden map has no size, and fitting it leaves it shrunk in the corner once it is shown
+# again. This reports whether the map is on screen (input `map_visible`) so the server holds back
+# fits until it is, and puts the map back where the user left it when it is shown again.
+VISIBLE_JS <- "
+function(el) {
+  var map = this;
+  var view = null;
+  function isVisible() { return el.offsetWidth > 0 && el.offsetHeight > 0; }
+  var visible = isVisible();
+  map.on('moveend', function() {
+    if (isVisible()) view = {center: map.getCenter(), zoom: map.getZoom()};
+  });
+  Shiny.setInputValue(el.id + '_visible', visible);
+  new ResizeObserver(function() {
+    if (isVisible() === visible) return;
+    visible = isVisible();
+    if (visible) {
+      var saved = view;
+      map.invalidateSize();
+      if (saved) map.setView(saved.center, saved.zoom, {animate: false});
+    }
+    Shiny.setInputValue(el.id + '_visible', visible);
+  }).observe(el);
+}"
 
 # The map's drawing tools: rectangles and polygons, drawn into the "aoi"
 # group - an area of interest on the Fuels exports tab, a selection of plots
@@ -84,11 +111,12 @@ server <- function(id, fit2pts, col_names = list(lat = "Latitude", lng = "Longit
           options    = leaflet$layersControlOptions(collapsed = FALSE),
           position   = "topright"
         ) |>
-        add_draw_tools()
+        add_draw_tools() |>
+        onRender(VISIBLE_JS)
     })
     proxy_map <- leaflet$leafletProxy("map", session)
 
-    update_extent(proxy_map, fit2pts, col_names)
+    update_extent(proxy_map, fit2pts, col_names, visible = reactive(isTRUE(input$map_visible)))
 
     # must be rendered at startup so the map can update during download
     outputOptions(output, "map", suspendWhenHidden = FALSE)
