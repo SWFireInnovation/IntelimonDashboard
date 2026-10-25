@@ -59,3 +59,21 @@ describe("drop_scans", {
     expect_equal(manage_data$drop_scans(other, keys), other)
   })
 })
+
+describe("get_display_col()", {
+  labels <- c(Forbsmod = "Forb cover (%)", Shrubmod = "Shrub cover (%)")
+
+  it("names each column by its stylized label", {
+    expect_equal(
+      manage_data$get_display_col(c("Shrubmod", "Forbsmod"), labels),
+      c("Shrub cover (%)" = "Shrubmod", "Forb cover (%)" = "Forbsmod")
+    )
+  })
+
+  it("falls back to the column's own name when it has no label", {
+    expect_equal(
+      manage_data$get_display_col(c("EastMeanCBH", "Forbsmod"), labels),
+      c(EastMeanCBH = "EastMeanCBH", "Forb cover (%)" = "Forbsmod")
+    )
+  })
+})

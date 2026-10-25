@@ -209,11 +209,13 @@ get_scans4dwnld <- function(session) {
 #' @param col_selection - a list of column names.
 #' @param col_list - a list where data.table column names are the key and the values stored are stylized
 #'        column names.
-#' @return a list of stylized column names.
+#' @return a list of column names, named by their stylized names. A column with no stylized name (e.g. a
+#'         site's custom model) is named by itself rather than NA.
 #' @export
 get_display_col <- function(col_selection, col_list = COLNAME2LABEL) {
-  display_col <- col_list[col_selection]
-  setNames(names(display_col), display_col)
+  display_col <- unname(col_list[col_selection])
+  display_col[is.na(display_col)] <- col_selection[is.na(display_col)]
+  setNames(col_selection, display_col)
 }
 
 #' Generalize the custom predicitive model names. For example: convert 'Forbsmod_TXARR.rda' to 'Forbsmod'.
