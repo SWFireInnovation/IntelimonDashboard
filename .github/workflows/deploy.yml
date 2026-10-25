@@ -1,0 +1,139 @@
+# Official deployments.
+# This is for official code that is reviewed and ready for release
+# Code will be tested, tagged, compiled, and a release started
+# This is only intended to run on pull requests to main. Any hotfix commits directly to
+# main will not be deployed. Users must go back to development and submit a new pull request
+name: Deploy
+
+on:
+  # Run on any closed pull request merged to main
+  pull_request:
+    branches:
+      - staging
+    types:
+      - closed
+
+  # allow manual triggers for testing and debug.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # -- checks ----------------------------------------
+  is_merged:
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
+    steps:
+      - run: |
+          echo The PR was merged
+  is_new_version:
+    name: Read version
+    env:
+      VERSION_FILE: version.yml
+      TEST_PREFIX: "TEST_"
+      BASE_REF: ${{ github.event.pull_request.base.ref  || github.ref_name }}
+    needs: is_merged
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      tag: ${{ steps.v.outputs.tag }}
+      is_test: ${{ steps.v.outputs.is_test }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+      - name: Read version.yaml and validate 0.0.0-abc format
+        id: v
+        run: |
+          version=$(yq '.version' ${{ env.VERSION_FILE}})
+          
+          is_test=false
+          # Identify test flag and remove it
+          if [[ "$version" == "$TEST_PREFIX"* ]]; then
+            is_test=true
+            version="${version#"$TEST_PREFIX"}"
+          fi
+          
+          # Prevent a test/dry-run flag from committing on main.
+          if [[ "$is_test" == "true" && "$BASE_REF" != "staging" ]]; then
+            echo "::error::version.yaml still has the $TEST_PREFIX marker on a PR into main. Remove it."
+            exit 1
+          fi
+          
+          # validate version
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Invalid or missing version '$version' in version.yaml"
+            exit 1
+          fi
+          
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "is_test=$is_test" >> "$GITHUB_OUTPUT"
+
+      - name: Fail if the tag already exists
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.v.outputs.tag }}" >/dev/null; then
+            echo "::error::Tag ${{ steps.v.outputs.tag }} already exists. Bump version.yaml."
+            exit 1
+          fi
+  tests_pass:
+    needs: is_new_version
+    uses: ./.github/workflows/test.yml
+    secrets: inherit
+
+  # -- Build binaries --------------------------------
+  build_electron:
+    name: Electron (${{ matrix.os }})
+    needs: [tests_pass, is_new_version]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref  || github.ref_name }}
+
+      # TODO: setup-r + renv restore, bundle portable R + Rhino app,
+      # setup-node, electron-builder, signing/notarization secrets.
+      - name: Placeholder build
+        run: echo "Electron build for ${{ needs.is_new_version.outputs.version }} on ${{ matrix.os }}"
+
+  # -- DEPLOY ----------------------------------------
+  # only deploys/releases when binaries are built successfully
+  deploy:
+    name: tag and release app
+    if: needs.is_new_version.outputs.is_test != 'true'
+    needs: [is_merged, is_new_version, tests_pass, build_electron]
+    # this triggers a GitHub deployment
+    environment: staging
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      TAG: ${{ needs.is_new_version.outputs.tag}}
+      VERSION: ${{ needs.is_new_version.outputs.version}}
+      SHA: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+
+      # Tags are immutable, only use it if you mean it.
+      # If the tag already exists with a different target the push is rejected
+      # (the job fails rather than moving the tag).
+      - name: Set version tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$SHA"
+          git push origin "refs/tags/$TAG"
+
+      - name: Create github release
+        run: |
+          echo Releases are immutable, only use it if you mean it.

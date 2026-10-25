@@ -9,6 +9,8 @@ on:
   pull_request:
   # Run manually via GitHub Actions website
   workflow_dispatch:
+  # Run if another workflow calls it
+  workflow_call:
 permissions:
   contents: read
 jobs:
