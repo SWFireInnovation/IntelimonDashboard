@@ -22,7 +22,7 @@ box::use(
   view/tab_set_trtmt,
 )
 
-APP_VERSION <- read_yaml(here("version.yml"))$version # nolint: unused_declared_object_linter
+APP_VERSION <- read_yaml(here("version.yml"))$version
 
 # search for APP_ENV set by electron/main.js. If electron/mainljs has not run, default to "server"
 app_env <- Sys.getenv("APP_ENV", unset = "server")
@@ -64,7 +64,7 @@ ui <- function(id) {
     tab_rothRmel$ui(ns("rothrmel")),
     # last step: compiles what the other tabs added with their "+ Report" buttons
     tab_report$ui(ns("report_builder")),
-    tab_help$ui(ns("Help"))
+    tab_help$ui(ns("Help"), version = APP_VERSION)
   )
 }
 

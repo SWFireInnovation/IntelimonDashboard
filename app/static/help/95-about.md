@@ -87,7 +87,7 @@ released under the CC0-1.0 license.
 
 ## Version
 
-beta0.1.0
+{{APP_VERSION}}
 
 ## References
 

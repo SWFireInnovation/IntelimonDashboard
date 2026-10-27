@@ -30,17 +30,19 @@ help_title <- function(lines, file) {
 }
 
 # Markdown to HTML. Web links open in a new tab: leaving the page would end
-# the Shiny session and discard the loaded scans.
-help_html <- function(lines) {
+# the Shiny session and discard the loaded scans. {{APP_VERSION}} in a page is
+# replaced with the app version (from version.yml, read in app/main.R).
+help_html <- function(lines, version = "") {
+  lines <- gsub("{{APP_VERSION}}", version, lines, fixed = TRUE)
   html <- markdown_html(lines, extensions = TRUE)
   gsub('<a href="(https?://[^"]*)"', '<a href="\\1" target="_blank" rel="noopener noreferrer"', html)
 }
 
-help_page <- function(file) {
+help_page <- function(file, version = "") {
   lines <- readLines(file, encoding = "UTF-8", warn = FALSE)
   nav_panel(
     title = help_title(lines, file),
-    div(class = "help-page", HTML(help_html(lines)))
+    div(class = "help-page", HTML(help_html(lines, version)))
   )
 }
 
@@ -59,12 +61,12 @@ help_search <- function() {
 }
 
 #' @export
-ui <- function(id) {
+ui <- function(id, version = "") {
   ns <- NS(id) # nolint: object_usage_linter
 
   topics <- do.call(
     navset_pill_list,
-    c(lapply(help_files(), help_page), list(widths = c(2, 10), well = FALSE))
+    c(lapply(help_files(), help_page, version = version), list(widths = c(2, 10), well = FALSE))
   )
   nav_panel(
     title = "Help",

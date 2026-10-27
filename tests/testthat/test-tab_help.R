@@ -36,6 +36,12 @@ describe("ui", {
       expect_true(grepl(title, html, fixed = TRUE))
     }
   })
+
+  it("shows the app version on the About page", {
+    html <- as.character(tab_help$ui("help", version = "9.9.9-test"))
+    expect_true(grepl("9.9.9-test", html, fixed = TRUE))
+    expect_false(grepl("{{APP_VERSION}}", html, fixed = TRUE))
+  })
 })
 
 describe("help_search", {
@@ -56,5 +62,11 @@ describe("help_html", {
       fixed = TRUE
     ))
     expect_true(grepl('<a href="#about">', html, fixed = TRUE))
+  })
+
+  it("fills in the app version placeholder", {
+    html <- impl$help_html(c("Version {{APP_VERSION}}"), version = "1.2.3")
+    expect_true(grepl("Version 1.2.3", html, fixed = TRUE))
+    expect_false(grepl("APP_VERSION", html, fixed = TRUE))
   })
 })
