@@ -1,0 +1,93 @@
+box::use(
+  bslib[bs_theme, navbar_options, page_navbar],
+  dt = data.table,
+  here[here],
+  shiny[NS, includeCSS, moduleServer, tags],
+  yaml[read_yaml],
+)
+
+box::use(
+  logic/init_session_userData[init_session_userdata],
+  view/brand[brand_title, sponsor_footer],
+  view/email_prompt,
+  view/tab_directOutputs,
+  view/tab_forestry,
+  view/tab_fuels,
+  view/tab_help,
+  view/tab_load_data,
+  view/tab_predictive_models,
+  view/tab_report,
+  view/tab_rothRmel,
+  view/tab_selectionMap,
+  view/tab_set_trtmt,
+)
+
+APP_VERSION <- read_yaml(here("version.yml"))$version
+
+# search for APP_ENV set by electron/main.js. If electron/mainljs has not run, default to "server"
+app_env <- Sys.getenv("APP_ENV", unset = "server")
+app_is_electron <- app_env == "electron"
+
+# App UI: the navbar of workflow tabs
+#' @export
+ui <- function(id) {
+  ns <- NS(id)
+  page_navbar(
+    # IntELiMon mark (links to intelimon.xyz) + wordmark; see app/view/brand.R
+    title = brand_title(),
+    window_title = "IntELiMon Decision Support Tool",
+    selected = "Selection Map",
+    # bslib 0.9.0 consolidated the loose navbar arguments (collapsible, bg,
+    # position, underline) into this one argument; passing `collapsible`
+    # directly is deprecated.
+    navbar_options = navbar_options(collapsible = TRUE),
+    theme = bs_theme(),
+    # Styles are attached here rather than via app/styles/main.scss:
+    # page_navbar builds a complete page and Rhino's separate stylesheet link
+    # does not reliably merge into it, so the header slot is the dependable
+    # place. app/static/styles.css carries the Aurora Glass theme the Fuels
+    # exports and rothRmel cards are built against.
+    header = tags$head(includeCSS("app/static/styles.css")),
+    footer = sponsor_footer(),
+    if (app_is_electron) {
+      tab_load_data$ui(ns("Load-Data"))
+    },
+    tab_selectionMap$ui(ns("Selection-Map")),
+    tab_set_trtmt$ui(ns("set_treatments")),
+    tab_directOutputs$ui(ns("Standard-outputs")),
+    tab_predictive_models$ui(ns("Predictive-models")),
+    # These three build input ids dynamically (renderUI) and address them from
+    # JS in conditionalPanel, so they take space-free namespace ids rather
+    # than the display-name ids used above.
+    tab_fuels$ui(ns("fuels_exports")),
+    tab_forestry$ui(ns("forestry_exports")),
+    tab_rothRmel$ui(ns("rothrmel")),
+    # last step: compiles what the other tabs added with their "+ Report" buttons
+    tab_report$ui(ns("report_builder")),
+    tab_help$ui(ns("Help"), version = APP_VERSION)
+  )
+}
+
+# App server: shared session data and each tab's server
+#' @export
+server <- function(id) {
+  moduleServer(id, function(input, output, session) {
+    # --------Shared User Data-------------------
+    init_session_userdata(session)
+    # app-wide "Email address required" popup (session$userData$request_email)
+    email_prompt$server("email_prompt")
+
+    # -------Tab Servers ------------------------
+    if (app_is_electron) {
+      tab_load_data$server("Load-Data")
+    }
+    tab_selectionMap$server("Selection-Map")
+    tab_set_trtmt$server("set_treatments")
+    tab_directOutputs$server("Standard-outputs")
+    tab_predictive_models$server("Predictive-models")
+    tab_fuels$server("fuels_exports")
+    tab_forestry$server("forestry_exports")
+    tab_rothRmel$server("rothrmel")
+    tab_report$server("report_builder")
+  })
+}

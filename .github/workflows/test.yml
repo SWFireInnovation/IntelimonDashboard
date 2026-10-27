@@ -1,0 +1,239 @@
+name: Tests and lintr
+on:
+  # Run on pushes to 'main' branch
+  push:
+    branches:
+      - main
+      - development
+  # Run on any opened pull request
+  pull_request:
+  # Run manually via GitHub Actions website
+  workflow_dispatch:
+  # Run if another workflow calls it
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  tests:
+    name: Tests and lintr
+    runs-on: ubuntu-22.04
+    # clearly identify the paths that all steps need to use, as well as security tokens
+    env:
+      R_LIBS_USER: /home/runner/work/_temp/Library
+      RENV_PATHS_ROOT: /home/runner/work/_temp/renv
+      # lock it all to a url date with no binaries
+      RENV_CONFIG_REPOS_OVERRIDE: https://cloud.r-project.org
+      # force it to bypass azure.archive.unbuntu.com or packages.microsoft.com which usually fail
+      RSPM:  https://cloud.r-project.org
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      API_PATH_KEY: ${{ secrets.API_PATH_KEY }}
+      # apt downloads .deb files here instead of root-owned /var/cache/apt/archives,
+      # so actions/cache can restore into it without permission errors
+      APT_ARCHIVES: /tmp/apt-archives
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+
+      # restore previously downloaded .deb files (not installed packages)
+      - name: Restore apt cache
+        id: cache-apt-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.APT_ARCHIVES }}
+          # current configuration will create a new cache every time test.yml changes.
+          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/test.yml') }}
+
+      # Always runs: the apt cache only holds downloaded .deb files, so packages
+      # still need installing on a cache hit (they just skip the download).
+      - name: Setup system dependencies
+        # terra requires gdal and sql libraries
+        run: |
+          mkdir -p "$APT_ARCHIVES/partial"
+
+          # 1. Force the runner to bypass the broken Azure mirror
+          # to check the mirror file: `cat /etc/apt/apt-mirrors.txt`
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/apt-mirrors.txt
+          
+          # 2. Add aggressive timeout limits so it never hangs for an hour again (and avoids Microsoft's ipv6 errors)
+          sudo apt-get \
+            -o Acquire::ForceIPv4=true \
+            -o Acquire::http::Timeout="10" \
+            -o Acquire::ftp::Timeout="10" \
+            update
+    
+          packages=(
+            libgdal-dev
+            libgeos-dev
+            libproj-dev
+            libsqlite3-dev
+            gdal-bin
+            pandoc
+            libudunits2-dev
+            # textshaping (needed by svglite for SVG plot export)
+            libharfbuzz-dev
+            libfribidi-dev
+            libfreetype6-dev
+            libpng-dev
+            libarchive-dev
+          )
+          sudo apt-get install --yes --no-install-recommends -o Dir::Cache::Archives="$APT_ARCHIVES" "${packages[@]}"
+
+      # ----R installation environment----------------------------------------------
+      - name: Restore R cache
+        id: cache-r-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: /opt/R
+          key: R-${{ runner.os }}-${{ steps.r-version.outputs.version }}
+
+      - name: Setup R
+        if: steps.cache-r-restore.outputs.cache-hit != 'true'
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: renv
+
+      # always save if the cache is new (not reloaded)
+      - name: Save R cache
+        id: cache-r-save
+        if: always() && steps.cache-r-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: /opt/R
+          key: R-${{ runner.os }}-${{ hashFiles('renv.lock') }}
+
+      - name: Restore renv cache
+        id: cache-renv-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: ${{ env.RENV_PATHS_ROOT}}
+          # any change to renv.lock will replace the cache
+          key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
+          restore-keys: renv-${{ runner.os }}-
+
+        # This step must always run, even on a renv cache hit: RENV_PATHS_ROOT only
+        # caches downloaded/built package files. renv::restore() is what actually
+        # links those files into this checkout's project library (renv/library/...),
+        # which is git-ignored and does not exist until restore() creates it. On a
+        # cache hit this is fast (linking, not downloading/compiling); on a cache
+        # miss it does the full install and "Save renv cache" below persists the
+        # result for next time.
+      - name: Restore renv dependencies
+        shell: Rscript {0}
+        env:
+          # Require the runner to pull down source code and compile
+          RENV_CONFIG_REPOS_TYPE: "source"
+        run: |
+          # 1. Define the specific target Linux mirror for the GitHub Runner execution env
+          linux_mirror <- c(CRAN = Sys.getenv("RSPM"))
+          options(repos = linux_mirror)
+          options(renv.config.install.staged = FALSE)
+          options(pkgType = "source")
+          
+          # Ensure the directory explicitly exists in the runner workspace and is first in the path
+          user_lib <- Sys.getenv("R_LIBS_USER")
+          if (!dir.exists(user_lib)) {
+            dir.create(user_lib, recursive = TRUE)
+          }
+          .libPaths(c(user_lib, .libPaths()))
+          
+          # install renv
+          install.packages(
+            "renv",
+            lib = user_lib,
+            repos = linux_mirror
+          )
+          
+          # manually setup all R dependencies from renv.lock
+          library(renv, lib.loc = user_lib)
+          renv::restore(prompt = FALSE, repos= linux_mirror)
+
+      - name: Save renv cache
+        id: cache-renv-save
+        if: always() && steps.cache-renv-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.RENV_PATHS_ROOT}}
+          # any change to renv.lock will replace the cache
+          key: renv-${{ runner.os }}-${{ hashFiles('renv.lock') }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # save the downloaded .deb files; apt ran as root, so hand them back to the
+      # runner user and drop apt's lock and partial-download dir before caching
+      - name: Prepare apt cache for saving
+        if: always() && steps.cache-apt-restore.outputs.cache-hit != 'true'
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" "$APT_ARCHIVES"
+          rm -f "$APT_ARCHIVES/lock"
+          rm -rf "$APT_ARCHIVES/partial"
+
+      - name: Save apt cache
+        id: cache-apt-save
+        if: always() && steps.cache-apt-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: ${{ env.APT_ARCHIVES }}
+          # current configuration will create a new cache every time test.yml changes.
+          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/test.yml') }}
+
+      #-----Tests and linting----------------------------------------------------------
+      - name: Lint R
+        if: always()
+        shell: Rscript {0}
+        run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
+          renv::activate()
+          rhino::lint_r()
+
+      - name: Lint JavaScript
+        if: always()
+        shell: Rscript {0}
+        run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
+          renv::activate()
+          rhino::lint_js()
+
+      - name: Lint Sass
+        if: always()
+        shell: Rscript {0}
+        run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
+          renv::activate()
+          rhino::lint_sass()
+
+      - name: Build JavaScript
+        if: always()
+        shell: Rscript {0}
+        run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
+          renv::activate()
+          rhino::build_js()
+
+      - name: Build Sass
+        if: always()
+        shell: Rscript {0}
+        run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
+          renv::activate()
+          rhino::build_sass()
+
+      - name: Run R unit tests
+        if: always()
+        shell: Rscript {0}
+        run: |
+          .libPaths(c(Sys.getenv("R_LIBS_USER"), .libPaths()))
+          renv::activate()
+          rhino::test_r()
+
+      - name: Run Cypress end-to-end tests
+        if: github.ref_name == 'main'
+        uses: cypress-io/github-action@v7
+        with:
+          working-directory: .rhino # Created by earlier commands which use Node.js
+          start: npm run run-app
+          project: ../tests
+          wait-on: 'http://localhost:3333/'
+          wait-on-timeout: 60

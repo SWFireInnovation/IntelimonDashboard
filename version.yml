@@ -1,0 +1,2 @@
+# if TEST_ prefix is added, this version will not create a deployment or a release
+version: 0.1.0-beta
