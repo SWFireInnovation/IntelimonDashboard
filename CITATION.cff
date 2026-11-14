@@ -1,0 +1,42 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software-code
+title: "IntELiMon Decision Support Tool"
+abstract: >-
+   The IntELiMon Decision Support Tool is an open-source Shiny dashboard that returns results from the
+   Interagency Ecosystem Lidar Monitoring Program in a format that supports planning and evaluation of
+   treatment success. In the program, managers collect Terrestrial Laser Scans (TLS) which record the
+   three-dimensional structure of vegetation and fuel at monitoring plots. These TLS scans are then submitted
+   to a national dataset at USGS EROS where the complex structural data is summarized as standard forestry,
+   fuels, and ecology metrics along with custom models developed and calibrated for
+   individual sites. The tool serves these metrics back to managers, grouping selected plots around user-
+   defined treatment dates and presenting their change over time. Additional features are provided to estimate
+   potential changes in fire behavior from changes to canopy structure over time under a single weather
+   scenario, experimental features that generate inputs for future use in other standard fire and forestry
+   tools, and a feature that assembles figures and tables from the user's analysis into an editable report.
+   The tool is hosted as a web-app which provides access to publicly available data, and when run from a
+   desktop R console, allows private data to be analyzed alongside the publicly available dataset. This
+   release is a beta version; several features are still under development.
+authors:
+  - family-names: Pokswinski
+    given-names: Scott
+    orcid: "https://orcid.org/0000-0001-5753-4132"
+    affiliation: New Mexico Consortium
+  - family-names: Cohn
+    given-names: Greg
+    orcid: "https://orcid.org/0000-0002-3427-6932"
+    affiliation: "Northern Arizona University"
+version: 0.1.1-beta
+date-released: 2026-11-05
+repository-code: "https://github.com/SWFireInnovation/IntelimonDashboard"
+license: MIT
+keywords:
+  - IntELiMon
+  - Lidar
+  - TLS
+  - Terrestrial Laser Scan
+  - Decision support tool
+  - Wildfire
+  - Fuels
+  - New Mexico Consortium
+  - Southwest Fire Innovation Landscape Network
