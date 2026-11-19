@@ -1,5 +1,5 @@
 # IntELiMon Decision Support Tool
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GNU/GPLv3-yellow)](https://opensource.org/license/lgpl-3-0)
 ![R](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSWFireInnovation%2FIntelimonDashboard%2Fmain%2Frenv.lock&query=%24.R.Version&label=R&logo=r&logoColor=white&color=276DC3)
 [![DOI](https://zenodo.org/badge/DOI/placeholder/zenodo.placeholder.svg)](https://doi.org/placeholder/zenodo.placeholder)
 
@@ -177,4 +177,4 @@ If you use this software, please cite it using the information in CITATION.cff (
 repository" button). Each release is archived on Zenodo with its own DOI.
 
 ## License
-[MIT License](https://github.com/SWFireInnovation/biomass/blob/main/LICENSE)
+[GPL-3.0 License](https://github.com/SWFireInnovation/biomass/blob/main/LICENSE)

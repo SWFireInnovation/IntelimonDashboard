@@ -29,7 +29,7 @@ authors:
 version: 0.1.1-beta
 date-released: 2026-11-05
 repository-code: "https://github.com/SWFireInnovation/IntelimonDashboard"
-license: MIT
+license: GPL-3.0
 keywords:
   - IntELiMon
   - Lidar
