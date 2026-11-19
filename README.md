@@ -1,7 +1,7 @@
 # IntELiMon Decision Support Tool
 [![License: GPL-3.0](https://img.shields.io/badge/license-GNU/GPLv3-yellow)](https://opensource.org/license/lgpl-3-0)
 ![R](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FSWFireInnovation%2FIntelimonDashboard%2Fmain%2Frenv.lock&query=%24.R.Version&label=R&logo=r&logoColor=white&color=276DC3)
-[![DOI](https://zenodo.org/badge/DOI/placeholder/zenodo.placeholder.svg)](https://doi.org/placeholder/zenodo.placeholder)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24379011.svg)](https://doi.org/10.5281/zenodo.24379011)
 
 The IntELiMon Decision Support Tool is an open-source Shiny dashboard that returns results from the 
 Interagency Ecosystem Lidar Monitoring Program in a format that supports planning and evaluation of treatment 
